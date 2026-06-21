@@ -684,6 +684,7 @@ def _run_wim_build_job(
     source_image: ForgeWimImage,
     output_wim_path: Path,
     source_path: str,
+    image_index: int,
 ) -> None:
     manifest_path = folder / "manifest.json"
     log_path = folder / "build.log"
@@ -719,9 +720,17 @@ def _run_wim_build_job(
                 timeout=3600,
             )
             if wim_result.returncode == 0 and extracted_wim.exists():
-                _append_to_log(log_path, "install.wim trouve dans l ISO.")
-                _manifest_update(manifest_path, {"status": "running", "progress": 55, "message": "Copie install.wim vers le depot serveur."})
-                shutil.copy2(extracted_wim, output_wim_path)
+                _append_to_log(log_path, f"install.wim trouve dans l ISO. Export index {image_index}.")
+                _manifest_update(manifest_path, {"status": "running", "progress": 55, "message": f"Export WIM index {image_index} vers le depot serveur."})
+                export_result = subprocess.run(
+                    ["wimlib-imagex", "export", str(extracted_wim), str(image_index), str(output_wim_path), "--compress=LZX"],
+                    capture_output=True,
+                    text=True,
+                    timeout=7200,
+                )
+                if export_result.returncode != 0 or not output_wim_path.exists():
+                    detail = (export_result.stderr or export_result.stdout or "export WIM impossible").strip()
+                    raise RuntimeError(f"Export WIM index {image_index} echoue: {detail[:500]}")
             else:
                 _append_to_log(log_path, "install.wim absent, recherche install.esd.")
                 esd_result = subprocess.run(
@@ -732,10 +741,10 @@ def _run_wim_build_job(
                 )
                 if esd_result.returncode != 0 or not extracted_esd.exists():
                     raise RuntimeError("Aucun sources/install.wim ou sources/install.esd trouve dans l ISO.")
-                _append_to_log(log_path, "install.esd trouve. Conversion vers WIM avec wimlib-imagex.")
-                _manifest_update(manifest_path, {"status": "running", "progress": 65, "message": "Conversion ESD vers WIM."})
+                _append_to_log(log_path, f"install.esd trouve. Conversion index {image_index} vers WIM avec wimlib-imagex.")
+                _manifest_update(manifest_path, {"status": "running", "progress": 65, "message": f"Conversion ESD index {image_index} vers WIM."})
                 convert_result = subprocess.run(
-                    ["wimlib-imagex", "export", str(extracted_esd), "all", str(output_wim_path), "--compress=LZX"],
+                    ["wimlib-imagex", "export", str(extracted_esd), str(image_index), str(output_wim_path), "--compress=LZX"],
                     capture_output=True,
                     text=True,
                     timeout=7200,
@@ -745,10 +754,10 @@ def _run_wim_build_job(
                     raise RuntimeError(f"Conversion ESD vers WIM echouee: {detail[:500]}")
             shutil.rmtree(work_dir, ignore_errors=True)
         elif source_kind == ".esd":
-            _append_to_log(log_path, f"Conversion ESD vers {output_wim_path.name}")
-            _manifest_update(manifest_path, {"status": "running", "progress": 35, "message": "Conversion ESD vers WIM."})
+            _append_to_log(log_path, f"Conversion ESD index {image_index} vers {output_wim_path.name}")
+            _manifest_update(manifest_path, {"status": "running", "progress": 35, "message": f"Conversion ESD index {image_index} vers WIM."})
             convert_result = subprocess.run(
-                ["wimlib-imagex", "export", str(source_local), "all", str(output_wim_path), "--compress=LZX"],
+                ["wimlib-imagex", "export", str(source_local), str(image_index), str(output_wim_path), "--compress=LZX"],
                 capture_output=True,
                 text=True,
                 timeout=7200,
@@ -757,9 +766,17 @@ def _run_wim_build_job(
                 detail = (convert_result.stderr or convert_result.stdout or "conversion ESD impossible").strip()
                 raise RuntimeError(f"Conversion ESD vers WIM echouee: {detail[:500]}")
         elif source_kind == ".wim":
-            _append_to_log(log_path, f"Copie WIM source vers {output_wim_path.name}")
-            _manifest_update(manifest_path, {"status": "running", "progress": 45, "message": "Copie WIM vers le depot serveur."})
-            shutil.copy2(source_local, output_wim_path)
+            _append_to_log(log_path, f"Export WIM source index {image_index} vers {output_wim_path.name}")
+            _manifest_update(manifest_path, {"status": "running", "progress": 45, "message": f"Export WIM index {image_index} vers le depot serveur."})
+            export_result = subprocess.run(
+                ["wimlib-imagex", "export", str(source_local), str(image_index), str(output_wim_path), "--compress=LZX"],
+                capture_output=True,
+                text=True,
+                timeout=7200,
+            )
+            if export_result.returncode != 0 or not output_wim_path.exists():
+                detail = (export_result.stderr or export_result.stdout or "export WIM impossible").strip()
+                raise RuntimeError(f"Export WIM index {image_index} echoue: {detail[:500]}")
         else:
             raise RuntimeError(f"Source non prise en charge directement: {source_kind}")
 
@@ -783,6 +800,7 @@ def _start_wim_build_job(
     source_image: ForgeWimImage,
     output_wim_name: str,
     source_path: str,
+    image_index: int,
 ) -> tuple[Path, Path]:
     output_dir = folder / "output"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -795,6 +813,7 @@ def _start_wim_build_job(
         "$ErrorActionPreference = 'Stop'",
         f"$SourceImage = '{source_path}'",
         f"$OutputImage = '{output_wim}'",
+        f"$ImageIndex = {image_index}",
         "$WorkDir = Join-Path $env:TEMP 'aos-wim-build'",
         "New-Item -ItemType Directory -Force -Path $WorkDir | Out-Null",
         "Write-Host 'AtelierOS - creation WIM'",
@@ -807,14 +826,14 @@ def _start_wim_build_job(
         "    $Drive = (($Mount | Get-Volume).DriveLetter + ':')",
         "    $InstallWim = Join-Path $Drive 'sources\\install.wim'",
         "    $InstallEsd = Join-Path $Drive 'sources\\install.esd'",
-        "    if (Test-Path $InstallWim) { Copy-Item -Path $InstallWim -Destination $OutputImage -Force }",
-        "    elseif (Test-Path $InstallEsd) { dism /Export-Image /SourceImageFile:$InstallEsd /SourceIndex:1 /DestinationImageFile:$OutputImage /Compress:max /CheckIntegrity }",
+        "    if (Test-Path $InstallWim) { dism /Export-Image /SourceImageFile:$InstallWim /SourceIndex:$ImageIndex /DestinationImageFile:$OutputImage /Compress:max /CheckIntegrity }",
+        "    elseif (Test-Path $InstallEsd) { dism /Export-Image /SourceImageFile:$InstallEsd /SourceIndex:$ImageIndex /DestinationImageFile:$OutputImage /Compress:max /CheckIntegrity }",
         "    else { throw 'Aucun install.wim/install.esd trouve dans ISO.' }",
         "  } finally { Dismount-DiskImage -ImagePath $SourceImage | Out-Null }",
         "} elseif ($Ext -eq '.esd') {",
-        "  dism /Export-Image /SourceImageFile:$SourceImage /SourceIndex:1 /DestinationImageFile:$OutputImage /Compress:max /CheckIntegrity",
+        "  dism /Export-Image /SourceImageFile:$SourceImage /SourceIndex:$ImageIndex /DestinationImageFile:$OutputImage /Compress:max /CheckIntegrity",
         "} else {",
-        "  Copy-Item -Path $SourceImage -Destination $OutputImage -Force",
+        "  dism /Export-Image /SourceImageFile:$SourceImage /SourceIndex:$ImageIndex /DestinationImageFile:$OutputImage /Compress:max /CheckIntegrity",
         "}",
         "Write-Host ('Output: ' + $OutputImage)",
     ])
@@ -831,11 +850,12 @@ def _start_wim_build_job(
             "message": "Procedure WIM en attente.",
             "script_path": str(script_path),
             "source_path": source_path,
+            "image_index": image_index,
         },
     )
     threading.Thread(
         target=_run_wim_build_job,
-        args=(build_id, folder, source_image, output_wim, source_path),
+        args=(build_id, folder, source_image, output_wim, source_path, image_index),
         daemon=True,
     ).start()
     return output_wim, script_path
@@ -849,6 +869,7 @@ def _build_request_payload(
     reference: str,
     version: str,
 ) -> ForgeWimBuildResponse:
+    image_index = max(1, int(payload.image_index or 1))
     config = _read_pxe_config()
     smb_base = config.smb_share.rstrip("\\/")
     folder_name = f"{reference}-{version}"
@@ -867,6 +888,7 @@ def _build_request_payload(
         "source_path": source_path,
         "output_wim": output_name,
         "output_smb_path": output_smb_path,
+        "image_index": image_index,
         "notes": payload.notes or "",
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -877,6 +899,7 @@ def _build_request_payload(
         source_image=image,
         output_wim_name=output_name,
         source_path=source_path,
+        image_index=image_index,
     )
     return ForgeWimBuildResponse(
         id=manifest["id"],
@@ -2309,6 +2332,8 @@ async def build_wim_from_image(
     image = _find_wim_image(image_id)
     if image is None:
         raise HTTPException(status_code=404, detail="Image WIM introuvable")
+    if payload.image_index < 1:
+        raise HTTPException(status_code=400, detail="Index image invalide")
 
     reference = _safe_path_part(payload.reference or f"{image.name}-{image.version}", "wim")
     version = _safe_path_part(payload.version or image.version, "version")
@@ -2337,6 +2362,8 @@ async def build_wim_from_media(
     source_suffix = Path(source_path).suffix.lower()
     if source_suffix not in {".iso", ".wim", ".esd"}:
         raise HTTPException(status_code=400, detail="Le chemin source doit pointer vers un .iso, .wim ou .esd")
+    if payload.image_index < 1:
+        raise HTTPException(status_code=400, detail="Index image invalide")
 
     source_name = Path(source_path).stem.replace(".iso", "")
     reference = _safe_path_part(payload.reference or source_name, "wim")

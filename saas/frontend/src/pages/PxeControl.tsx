@@ -3146,7 +3146,7 @@ function ImagesModule({
   generatedUnattendXml: string | null
   isCreating: boolean
   onCreateImage: (image: Omit<ForgeWimImage, 'id' | 'status' | 'is_default' | 'created_at'>) => Promise<void>
-  onBuildWim: (imageId: string, payload: { reference?: string; version?: string; notes?: string }) => Promise<ForgeWimBuildResponse | null>
+  onBuildWim: (imageId: string, payload: { reference?: string; version?: string; notes?: string; image_index?: number }) => Promise<ForgeWimBuildResponse | null>
   onUploadMedia: (
     file: File,
     kind: 'iso' | 'image',
@@ -5896,7 +5896,7 @@ function WimImageInventory({
   images: ForgeWimImage[]
   isSaving: boolean
   onCreateImage: (image: Omit<ForgeWimImage, 'id' | 'status' | 'is_default' | 'created_at'>) => Promise<void>
-  onBuildWim: (imageId: string, payload: { reference?: string; version?: string; notes?: string }) => Promise<ForgeWimBuildResponse | null>
+  onBuildWim: (imageId: string, payload: { reference?: string; version?: string; notes?: string; image_index?: number }) => Promise<ForgeWimBuildResponse | null>
   onSetDefaultImage: (imageId: string) => Promise<void>
   onDeleteImage: (imageId: string) => Promise<void>
 }) {
@@ -5913,10 +5913,13 @@ function WimImageInventory({
   const inputClass = 'w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 font-mono text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-300/40 focus:bg-cyan-300/5'
   const update = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm((current) => ({ ...current, [key]: value }))
   const buildImage = async (image: ForgeWimImage) => {
+    const rawIndex = window.prompt('Index edition Windows a exporter (1 = premiere edition)', '1')
+    const imageIndex = Math.max(1, Number(rawIndex || '1') || 1)
     const result = await onBuildWim(image.id, {
       reference: `${image.name}-${image.architecture}`,
       version: image.version,
       notes: `Procedure WIM creee depuis ${image.path}`,
+      image_index: imageIndex,
     })
     if (result) setBuildResult(result)
   }
@@ -7526,7 +7529,7 @@ export default function PxeControl({
 
   const buildWimFromMedia = async (
     file: ForgeServerMediaFile,
-    payload: { reference?: string; version?: string; notes?: string } = {},
+    payload: { reference?: string; version?: string; notes?: string; image_index?: number } = {},
   ): Promise<ForgeWimBuildResponse | null> => {
     if (file.kind !== 'iso' && file.kind !== 'image') return null
     setApiError(null)
@@ -7541,6 +7544,7 @@ export default function PxeControl({
           reference: payload.reference || file.filename.replace(/\.iso$/i, ''),
           version: payload.version || '01',
           notes: payload.notes || `Build direct depuis ${file.filename}`,
+          image_index: payload.image_index || 1,
         }),
       })
       const builds = await requestJson<ForgeWimBuildListResponse>('/forge/pxe/wim-builds', token)
@@ -7558,10 +7562,13 @@ export default function PxeControl({
   const prepareIsoMediaFile = async (file: ForgeServerMediaFile) => {
     if (file.kind !== 'iso') return
     const baseName = file.filename.replace(/\.iso$/i, '').replace(/[-_]+/g, ' ').trim() || 'Windows ISO'
+    const rawIndex = window.prompt('Index edition Windows a exporter (1 = premiere edition)', '1')
+    const imageIndex = Math.max(1, Number(rawIndex || '1') || 1)
     const result = await buildWimFromMedia(file, {
       reference: baseName,
       version: '01',
       notes: `Build auto depuis ${file.filename}`,
+      image_index: imageIndex,
     })
     if (result) {
       setSaveMessage(`Demarrage OK: ${result.reference} ${result.version} (${result.status}).`)
@@ -7663,7 +7670,7 @@ export default function PxeControl({
     }
   }
 
-  const buildWimFromImage = async (imageId: string, payload: { reference?: string; version?: string; notes?: string }) => {
+  const buildWimFromImage = async (imageId: string, payload: { reference?: string; version?: string; notes?: string; image_index?: number }) => {
     setCreatingWimRecipe(true)
     setApiError(null)
     try {

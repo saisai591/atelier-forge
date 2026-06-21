@@ -221,6 +221,7 @@ class ForgeWimBuildRequest(BaseModel):
     reference: str | None = None
     version: str | None = None
     notes: str | None = None
+    image_index: int = 1
 
 
 class ForgeWimBuildFromPathRequest(BaseModel):
@@ -228,6 +229,7 @@ class ForgeWimBuildFromPathRequest(BaseModel):
     reference: str | None = None
     version: str | None = None
     notes: str | None = None
+    image_index: int = 1
 
 
 class ForgeWimBuildResponse(BaseModel):
