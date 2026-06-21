@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Users, Package, ShoppingCart, FileText, MessageCircle, Settings, LogOut, Wrench, MonitorCog } from 'lucide-react'
+import { LayoutDashboard, Users, Package, ShoppingCart, FileText, MessageCircle, Settings, LogOut, Wrench, MonitorCog, BriefcaseBusiness } from 'lucide-react'
 import { useAuthStore } from '../store/auth'
 import api from '../api/client'
 
@@ -10,6 +10,7 @@ const NAV: { path: string; icon: typeof LayoutDashboard; label: string; end?: bo
   { path: '/invoices', icon: FileText,        label: 'Factures' },
   { path: '/whatsapp', icon: MessageCircle,   label: 'WhatsApp' },
   { path: '/pxe',      icon: MonitorCog,      label: 'Contrôle PXE' },
+  { path: '/erp',      icon: BriefcaseBusiness, label: 'ERP Atelier' },
   { path: '/clients',  icon: Users,           label: 'Clients' },
 ]
 

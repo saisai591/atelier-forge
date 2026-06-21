@@ -9,6 +9,7 @@ import WhatsApp from './pages/WhatsApp'
 import Settings from './pages/Settings'
 import PxeControl from './pages/PxeControl'
 import MobileScanner from './pages/MobileScanner'
+import Erp from './pages/Erp'
 import Layout from './components/Layout'
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
         <Route path="/" element={<PxeControl />} />
         <Route path="/pxe" element={<PxeControl />} />
         <Route path="/mobile" element={<MobileScanner />} />
+        <Route path="/erp" element={<Erp />} />
         <Route
           path="/app"
           element={<Layout />}
@@ -30,6 +32,7 @@ export default function App() {
           <Route path="invoices" element={<Invoices />} />
           <Route path="whatsapp" element={<WhatsApp />} />
           <Route path="pxe" element={<PxeControl />} />
+          <Route path="erp" element={<Erp />} />
           <Route path="settings" element={<Settings />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
