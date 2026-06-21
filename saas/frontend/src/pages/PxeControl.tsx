@@ -3201,6 +3201,49 @@ function ImagesModule({
   const openTool = (tool: NonNullable<typeof activeTool>) => {
     setActiveTool(tool)
   }
+  const exportDeploymentChecklist = () => {
+    const lines = [
+      'AtelierOS - Checklist deploiement Windows PXE',
+      `Genere le ${new Date().toLocaleString('fr-FR')}`,
+      '',
+      'Etat global',
+      `- Statut: ${deployReady ? 'PRET A DEPLOYER' : 'A COMPLETER'}`,
+      `- Prochaine action: ${nextWimAction.label}`,
+      '',
+      'Controles obligatoires',
+      ...deployReadiness.map((item) => `- [${item.ok ? 'OK' : 'A FAIRE'}] ${item.label}: ${item.detail}`),
+      '',
+      'Image par defaut',
+      `- Nom: ${defaultImage?.name ?? 'Aucune'}`,
+      `- Version: ${defaultImage?.version ?? '-'}`,
+      `- Architecture: ${defaultImage?.architecture ?? '-'}`,
+      `- Chemin: ${defaultImage?.path ?? '-'}`,
+      '',
+      'Profil Unattend',
+      `- Profil par defaut: ${defaultUnattend?.name ?? 'Aucun'}`,
+      `- Mode: ${defaultUnattend?.deployment_mode ?? '-'}`,
+      '',
+      'Profil complet',
+      `- Profil par defaut: ${defaultDeploymentProfile?.name ?? 'Aucun'}`,
+      `- Drivers associes: ${defaultDeploymentProfile?.driver_pack_names.join(', ') || '-'}`,
+      '',
+      'Stockage serveur',
+      `- ISO detectes: ${serverIsoCount}`,
+      `- WIM/ESD detectes: ${serverImageCount}`,
+      `- Packs drivers: ${driverPacks.length}`,
+      `- Assets PXE prets: ${readyAssets}/${Math.max(assets.length, 1)}`,
+      '',
+      'Procedure',
+      '1. Importer ou verifier le fichier ISO/WIM/ESD.',
+      '2. Preparer le WIM si la source est une ISO.',
+      '3. Declarer l image Windows et la definir par defaut.',
+      '4. Definir le profil Unattend par defaut.',
+      '5. Associer drivers et image dans un profil complet.',
+      '6. Lancer un PC test en PXE avant production.',
+      '',
+    ].join('\n')
+    downloadTextFile(`atelieros-checklist-wim-${new Date().toISOString().slice(0, 10)}.txt`, lines)
+  }
 
   return (
     <div className="space-y-6">
@@ -3272,6 +3315,13 @@ function ImagesModule({
             <h2 className="text-lg font-semibold text-white">Validation avant PXE</h2>
             <p className="mt-1 max-w-3xl text-sm text-slate-400">Lecture rapide avant de booter une machine : image, Unattend, profil et assets doivent etre verts.</p>
           </div>
+          <button
+            type="button"
+            onClick={exportDeploymentChecklist}
+            className="rounded-xl border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/15"
+          >
+            Export checklist
+          </button>
         </div>
         <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
