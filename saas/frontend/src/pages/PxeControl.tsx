@@ -1243,32 +1243,42 @@ function DashboardModule({
     {
       title: '1. Verifier serveur',
       detail: 'Services, reseau, partage et WinPE doivent etre verts avant le test client.',
+      action: readiness.every((item) => item.ok) ? 'Pret' : 'Reparer maintenant',
       target: 'settings' as NavigationSection,
       ok: readiness.every((item) => item.ok),
+      repair: true,
     },
     {
       title: '2. Importer Windows',
       detail: 'Depose ISO/WIM puis prepare l image Windows dans le module Images.',
+      action: 'Ouvrir Images',
       target: 'images' as NavigationSection,
       ok: Boolean(status?.assets.some((asset) => asset.key === 'winpe' && asset.status === 'ready')),
+      repair: false,
     },
     {
       title: '3. Booter un PC PXE',
       detail: 'Demarre un PC sur le reseau et choisis Audit rapide.',
+      action: 'Voir Audit',
       target: 'audit' as NavigationSection,
       ok: deployments.length > 0,
+      repair: false,
     },
     {
       title: '4. Controler audit',
       detail: 'Verifie CPU, RAM, disque, batterie, tests atelier et etiquette.',
+      action: 'Controler',
       target: 'audit' as NavigationSection,
       ok: false,
+      repair: false,
     },
     {
       title: '5. Deployer',
       detail: 'Quand image, drivers et Unattend sont prets, lance le deploiement.',
+      action: 'Deployer',
       target: 'deployments' as NavigationSection,
       ok: activeDeployments > 0,
+      repair: false,
     },
   ]
 
@@ -1397,7 +1407,7 @@ function DashboardModule({
               <button
                 key={step.title}
                 type="button"
-                onClick={() => onNavigate(step.target)}
+                onClick={() => step.repair ? void onResyncNetwork() : onNavigate(step.target)}
                 className="rounded-xl border border-white/10 bg-white/[0.035] p-3 text-left transition hover:border-cyan-300/25 hover:bg-white/[0.06]"
               >
                 <div className="mb-2 flex items-center justify-between gap-2">
@@ -1406,6 +1416,10 @@ function DashboardModule({
                 </div>
                 <div className="text-sm font-semibold text-white">{step.title}</div>
                 <div className="mt-2 line-clamp-3 text-xs leading-5 text-slate-400">{step.detail}</div>
+                <div className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-cyan-200">
+                  {step.action}
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </div>
               </button>
             ))}
           </div>

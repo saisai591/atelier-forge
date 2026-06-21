@@ -249,7 +249,7 @@ Objectif: garder une trace claire de ce qui est stable, de ce qui est pret local
 ### Priorite 1 - Vente client et stabilite atelier
 
 1. Assistant reseau automatique: detecter IP, switch/direct, DHCP, PXE, SMB et proposer `Reparer`.
-2. Assistant premier demarrage client: enrichir avec actions de correction automatique.
+2. EN COURS - Assistant premier demarrage client: actions explicites, correction reseau directe depuis le parcours debutant.
 3. Mode Debutant / Expert: continuer a masquer les fonctions avancees en mode debutant.
 4. Dashboard operationnel: continuer a reduire le bruit selon retours atelier.
 5. Logs PXE lisibles en francais avec causes probables: enrichir ensuite avec les vrais logs dnsmasq/nginx si besoin.
