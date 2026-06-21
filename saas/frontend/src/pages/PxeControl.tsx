@@ -3515,13 +3515,54 @@ function GuideModule({
   const serviceOk = (needle: string) => services.some((service) => `${service.key} ${service.label}`.toLowerCase().includes(needle) && service.status === 'online')
   const offlineServices = services.filter((service) => service.status !== 'online')
   const steps = [
-    { title: '1. Brancher le serveur', detail: 'Verifier que le serveur AOS est sur le meme reseau que les PC atelier.', ok: Boolean(status), action: dashboardUrl },
+    { title: '1. Brancher le serveur', detail: 'Verifier que le serveur AtelierOS est sur le meme reseau que les PC atelier.', ok: Boolean(status), action: dashboardUrl },
     { title: '2. Controler les services', detail: 'API, HTTP PXE et partage reseau doivent etre verts avant production.', ok: serviceOk('api') && serviceOk('http') },
     { title: '3. Ouvrir le stockage', detail: `Deposer ISO, WIM et drivers dans ${share}.`, ok: Boolean(share), action: share },
     { title: '4. Tester un client PXE', detail: 'Demarrer un PC en boot reseau, lancer Audit rapide, attendre le retour dans Audit.', ok: Boolean(status?.clients?.length || status?.assets?.length) },
     { title: '5. Installer le terminal EA520', detail: `Ouvrir ${mobileUrl}, puis scanner les etiquettes machine.`, ok: true, action: mobileUrl },
     { title: '6. Imprimer une etiquette', detail: 'Depuis Audit, ouvrir Editeur etiquette puis imprimer en format Brother adapte.', ok: true },
   ]
+  const exportGuide = () => {
+    const generatedAt = new Date().toLocaleString('fr-FR')
+    const serviceLines = services.length
+      ? services.map((service) => `- ${service.label || service.key}: ${service.status.toUpperCase()} ${service.endpoint ? `(${service.endpoint})` : ''}`)
+      : ['- Aucun service remonte pour le moment. Ouvrir le dashboard puis cliquer Synchroniser.']
+    const guide = [
+      'AtelierOS - Guide client installation et premier demarrage',
+      `Genere le ${generatedAt}`,
+      '',
+      'Adresses importantes',
+      `- Dashboard: ${dashboardUrl}`,
+      `- API: ${apiUrl}`,
+      `- PXE/tests: ${pxeUrl}`,
+      `- Partage reseau: ${share}`,
+      `- Mobile / terminal EA520: ${mobileUrl}`,
+      '',
+      'Checklist premier demarrage',
+      ...steps.map((step) => `- [${step.ok ? 'OK' : 'A FAIRE'}] ${step.title}: ${step.detail}`),
+      '',
+      'Etat des services',
+      ...serviceLines,
+      '',
+      'Procedure rapide',
+      '1. Brancher le serveur au reseau atelier ou au switch.',
+      '2. Ouvrir le dashboard AtelierOS depuis un poste Windows.',
+      '3. Verifier les voyants API, SMB, PXE HTTP et DNS/DHCP.',
+      '4. Ouvrir le partage reseau et deposer ISO/WIM/drivers si besoin.',
+      '5. Importer ou declarer une image Windows dans Images WIM.',
+      '6. Definir image par defaut, profil Unattend et drivers.',
+      '7. Demarrer un PC en PXE et lancer Audit rapide.',
+      '8. Verifier le retour dans Audit puis imprimer une etiquette.',
+      '',
+      'Actions de depannage',
+      '- Apres changement de switch ou IP: Parametres > Regenerer reseau.',
+      '- Si le PC ne boote pas: verifier cable, UEFI PXE, Secure Boot, puis logs PXE.',
+      '- Si audit absent: verifier que le PC client joint l API sur le port 8000.',
+      '- Avant livraison client: Guide > Sauvegarde > Creer sauvegarde.',
+      '',
+    ].join('\n')
+    downloadTextFile(`atelieros-guide-client-${new Date().toISOString().slice(0, 10)}.txt`, guide)
+  }
 
   useEffect(() => {
     let active = true
@@ -3540,9 +3581,18 @@ function GuideModule({
             <h3 className="text-lg font-semibold text-white">Centre client AtelierOS</h3>
             <p className="mt-1 text-sm leading-6 text-slate-400">Parcours integre pour installer, diagnostiquer et maintenir l'appliance sans documentation externe.</p>
           </div>
-          <span className={cn('rounded-full border px-3 py-1 text-xs font-semibold', offlineServices.length ? 'border-amber-300/25 bg-amber-300/10 text-amber-200' : 'border-emerald-300/25 bg-emerald-300/10 text-emerald-200')}>
-            {offlineServices.length ? `${offlineServices.length} service(s) a verifier` : 'services OK'}
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={exportGuide}
+              className="rounded-xl border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/15"
+            >
+              Export guide client
+            </button>
+            <span className={cn('rounded-full border px-3 py-1 text-xs font-semibold', offlineServices.length ? 'border-amber-300/25 bg-amber-300/10 text-amber-200' : 'border-emerald-300/25 bg-emerald-300/10 text-emerald-200')}>
+              {offlineServices.length ? `${offlineServices.length} service(s) a verifier` : 'services OK'}
+            </span>
+          </div>
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-4">
           {[
