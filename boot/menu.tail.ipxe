@@ -1,0 +1,6 @@
+:failed
+echo.
+echo *** Echec du chargement. Verifiez le serveur Atelier Forge. ***
+echo Appuyez sur une touche pour revenir au menu.
+prompt
+goto start

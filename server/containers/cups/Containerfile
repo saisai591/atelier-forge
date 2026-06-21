@@ -1,0 +1,19 @@
+# Image CUPS pour Atelier Forge (impression d'étiquettes). OPTIONNEL.
+# Pour Brother QL : ajoutez le paquet/pilote correspondant ci-dessous.
+FROM docker.io/library/alpine:3.20
+
+RUN apk add --no-cache cups cups-filters cups-client \
+    && (apk add --no-cache cups-pdf || true)
+
+# Imprimantes USB courantes en reconditionnement : décommentez selon besoin.
+# RUN apk add --no-cache foomatic-db ghostscript
+
+# Port CUPS (réservé à partir de 1951 ; passé par install.sh via --build-arg).
+ARG CUPS_PORT=1951
+# Écoute sur le port choisi, accessible depuis le réseau de l'atelier.
+RUN sed -i "s/^Listen localhost:631/Listen 0.0.0.0:${CUPS_PORT}/" /etc/cups/cupsd.conf 2>/dev/null; \
+    grep -q "Listen 0.0.0.0:${CUPS_PORT}" /etc/cups/cupsd.conf 2>/dev/null \
+      || echo "Listen 0.0.0.0:${CUPS_PORT}" >> /etc/cups/cupsd.conf
+
+EXPOSE ${CUPS_PORT}/tcp
+ENTRYPOINT ["/usr/sbin/cupsd", "-f"]

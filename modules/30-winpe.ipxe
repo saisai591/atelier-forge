@@ -1,0 +1,10 @@
+# section: 2 - Windows
+# item: winpe      [PRET] WinPE deploiement Windows
+# enabled: yes
+:winpe
+echo Chargement de l'environnement WinPE...
+kernel ${base}/winpe/wimboot
+initrd ${base}/winpe/media/Boot/BCD         BCD
+initrd ${base}/winpe/media/Boot/boot.sdi    boot.sdi
+initrd ${base}/winpe/media/sources/boot.wim boot.wim
+boot || goto failed

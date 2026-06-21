@@ -1,0 +1,2 @@
+choose sel || goto start
+goto ${sel}

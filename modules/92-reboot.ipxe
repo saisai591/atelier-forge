@@ -1,0 +1,5 @@
+# section: 4 - Systeme
+# item: reboot     Redemarrer la machine
+# enabled: yes
+:reboot
+reboot

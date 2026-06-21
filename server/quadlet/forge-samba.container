@@ -1,0 +1,23 @@
+# Atelier Forge — Samba (partage des images Windows + dépôt des rapports d'audit).
+[Unit]
+Description=Atelier Forge Samba
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+ContainerName=forge-samba
+Image=localhost/forge-samba:latest
+Network=host
+# smbd a besoin de privilèges étendus pour gérer ses tdb/locks et écouter sur
+# 139/445 de manière fiable (sinon le service démarre puis échoue).
+PodmanArgs=--privileged
+EnvironmentFile=@SAMBACREDS@
+Volume=@SMB_SHARE@:/srv/deploy:z
+Volume=@CONFIG_DIR@/samba/smb.conf:/etc/samba/smb.conf:ro,z
+
+[Service]
+Restart=always
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target default.target

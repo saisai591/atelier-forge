@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<!-- Atelier Forge — Gabarit d'étiquette d'inventaire. Les jetons @...@ sont remplacés
+     par make-label.sh. Format pensé pour une étiquette ~62mm (Brother QL) ;
+     ajustez la taille selon votre matériel. -->
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: 62mm 40mm; margin: 0; }
+  body { font-family: Arial, sans-serif; margin: 0; padding: 3mm; width: 56mm; }
+  .titre { font-size: 11pt; font-weight: bold; }
+  .ligne { font-size: 9pt; margin-top: 1mm; }
+  .serie { font-size: 10pt; font-weight: bold; margin-top: 2mm;
+           border-top: 1px solid #000; padding-top: 1mm; }
+</style>
+</head>
+<body>
+  <div class="titre">@FAB@ @MOD@</div>
+  <div class="ligne">CPU : @CPU@</div>
+  <div class="ligne">RAM : @RAM@ Go</div>
+  <div class="serie">S/N : @SER@</div>
+</body>
+</html>

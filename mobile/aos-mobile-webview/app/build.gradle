@@ -1,0 +1,35 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "fr.aosdeploy.mobile"
+    compileSdk 36
+
+    signingConfigs {
+        release {
+            def store = project.findProperty("AOS_KEYSTORE_PATH")
+            if (store) {
+                storeFile file(store)
+                storePassword project.findProperty("AOS_KEYSTORE_PASSWORD")
+                keyAlias project.findProperty("AOS_KEY_ALIAS")
+                keyPassword project.findProperty("AOS_KEY_PASSWORD")
+            }
+        }
+    }
+
+    defaultConfig {
+        applicationId "fr.aosdeploy.mobile"
+        minSdk 23
+        targetSdk 36
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+}

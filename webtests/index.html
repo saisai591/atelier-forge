@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AOS Deploy - Outils test atelier</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <div>
+    <div class="eyebrow">AOS Deploy V5</div>
+    <h1>Outils test atelier</h1>
+  </div>
+  <button class="btn" id="sendAudit">Envoyer l'audit</button>
+</header>
+
+<main class="shell">
+  <section class="identity panel">
+    <label>Serie / etiquette
+      <input id="serial" placeholder="SN ou code atelier">
+    </label>
+    <label>Marque
+      <input id="brand" placeholder="Dell, HP, Lenovo...">
+    </label>
+    <label>Modele
+      <input id="model" placeholder="Latitude 5420...">
+    </label>
+    <div id="sendState" class="muted">Les resultats seront envoyes au dashboard Audit.</div>
+  </section>
+
+  <nav class="tabs" aria-label="Outils">
+    <button class="tab active" data-tab="keyboard">Clavier</button>
+    <button class="tab" data-tab="screen">Pixels</button>
+    <button class="tab" data-tab="usb">USB</button>
+    <button class="tab" data-tab="camera">Camera</button>
+    <button class="tab" data-tab="microphone">Micro</button>
+    <button class="tab" data-tab="audio">Audio</button>
+    <button class="tab" data-tab="summary">Resume</button>
+  </nav>
+
+  <section id="keyboard" class="tool active panel">
+    <div class="tool-head">
+      <div>
+        <h2>Clavier visuel complet</h2>
+        <p class="muted">Appuie sur les touches. Les touches detectees passent en vert.</p>
+      </div>
+      <button class="btn alt" id="resetKeyboard">Reinitialiser</button>
+    </div>
+    <div id="keyboardGrid" class="keyboard"></div>
+    <div id="keyboardCount" class="score"></div>
+  </section>
+
+  <section id="screen" class="tool panel">
+    <div class="tool-head">
+      <div>
+        <h2>Pixels / dalle</h2>
+        <p class="muted">Passe en plein ecran puis clique pour changer de couleur.</p>
+      </div>
+      <button class="btn" id="startScreen">Lancer plein ecran</button>
+    </div>
+    <div id="screenStage" class="screen-stage">Pret</div>
+    <div class="actions">
+      <button class="btn ok" data-result="pixel" data-value="ok">Pixels OK</button>
+      <button class="btn bad" data-result="pixel" data-value="fail">Defaut ecran</button>
+    </div>
+  </section>
+
+  <section id="usb" class="tool panel">
+    <div class="tool-head">
+      <div>
+        <h2>USB</h2>
+        <p class="muted">Branche une cle USB. WebUSB depend du navigateur ; validation manuelle disponible.</p>
+      </div>
+      <button class="btn" id="testUsb">Tester USB</button>
+    </div>
+    <div id="usbState" class="device-box">En attente</div>
+    <div class="actions">
+      <button class="btn ok" data-result="usb" data-value="ok">USB OK</button>
+      <button class="btn bad" data-result="usb" data-value="fail">USB NOK</button>
+    </div>
+  </section>
+
+  <section id="camera" class="tool panel">
+    <div class="tool-head">
+      <div>
+        <h2>Camera</h2>
+        <p class="muted">Necessite HTTPS ou autorisation navigateur. Si refuse, valide manuellement.</p>
+      </div>
+      <button class="btn" id="startCamera">Activer camera</button>
+    </div>
+    <video id="cameraPreview" autoplay playsinline muted></video>
+    <div id="cameraState" class="muted">Non teste</div>
+    <div class="actions">
+      <button class="btn ok" data-result="camera" data-value="ok">Camera OK</button>
+      <button class="btn bad" data-result="camera" data-value="fail">Camera NOK</button>
+    </div>
+  </section>
+
+  <section id="microphone" class="tool panel">
+    <div class="tool-head">
+      <div>
+        <h2>Micro</h2>
+        <p class="muted">Parle : la barre doit bouger.</p>
+      </div>
+      <button class="btn" id="startMic">Activer micro</button>
+    </div>
+    <div class="meter"><div id="micBar"></div></div>
+    <div id="micState" class="muted">Non teste</div>
+    <div class="actions">
+      <button class="btn ok" data-result="microphone" data-value="ok">Micro OK</button>
+      <button class="btn bad" data-result="microphone" data-value="fail">Micro NOK</button>
+    </div>
+  </section>
+
+  <section id="audio" class="tool panel">
+    <div class="tool-head">
+      <div>
+        <h2>Audio</h2>
+        <p class="muted">Teste gauche, droite et stereo.</p>
+      </div>
+    </div>
+    <button class="btn" data-beep="left">Gauche</button>
+    <button class="btn" data-beep="right">Droite</button>
+    <button class="btn alt" data-beep="both">Stereo</button>
+    <div class="actions">
+      <button class="btn ok" data-result="audio" data-value="ok">Audio OK</button>
+      <button class="btn bad" data-result="audio" data-value="fail">Audio NOK</button>
+    </div>
+  </section>
+
+  <section id="summary" class="tool panel">
+    <h2>Resume audit navigateur</h2>
+    <div id="summaryGrid" class="summary-grid"></div>
+    <pre id="payloadPreview"></pre>
+  </section>
+</main>
+
+<script>
+const results = {
+  pixel: "not_run",
+  keyboard: "not_run",
+  usb: "not_run",
+  audio: "not_run",
+  microphone: "not_run",
+  camera: "not_run",
+};
+const hit = new Set();
+const keyboardRows = [
+  ["Escape","F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12"],
+  ["Backquote","Digit1","Digit2","Digit3","Digit4","Digit5","Digit6","Digit7","Digit8","Digit9","Digit0","Minus","Equal","Backspace"],
+  ["Tab","KeyA","KeyZ","KeyE","KeyR","KeyT","KeyY","KeyU","KeyI","KeyO","KeyP","BracketLeft","BracketRight"],
+  ["CapsLock","KeyQ","KeyS","KeyD","KeyF","KeyG","KeyH","KeyJ","KeyK","KeyL","KeyM","Quote","Enter"],
+  ["ShiftLeft","IntlBackslash","KeyW","KeyX","KeyC","KeyV","KeyB","KeyN","Comma","Period","Slash","ShiftRight"],
+  ["ControlLeft","MetaLeft","AltLeft","Space","AltRight","ContextMenu","ControlRight","ArrowLeft","ArrowUp","ArrowDown","ArrowRight"],
+  ["NumLock","NumpadDivide","NumpadMultiply","NumpadSubtract","Numpad7","Numpad8","Numpad9","NumpadAdd","Numpad4","Numpad5","Numpad6","Numpad1","Numpad2","Numpad3","NumpadEnter","Numpad0","NumpadDecimal"],
+];
+const labels = {Backquote:"²",BracketLeft:"^",BracketRight:"$",Quote:"ù",IntlBackslash:"<",Space:"Espace",MetaLeft:"Win",ContextMenu:"Menu",ArrowLeft:"←",ArrowUp:"↑",ArrowDown:"↓",ArrowRight:"→"};
+const wide = new Set(["Backspace","Tab","CapsLock","Enter","ShiftLeft","ShiftRight","ControlLeft","ControlRight","Space"]);
+const allKeys = new Set(keyboardRows.flat());
+
+function apiBase() {
+  const api = new URLSearchParams(location.search).get("api");
+  return api || `${location.protocol}//${location.hostname}:8000/api`;
+}
+
+function applyUrlParams() {
+  const params = new URLSearchParams(location.search);
+  ["serial", "brand", "model"].forEach(key => {
+    const value = params.get(key);
+    if (value) document.getElementById(key).value = value;
+  });
+}
+
+function setResult(key, value) {
+  results[key] = value;
+  renderSummary();
+}
+
+function renderKeyboard() {
+  const grid = document.getElementById("keyboardGrid");
+  grid.innerHTML = "";
+  keyboardRows.forEach(row => {
+    const line = document.createElement("div");
+    line.className = "key-row";
+    row.forEach(code => {
+      const key = document.createElement("div");
+      key.id = `key-${code}`;
+      key.className = `key ${wide.has(code) ? "wide" : ""} ${code === "Space" ? "space" : ""}`;
+      key.textContent = labels[code] || code.replace(/^(Key|Digit|Numpad)/, "");
+      line.appendChild(key);
+    });
+    grid.appendChild(line);
+  });
+  updateKeyboard();
+}
+
+function updateKeyboard() {
+  document.querySelectorAll(".key").forEach(el => el.classList.remove("hit"));
+  hit.forEach(code => document.getElementById(`key-${code}`)?.classList.add("hit"));
+  document.getElementById("keyboardCount").textContent = `Touches testees : ${hit.size} / ${allKeys.size}`;
+  if (hit.size >= 20) setResult("keyboard", "ok");
+  renderSummary();
+}
+
+document.addEventListener("keydown", event => {
+  const active = document.querySelector(".tool.active")?.id;
+  if (active !== "keyboard") return;
+  event.preventDefault();
+  if (allKeys.has(event.code)) hit.add(event.code);
+  updateKeyboard();
+});
+
+document.getElementById("resetKeyboard").onclick = () => {
+  hit.clear();
+  setResult("keyboard", "not_run");
+  updateKeyboard();
+};
+
+const colors = ["#000000","#ffffff","#ff0000","#00ff00","#0000ff","#ffff00","#00ffff","#ff00ff","linear-gradient(90deg,#000,#fff)"];
+let colorIndex = 0;
+function nextScreenColor() {
+  const stage = document.getElementById("screenStage");
+  stage.style.background = colors[colorIndex % colors.length];
+  stage.textContent = `${colorIndex + 1}/${colors.length}`;
+  colorIndex += 1;
+}
+document.getElementById("startScreen").onclick = async () => {
+  await document.documentElement.requestFullscreen?.().catch(() => {});
+  nextScreenColor();
+};
+document.getElementById("screenStage").onclick = nextScreenColor;
+
+document.getElementById("testUsb").onclick = async () => {
+  const box = document.getElementById("usbState");
+  if (!navigator.usb) {
+    box.textContent = "WebUSB non disponible sur ce navigateur. Utilise validation manuelle.";
+    return;
+  }
+  try {
+    const device = await navigator.usb.requestDevice({ filters: [] });
+    box.textContent = `USB detecte : ${device.productName || "peripherique"} ${device.vendorId || ""}`;
+    setResult("usb", "ok");
+  } catch (error) {
+    box.textContent = `USB non valide automatiquement : ${error.message}`;
+  }
+};
+
+document.getElementById("startCamera").onclick = async () => {
+  const state = document.getElementById("cameraState");
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    document.getElementById("cameraPreview").srcObject = stream;
+    state.textContent = "Camera active";
+    setResult("camera", "ok");
+  } catch (error) {
+    state.textContent = `Camera refusee/non disponible : ${error.message}`;
+  }
+};
+
+document.getElementById("startMic").onclick = async () => {
+  const state = document.getElementById("micState");
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const ctx = new AudioContext();
+    const analyser = ctx.createAnalyser();
+    ctx.createMediaStreamSource(stream).connect(analyser);
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    state.textContent = "Micro actif";
+    setResult("microphone", "ok");
+    function loop() {
+      analyser.getByteFrequencyData(data);
+      const value = data.reduce((sum, item) => sum + item, 0) / data.length;
+      document.getElementById("micBar").style.width = `${Math.min(100, value * 2)}%`;
+      requestAnimationFrame(loop);
+    }
+    loop();
+  } catch (error) {
+    state.textContent = `Micro refuse/non disponible : ${error.message}`;
+  }
+};
+
+document.querySelectorAll("[data-beep]").forEach(button => {
+  button.onclick = () => {
+    const side = button.dataset.beep;
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const pan = ctx.createStereoPanner?.();
+    osc.frequency.value = 660;
+    osc.connect(gain);
+    if (pan) {
+      pan.pan.value = side === "left" ? -1 : side === "right" ? 1 : 0;
+      gain.connect(pan);
+      pan.connect(ctx.destination);
+    } else {
+      gain.connect(ctx.destination);
+    }
+    osc.start();
+    setTimeout(() => osc.stop(), 700);
+  };
+});
+
+document.querySelectorAll("[data-result]").forEach(button => {
+  button.onclick = () => setResult(button.dataset.result, button.dataset.value);
+});
+
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.onclick = () => {
+    document.querySelectorAll(".tab,.tool").forEach(el => el.classList.remove("active"));
+    tab.classList.add("active");
+    document.getElementById(tab.dataset.tab).classList.add("active");
+    renderSummary();
+  };
+});
+
+function buildPayload() {
+  const serial = document.getElementById("serial").value.trim();
+  const brand = document.getElementById("brand").value.trim();
+  const model = document.getElementById("model").value.trim();
+  const now = new Date().toISOString();
+  const id = serial || `WEBTEST-${Date.now()}`;
+  const label = {
+    created_at: now,
+    serial_number: id,
+    brand,
+    model,
+    cpu: `${navigator.hardwareConcurrency || "?"} coeurs navigateur`,
+    ram: navigator.deviceMemory ? `${navigator.deviceMemory} GB approx` : null,
+    main_disk: "Non lisible depuis navigateur",
+    battery_status: "Voir API batterie navigateur",
+    ip: location.hostname,
+    mac: null,
+    label_lines: [
+      `${brand || "Machine"} ${model || ""}`.trim(),
+      `SN: ${id}`,
+      "TESTS: navigateur atelier",
+    ],
+    disks: [],
+    battery: [],
+    workshop_tests: results,
+    browser: {
+      user_agent: navigator.userAgent,
+      platform: navigator.platform,
+      resolution: `${screen.width}x${screen.height}`,
+      color_depth: screen.colorDepth,
+    },
+  };
+  return { audit: label, label };
+}
+
+async function sendAudit() {
+  const state = document.getElementById("sendState");
+  state.textContent = "Envoi en cours...";
+  try {
+    const response = await fetch(`${apiBase()}/forge/pxe/audits/upload`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(buildPayload()),
+    });
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+    const data = await response.json();
+    state.innerHTML = `<span class="ok">Audit envoye</span> : ${data.filename}`;
+  } catch (error) {
+    state.innerHTML = `<span class="bad">Erreur envoi</span> : ${error.message}`;
+  }
+}
+document.getElementById("sendAudit").onclick = sendAudit;
+
+function renderSummary() {
+  const rows = Object.entries(results).map(([key, value]) => `<div class="result ${value}"><b>${key}</b><span>${value}</span></div>`).join("");
+  document.getElementById("summaryGrid").innerHTML = rows;
+  document.getElementById("payloadPreview").textContent = JSON.stringify(buildPayload(), null, 2);
+}
+
+applyUrlParams();
+renderKeyboard();
+renderSummary();
+</script>
+</body>
+</html>

@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Diag PC - Atelier Forge</title>
+  <style>
+    :root {
+      --ink: #111827;
+      --muted: #64748b;
+      --line: #e5e7eb;
+      --paper: #ffffff;
+      --bg: #f4f7fb;
+      --ok: #0f766e;
+      --warn: #b45309;
+      --bad: #b91c1c;
+      --accent: #2563eb;
+      --accent-dark: #1e40af;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Roboto, Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(37,99,235,.16), transparent 32rem),
+        linear-gradient(135deg, #f8fafc, var(--bg));
+      min-height: 100vh;
+    }
+    header {
+      padding: 22px;
+      color: white;
+      background: linear-gradient(135deg, #0f172a, #1e3a8a 58%, #0f766e);
+      box-shadow: 0 18px 50px rgba(15,23,42,.18);
+    }
+    header h1 { margin: 0; font-size: clamp(26px, 5vw, 44px); letter-spacing: -0.04em; }
+    header p { margin: 8px 0 0; color: rgba(255,255,255,.82); max-width: 780px; }
+    main { width: min(1180px, calc(100% - 28px)); margin: 18px auto 42px; }
+    .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; }
+    .card {
+      background: rgba(255,255,255,.92);
+      border: 1px solid rgba(226,232,240,.9);
+      border-radius: 20px;
+      padding: 16px;
+      box-shadow: 0 14px 34px rgba(15,23,42,.08);
+    }
+    .span-4 { grid-column: span 4; }
+    .span-5 { grid-column: span 5; }
+    .span-7 { grid-column: span 7; }
+    .span-8 { grid-column: span 8; }
+    .span-12 { grid-column: span 12; }
+    h2 { margin: 0 0 12px; font-size: 18px; }
+    .muted { color: var(--muted); font-size: 13px; }
+    .btns { display: flex; gap: 10px; flex-wrap: wrap; }
+    a.btn, button {
+      border: 0;
+      border-radius: 13px;
+      padding: 11px 14px;
+      font-weight: 700;
+      color: white;
+      background: var(--accent);
+      text-decoration: none;
+      cursor: pointer;
+      box-shadow: 0 10px 22px rgba(37,99,235,.2);
+    }
+    a.btn:hover, button:hover { background: var(--accent-dark); }
+    a.btn.secondary, button.secondary { color: var(--ink); background: #e2e8f0; box-shadow: none; }
+    a.btn.danger { background: #b91c1c; }
+    .status { display: grid; gap: 9px; }
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .row:last-child { border-bottom: 0; }
+    .pill {
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+      background: #e2e8f0;
+      color: #334155;
+    }
+    .pill.ok { background: #ccfbf1; color: var(--ok); }
+    .pill.warn { background: #fef3c7; color: var(--warn); }
+    .pill.bad { background: #fee2e2; color: var(--bad); }
+    label { display: block; font-size: 12px; font-weight: 800; color: #475569; margin-bottom: 5px; }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 10px 11px;
+      font: inherit;
+      background: white;
+    }
+    textarea { min-height: 92px; resize: vertical; }
+    .formgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .checklist { display: grid; gap: 8px; }
+    .check {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: #f8fafc;
+    }
+    .check input { width: auto; margin-top: 3px; }
+    code {
+      display: block;
+      overflow-x: auto;
+      border-radius: 13px;
+      background: #0f172a;
+      color: #d1fae5;
+      padding: 12px;
+      font-size: 12px;
+    }
+    @media (max-width: 860px) {
+      .span-4, .span-5, .span-7 { grid-column: span 12; }
+      .span-8 { grid-column: span 12; }
+      .formgrid { grid-template-columns: 1fr; }
+      header { padding: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Diag PC</h1>
+    <p>Application rapide pour technicien: verifier le PXE, lancer le diagnostic, noter l'audit et exporter une fiche machine.</p>
+  </header>
+
+  <main class="grid">
+    <section class="card span-4">
+      <h2>Actions rapides</h2>
+      <div class="btns">
+        <a class="btn" href="/boot/menu.ipxe" target="_blank">Menu iPXE</a>
+        <a class="btn secondary" href="/tests/" target="_blank">Tests HTTP</a>
+        <a class="btn secondary" href="/agent/autorun" target="_blank">Agent live</a>
+        <a class="btn danger" href="smb://192.168.1.37/deploy">SMB deploy</a>
+      </div>
+      <p class="muted">Sur le poste cible: F12 ou boot reseau, puis choisir Diagnostic SystemRescue.</p>
+    </section>
+
+    <section class="card span-4">
+      <h2>Etat outils</h2>
+      <div id="status" class="status"></div>
+    </section>
+
+    <section class="card span-4">
+      <h2>Procedure courte</h2>
+      <div class="checklist">
+        <label class="check"><input type="checkbox"> Brancher Ethernet + alimentation.</label>
+        <label class="check"><input type="checkbox"> Boot PXE et choisir Diagnostic SystemRescue.</label>
+        <label class="check"><input type="checkbox"> Verifier CPU, RAM, disque, batterie.</label>
+        <label class="check"><input type="checkbox"> Noter grade et defauts visibles.</label>
+        <label class="check"><input type="checkbox"> Exporter la fiche audit JSON.</label>
+      </div>
+    </section>
+
+    <section class="card span-12">
+      <h2>Dernier audit PXE automatique</h2>
+      <div id="autoAudit" class="status">
+        <div class="muted">En attente d'un PC booté en Diagnostic SystemRescue...</div>
+      </div>
+    </section>
+
+    <section class="card span-7">
+      <h2>Fiche audit rapide</h2>
+      <div class="formgrid">
+        <div><label>Technicien</label><input id="tech" placeholder="Nom"></div>
+        <div><label>N serie</label><input id="serial" placeholder="Serial"></div>
+        <div><label>Marque</label><input id="brand" placeholder="Dell, HP, Lenovo..."></div>
+        <div><label>Modele</label><input id="model" placeholder="Latitude 5520"></div>
+        <div><label>CPU</label><input id="cpu" placeholder="i5-1135G7"></div>
+        <div><label>RAM</label><input id="ram" placeholder="16 Go"></div>
+        <div><label>Disque</label><input id="disk" placeholder="SSD 512 Go"></div>
+        <div><label>Batterie</label><input id="battery" placeholder="OK / usure %"></div>
+        <div><label>Grade</label><select id="grade"><option></option><option>A</option><option>B</option><option>C</option><option>D</option><option>Rebut</option></select></div>
+        <div><label>Etat</label><select id="state"><option>Diagnostic</option><option>OK reconditionnement</option><option>A reparer</option><option>Effacement requis</option><option>Rebut</option></select></div>
+      </div>
+      <div style="margin-top:12px">
+        <label>Notes / defauts</label>
+        <textarea id="notes" placeholder="Clavier, ecran, charniere, chargeur, SMART, memtest..."></textarea>
+      </div>
+      <div class="btns" style="margin-top:12px">
+        <button id="save">Sauver local</button>
+        <button id="export" class="secondary">Exporter JSON</button>
+        <button id="clear" class="secondary">Vider</button>
+      </div>
+      <p class="muted">Les donnees restent dans ce navigateur tant que vous ne les exportez pas.</p>
+    </section>
+
+    <section class="card span-5">
+      <h2>Connexion support</h2>
+      <p class="muted">Quand SystemRescue a demarre, l'agent tente d'activer SSH et d'installer la cle publique servie par PXE.</p>
+      <code>ssh -i vm120_atelier_forge_ed25519.key root@IP_DU_PC</code>
+      <p class="muted">IP visible dans la box/DHCP ou dans les logs PXE. VNC reste desactive sauf option explicite.</p>
+    </section>
+
+    <section class="card span-12">
+      <h2>Dernier export</h2>
+      <code id="preview">{}</code>
+    </section>
+  </main>
+
+  <script>
+    const checks = [
+      ['Menu iPXE', '/boot/menu.ipxe'],
+      ['SystemRescue kernel', '/diag/sysresc/vmlinuz'],
+      ['SystemRescue initrd', '/diag/sysresc/initrd'],
+      ['SystemRescue rootfs', '/diag/sysresc/sysresc/x86_64/airootfs.sfs'],
+      ['Memtest', '/diag/memtest.efi'],
+      ['Agent live', '/agent/autorun'],
+      ['Cle SSH agent', '/agent/authorized_keys']
+    ];
+    const fields = ['tech','serial','brand','model','cpu','ram','disk','battery','grade','state','notes'];
+    const statusEl = document.getElementById('status');
+    const autoAuditEl = document.getElementById('autoAudit');
+    const preview = document.getElementById('preview');
+
+    function value(id) { return document.getElementById(id).value.trim(); }
+    function data() {
+      return {
+        type: 'atelier-forge-audit-rapide',
+        created_at: new Date().toISOString(),
+        technician: value('tech'),
+        serial_number: value('serial'),
+        brand: value('brand'),
+        model: value('model'),
+        cpu: value('cpu'),
+        ram: value('ram'),
+        disk: value('disk'),
+        battery: value('battery'),
+        grade: value('grade'),
+        state: value('state'),
+        notes: value('notes')
+      };
+    }
+    function refreshPreview() {
+      preview.textContent = JSON.stringify(data(), null, 2);
+    }
+    function saveLocal() {
+      localStorage.setItem('atelier-forge-tech-audit', JSON.stringify(data()));
+      refreshPreview();
+    }
+    function loadLocal() {
+      const raw = localStorage.getItem('atelier-forge-tech-audit');
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      const map = {
+        tech: 'technician',
+        serial: 'serial_number',
+        brand: 'brand',
+        model: 'model',
+        cpu: 'cpu',
+        ram: 'ram',
+        disk: 'disk',
+        battery: 'battery',
+        grade: 'grade',
+        state: 'state',
+        notes: 'notes'
+      };
+      for (const [id, key] of Object.entries(map)) {
+        const el = document.getElementById(id);
+        if (saved[key] !== undefined) el.value = saved[key];
+      }
+    }
+    async function checkTools() {
+      statusEl.innerHTML = '';
+      for (const [label, url] of checks) {
+        const row = document.createElement('div');
+        row.className = 'row';
+        row.innerHTML = `<span>${label}</span><span class="pill warn">test...</span>`;
+        statusEl.appendChild(row);
+        try {
+          const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+          row.querySelector('.pill').className = 'pill ' + (res.ok ? 'ok' : 'bad');
+          row.querySelector('.pill').textContent = res.ok ? 'OK' : res.status;
+        } catch {
+          row.querySelector('.pill').className = 'pill bad';
+          row.querySelector('.pill').textContent = 'KO';
+        }
+      }
+    }
+    function pill(value) {
+      const v = String(value || '').toLowerCase();
+      if (v.includes('ok') || v.includes('passed') || v === 'a') return 'ok';
+      if (v.includes('warning') || v === 'b' || v === 'c') return 'warn';
+      if (v.includes('failed') || v === 'd' || v.includes('rebut')) return 'bad';
+      return 'warn';
+    }
+    function row(label, value) {
+      return `<div class="row"><span>${label}</span><span class="pill ${pill(value)}">${value || 'A verifier'}</span></div>`;
+    }
+    async function loadAutoAudit() {
+      try {
+        const res = await fetch('/audit/latest.json?ts=' + Date.now(), { cache: 'no-store' });
+        if (!res.ok) throw new Error(String(res.status));
+        const a = await res.json();
+        const disk = (a.disks || [])[0] || {};
+        const bat = (a.battery || [])[0] || {};
+        autoAuditEl.innerHTML = `
+          <div class="row"><span><strong>${a.brand || ''} ${a.model || ''}</strong><br><span class="muted">${a.serial_number || a.mac || a.hostname || 'Machine PXE'}</span></span><span class="pill ok">${a.ip || 'connecte'}</span></div>
+          ${row('Grade propose', a.grade_proposed)}
+          ${row('CPU rapide', a.cpu && a.cpu.quick_test)}
+          ${row('RAM rapide', a.ram && a.ram.quick_test)}
+          ${row('Disque SMART', disk.smart)}
+          ${row('Lecture disque', (a.disk_tests || [])[0] && (a.disk_tests || [])[0].read_test)}
+          ${row('Batterie', bat.health_percent ? bat.health_percent + '% santé' : 'A verifier')}
+          ${row('Pixels écran', 'technicien')}
+          ${row('Clavier', 'technicien')}
+          <div class="btns" style="margin-top:10px">
+            <button class="secondary" onclick='fillFromAuto(${JSON.stringify(JSON.stringify(a))})'>Reprendre dans la fiche</button>
+            <a class="btn secondary" href="/audit/latest.json" target="_blank">Voir JSON</a>
+          </div>
+        `;
+      } catch {
+        autoAuditEl.innerHTML = '<div class="muted">Aucun audit automatique reçu pour le moment.</div>';
+      }
+    }
+    window.fillFromAuto = function(raw) {
+      const a = JSON.parse(raw);
+      document.getElementById('serial').value = a.serial_number || '';
+      document.getElementById('brand').value = a.brand || '';
+      document.getElementById('model').value = a.model || '';
+      document.getElementById('cpu').value = (a.cpu && a.cpu.model) || '';
+      document.getElementById('ram').value = a.ram && a.ram.total_mb ? Math.round(a.ram.total_mb / 1024) + ' Go' : '';
+      const disk = (a.disks || [])[0] || {};
+      document.getElementById('disk').value = [disk.type, disk.size_gb ? disk.size_gb + ' Go' : '', disk.smart].filter(Boolean).join(' ');
+      const bat = (a.battery || [])[0] || {};
+      document.getElementById('battery').value = bat.health_percent ? bat.health_percent + '% santé' : '';
+      document.getElementById('grade').value = a.grade_proposed || '';
+      document.getElementById('notes').value = 'Tests à faire: pixels écran, clavier, touchpad, état cosmétique.';
+      refreshPreview();
+      saveLocal();
+    }
+    document.getElementById('save').onclick = saveLocal;
+    document.getElementById('clear').onclick = () => {
+      localStorage.removeItem('atelier-forge-tech-audit');
+      for (const id of fields) document.getElementById(id).value = '';
+      refreshPreview();
+    };
+    document.getElementById('export').onclick = () => {
+      const blob = new Blob([JSON.stringify(data(), null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `audit-${value('serial') || 'pc'}-${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      saveLocal();
+    };
+    for (const id of fields) document.getElementById(id).addEventListener('input', refreshPreview);
+    loadLocal();
+    refreshPreview();
+    checkTools();
+    loadAutoAudit();
+    setInterval(loadAutoAudit, 10000);
+  </script>
+</body>
+</html>

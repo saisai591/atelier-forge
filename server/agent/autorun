@@ -1,0 +1,1177 @@
+#!/usr/bin/env bash
+# Atelier Forge - agent live SystemRescue.
+# Demarre les acces de support et publie un heartbeat vers le SaaS si configure.
+set +e
+
+LOG="/var/log/atelier-forge-agent.log"
+STATE="/tmp/atelier-forge-agent.json"
+exec > >(tee -a "${LOG}") 2>&1
+
+echo "== Atelier Forge agent $(date -Is) =="
+
+finish_ok() {
+    local code=$?
+    echo "AOS Deploy agent termine avec code interne ${code}, retour force OK pour supprimer l'attente autorun."
+    exit 0
+}
+trap finish_ok EXIT
+
+cmdline_value() {
+    local key="$1"
+    tr ' ' '\n' < /proc/cmdline | awk -F= -v k="${key}" '$1 == k {print substr($0, length(k) + 2); exit}'
+}
+
+FORGE_SERVER="$(cmdline_value forge_server)"
+FORGE_API="$(cmdline_value forge_api)"
+FORGE_KEY="$(cmdline_value forge_key)"
+FORGE_ID="$(cmdline_value forge_id)"
+FORGE_VNC_INSECURE="$(cmdline_value forge_vnc_insecure)"
+FORGE_SMB_USER="$(cmdline_value forge_smb_user)"
+FORGE_SMB_PASS="$(cmdline_value forge_smb_pass)"
+FORGE_CONTROL_API="$(cmdline_value forge_control_api)"
+FORGE_MODE="$(cmdline_value forge_mode)"
+FORGE_GUI_TESTS="$(cmdline_value forge_gui_tests)"
+
+if [[ -z "${FORGE_SERVER}" ]]; then
+    FORGE_SERVER="http://192.168.1.37:1950"
+fi
+FORGE_HOST="$(printf '%s' "${FORGE_SERVER}" | sed -E 's#^https?://([^/:]+).*#\1#')"
+FORGE_SMB_USER="${FORGE_SMB_USER:-pxe}"
+FORGE_SMB_PASS="${FORGE_SMB_PASS:-pxe}"
+FORGE_CONTROL_API="${FORGE_CONTROL_API:-http://${FORGE_HOST}:1953/api}"
+FORGE_TEST_TTY="/dev/tty1"
+if [[ ! -w "${FORGE_TEST_TTY}" ]]; then
+    FORGE_TEST_TTY="/dev/console"
+fi
+
+if [[ "${FORGE_MODE}" == "quick_audit" || "${FORGE_MODE}" == "test_atelier" ]]; then
+    chvt 1 2>/dev/null || true
+    exec <"${FORGE_TEST_TTY}" >"${FORGE_TEST_TTY}" 2>&1
+fi
+
+primary_ip() {
+    ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i=1; i<=NF; i++) if ($i=="src") {print $(i+1); exit}}'
+}
+
+primary_iface() {
+    ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i=1; i<=NF; i++) if ($i=="dev") {print $(i+1); exit}}'
+}
+
+json_escape() {
+    python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().strip()))' 2>/dev/null || printf '"%s"' "$1"
+}
+
+HOSTNAME="$(hostname 2>/dev/null || echo sysrescue)"
+IP_ADDR="$(primary_ip)"
+IFACE="$(primary_iface)"
+MAC_ADDR=""
+if [[ -n "${IFACE}" && -r "/sys/class/net/${IFACE}/address" ]]; then
+    MAC_ADDR="$(cat "/sys/class/net/${IFACE}/address")"
+fi
+SERIAL="$(cat /sys/class/dmi/id/product_serial 2>/dev/null || true)"
+BRAND="$(cat /sys/class/dmi/id/sys_vendor 2>/dev/null || true)"
+MODEL="$(cat /sys/class/dmi/id/product_name 2>/dev/null || true)"
+PRODUCT_UUID="$(cat /sys/class/dmi/id/product_uuid 2>/dev/null || true)"
+BIOS_VENDOR="$(cat /sys/class/dmi/id/bios_vendor 2>/dev/null || true)"
+BIOS_VERSION="$(cat /sys/class/dmi/id/bios_version 2>/dev/null || true)"
+BIOS_DATE="$(cat /sys/class/dmi/id/bios_date 2>/dev/null || true)"
+BOARD_VENDOR="$(cat /sys/class/dmi/id/board_vendor 2>/dev/null || true)"
+BOARD_NAME="$(cat /sys/class/dmi/id/board_name 2>/dev/null || true)"
+CHASSIS_TYPE="$(cat /sys/class/dmi/id/chassis_type 2>/dev/null || true)"
+
+if [[ -z "${FORGE_ID}" ]]; then
+    FORGE_ID="${MAC_ADDR:-${HOSTNAME}}"
+fi
+
+read_cpu() {
+    awk -F: '/model name/ {gsub(/^[ \t]+/, "", $2); print $2; exit}' /proc/cpuinfo 2>/dev/null
+}
+
+read_ram_mb() {
+    awk '/MemTotal/ {printf "%.0f", $2/1024}' /proc/meminfo 2>/dev/null
+}
+
+read_memory_modules_json() {
+    python3 - <<'PY'
+import json, re, subprocess
+items = []
+try:
+    out = subprocess.run(['dmidecode', '-t', 'memory'], text=True, capture_output=True, timeout=12).stdout
+    blocks = re.split(r'\nHandle ', out)
+    for block in blocks:
+        if 'Memory Device' not in block:
+            continue
+        data = {}
+        for raw in block.splitlines():
+            if ':' not in raw:
+                continue
+            key, value = raw.split(':', 1)
+            data[key.strip()] = value.strip()
+        size = data.get('Size', '')
+        if not size or 'No Module' in size:
+            continue
+        items.append({
+            'slot': data.get('Locator') or data.get('Bank Locator'),
+            'size': size,
+            'type': data.get('Type'),
+            'speed': data.get('Speed'),
+            'configured_speed': data.get('Configured Memory Speed'),
+            'manufacturer': data.get('Manufacturer'),
+            'part_number': data.get('Part Number'),
+            'serial_number': data.get('Serial Number'),
+        })
+except Exception:
+    pass
+print(json.dumps(items))
+PY
+}
+
+read_resolution() {
+    if command -v fbset >/dev/null 2>&1; then
+        fbset 2>/dev/null | awk '/geometry/ {print $2 "x" $3; exit}'
+    fi
+    for mode in /sys/class/drm/*/modes; do
+        [[ -r "${mode}" ]] || continue
+        head -n 1 "${mode}" 2>/dev/null && return 0
+    done
+    if command -v xrandr >/dev/null 2>&1; then
+        xrandr 2>/dev/null | awk '/\*/ {print $1; exit}'
+    fi
+}
+
+read_network_json() {
+    python3 - <<'PY'
+import json, os, pathlib, subprocess
+items = []
+for net in sorted(pathlib.Path('/sys/class/net').iterdir()):
+    name = net.name
+    if name == 'lo':
+        continue
+    def read(rel):
+        try:
+            return (net / rel).read_text(encoding='utf-8').strip()
+        except OSError:
+            return ''
+    addrs = []
+    try:
+        out = subprocess.run(['ip', '-o', 'addr', 'show', 'dev', name], text=True, capture_output=True, timeout=5).stdout
+        for line in out.splitlines():
+            parts = line.split()
+            if len(parts) >= 4 and parts[2] in ('inet', 'inet6'):
+                addrs.append({'family': parts[2], 'address': parts[3]})
+    except Exception:
+        pass
+    items.append({
+        'name': name,
+        'mac': read('address'),
+        'state': read('operstate'),
+        'carrier': read('carrier') == '1',
+        'speed_mbps': read('speed') or None,
+        'addresses': addrs,
+    })
+print(json.dumps(items))
+PY
+}
+
+read_tpm_json() {
+    python3 - <<'PY'
+import json, pathlib
+items = []
+for tpm in sorted(pathlib.Path('/sys/class/tpm').glob('tpm*')):
+    item = {'name': tpm.name}
+    for rel in ('device/description', 'device/caps', 'device/pcrs'):
+        try:
+            value = (tpm / rel).read_text(encoding='utf-8', errors='ignore').strip()
+            item[rel.replace('/', '_')] = value[:500]
+        except OSError:
+            pass
+    items.append(item)
+print(json.dumps({'present': bool(items), 'devices': items}))
+PY
+}
+
+read_usb_json() {
+    python3 - <<'PY'
+import json, subprocess
+items = []
+try:
+    out = subprocess.run(['lsusb'], text=True, capture_output=True, timeout=8).stdout
+    items = [line.strip() for line in out.splitlines() if line.strip()]
+except Exception:
+    pass
+print(json.dumps(items))
+PY
+}
+
+read_gpu_json() {
+    python3 - <<'PY'
+import json, pathlib, subprocess
+items = []
+try:
+    out = subprocess.run(['lspci', '-mm'], text=True, capture_output=True, timeout=8).stdout
+    for line in out.splitlines():
+        if any(key in line.lower() for key in ('vga compatible controller', '3d controller', 'display controller')):
+            parts = [p.strip('"') for p in line.split('" "')]
+            items.append({'raw': line, 'name': parts[-1].strip('"') if parts else line})
+except Exception:
+    pass
+if not items:
+    for card in pathlib.Path('/sys/class/drm').glob('card[0-9]'):
+        vendor = ''
+        device = ''
+        try:
+            vendor = (card / 'device/vendor').read_text(encoding='utf-8').strip()
+            device = (card / 'device/device').read_text(encoding='utf-8').strip()
+        except OSError:
+            pass
+        items.append({'name': card.name, 'vendor': vendor, 'device': device})
+print(json.dumps(items))
+PY
+}
+
+read_ac_power_json() {
+    python3 - <<'PY'
+import glob, json, os
+items = []
+for path in glob.glob('/sys/class/power_supply/*'):
+    name = os.path.basename(path)
+    try:
+        typ = open(os.path.join(path, 'type'), encoding='utf-8').read().strip()
+    except OSError:
+        continue
+    if typ not in ('Mains', 'USB', 'USB_CDP', 'USB_DCP', 'USB_PD'):
+        continue
+    online = ''
+    try:
+        online = open(os.path.join(path, 'online'), encoding='utf-8').read().strip()
+    except OSError:
+        pass
+    items.append({'name': name, 'type': typ, 'online': online == '1' if online else None})
+print(json.dumps(items))
+PY
+}
+
+read_media_json() {
+    python3 - <<'PY'
+import json, pathlib, subprocess
+audio = []
+webcams = []
+try:
+    out = subprocess.run(['lspci', '-mm'], text=True, capture_output=True, timeout=8).stdout
+    for line in out.splitlines():
+        if 'audio device' in line.lower() or 'multimedia audio controller' in line.lower():
+            audio.append(line)
+except Exception:
+    pass
+for dev in pathlib.Path('/sys/class/video4linux').glob('video*'):
+    name = ''
+    try:
+        name = (dev / 'name').read_text(encoding='utf-8').strip()
+    except OSError:
+        pass
+    webcams.append({'device': '/dev/' + dev.name, 'name': name})
+print(json.dumps({'audio_devices': audio, 'webcams': webcams}))
+PY
+}
+
+read_battery_json() {
+    python3 - <<'PY'
+import glob, json, os
+items = []
+for path in glob.glob('/sys/class/power_supply/BAT*'):
+    def read(name):
+        try:
+            return open(os.path.join(path, name), encoding='utf-8').read().strip()
+        except OSError:
+            return ''
+    design = read('energy_full_design') or read('charge_full_design')
+    full = read('energy_full') or read('charge_full')
+    status = read('status')
+    cycles = read('cycle_count')
+    health = None
+    wear = None
+    try:
+        if design and full and int(design) > 0:
+            health = round(int(full) * 100 / int(design), 1)
+            wear = round(100 - health, 1)
+    except ValueError:
+        pass
+    items.append({
+        'name': os.path.basename(path),
+        'status': status,
+        'health_percent': health,
+        'wear_percent': wear,
+        'cycle_count': cycles or None
+    })
+print(json.dumps(items))
+PY
+}
+
+read_disks_json() {
+    python3 - <<'PY'
+import glob, json, os, subprocess
+items = []
+for dev in sorted(glob.glob('/sys/block/*')):
+    name = os.path.basename(dev)
+    if name.startswith(('loop', 'ram', 'sr')):
+        continue
+    def read(rel):
+        try:
+            return open(os.path.join(dev, rel), encoding='utf-8').read().strip()
+        except OSError:
+            return ''
+    size = read('size')
+    gb = None
+    try:
+        gb = round(int(size) * 512 / 1000 / 1000 / 1000, 1)
+    except ValueError:
+        pass
+    model = read('device/model') or read('device/name')
+    serial = read('device/serial')
+    vendor = read('device/vendor')
+    firmware = read('device/firmware_rev') or read('device/rev')
+    bus = ''
+    try:
+        p = subprocess.run(['lsblk', '-dno', 'TRAN', f'/dev/{name}'], text=True, capture_output=True, timeout=5)
+        bus = p.stdout.strip()
+    except Exception:
+        pass
+    rotational = read('queue/rotational')
+    dtype = 'HDD' if rotational == '1' else 'SSD/NVMe'
+    smart = 'unknown'
+    smart_detail = ''
+    if os.path.exists('/usr/sbin/smartctl') or os.path.exists('/usr/bin/smartctl'):
+        try:
+            p = subprocess.run(['smartctl', '-H', f'/dev/{name}'], text=True, capture_output=True, timeout=10)
+            out = p.stdout + p.stderr
+            smart_detail = out.strip()[:1000]
+            if 'PASSED' in out:
+                smart = 'passed'
+            elif 'FAILED' in out or 'failure' in out.lower():
+                smart = 'failed'
+        except Exception:
+            pass
+    items.append({
+        'name': name,
+        'path': f'/dev/{name}',
+        'model': model,
+        'vendor': vendor,
+        'serial_number': serial,
+        'firmware': firmware,
+        'bus': bus,
+        'type': dtype,
+        'size_gb': gb,
+        'smart': smart,
+        'smart_detail': smart_detail,
+    })
+print(json.dumps(items))
+PY
+}
+
+quick_cpu_test() {
+    local start end
+    start="$(date +%s)"
+    timeout 5s sh -c 'i=0; while [ $i -lt 2 ]; do yes > /dev/null & i=$((i+1)); done; wait' >/dev/null 2>&1 || true
+    pkill yes >/dev/null 2>&1 || true
+    end="$(date +%s)"
+    printf 'ok_%ss' "$((end - start))"
+}
+
+quick_ram_test() {
+    local mb
+    mb="$(read_ram_mb)"
+    if [[ -n "${mb}" && "${mb}" -gt 2000 ]]; then
+        timeout 6s sh -c 'dd if=/dev/zero of=/tmp/forge-ram-test.bin bs=32M count=4 conv=fsync; rm -f /tmp/forge-ram-test.bin' >/dev/null 2>&1 && echo "ok" || echo "warning"
+    else
+        echo "limited"
+    fi
+}
+
+quick_disk_test_json() {
+    python3 - <<'PY'
+import glob, json, os, re, subprocess
+results = []
+for dev in sorted(glob.glob('/sys/block/*')):
+    name = os.path.basename(dev)
+    if name.startswith(('loop', 'ram', 'sr')):
+        continue
+    result = {'name': name, 'read_test': 'skipped', 'read_mb_s': None}
+    try:
+        p = subprocess.run(['dd', f'if=/dev/{name}', 'of=/dev/null', 'bs=4M', 'count=16', 'iflag=direct'], text=True, capture_output=True, timeout=8)
+        text = p.stderr + p.stdout
+        result['read_test'] = 'ok' if p.returncode == 0 else 'warning'
+        match = re.search(r'([0-9]+(?:[,.][0-9]+)?)\s*MB/s', text)
+        if match:
+            result['read_mb_s'] = float(match.group(1).replace(',', '.'))
+    except Exception:
+        result['read_test'] = 'warning'
+    results.append(result)
+print(json.dumps(results))
+PY
+}
+
+propose_grade() {
+    local battery_wear="$1" disk_bad="$2"
+    if [[ "${disk_bad}" == "yes" ]]; then
+        echo "D"
+    elif [[ -n "${battery_wear}" ]] && awk "BEGIN {exit !(${battery_wear} > 40)}"; then
+        echo "C"
+    elif [[ -n "${battery_wear}" ]] && awk "BEGIN {exit !(${battery_wear} > 25)}"; then
+        echo "B"
+    else
+        echo "A"
+    fi
+}
+
+run_diag_express() {
+    echo "Diagnostic express en cours..."
+    CPU_MODEL="$(read_cpu)"
+    RAM_MB="$(read_ram_mb)"
+    MEMORY_MODULES_JSON="$(read_memory_modules_json)"
+    RESOLUTION="$(read_resolution)"
+    NETWORK_JSON="$(read_network_json)"
+    TPM_JSON="$(read_tpm_json)"
+    USB_JSON="$(read_usb_json)"
+    GPU_JSON="$(read_gpu_json)"
+    AC_POWER_JSON="$(read_ac_power_json)"
+    MEDIA_JSON="$(read_media_json)"
+    BATTERIES_JSON="$(read_battery_json)"
+    DISKS_JSON="$(read_disks_json)"
+    if [[ "${FORGE_MODE}" == "quick_audit" ]]; then
+        CPU_TEST="skipped_quick"
+        RAM_TEST="skipped_quick"
+        DISK_TESTS_JSON="[]"
+    else
+        CPU_TEST="$(quick_cpu_test)"
+        RAM_TEST="$(quick_ram_test)"
+        DISK_TESTS_JSON="$(quick_disk_test_json)"
+    fi
+    BATTERY_WEAR="$(python3 - <<PY
+import json
+items=json.loads('''${BATTERIES_JSON}''')
+wear=[x.get('wear_percent') for x in items if x.get('wear_percent') is not None]
+print(max(wear) if wear else '')
+PY
+)"
+    DISK_BAD="$(python3 - <<PY
+import json
+items=json.loads('''${DISKS_JSON}''')
+print('yes' if any(x.get('smart') == 'failed' for x in items) else 'no')
+PY
+)"
+    GRADE="$(propose_grade "${BATTERY_WEAR}" "${DISK_BAD}")"
+    DIAG_READY="yes"
+}
+
+DIAG_READY="no"
+CPU_MODEL=""
+RAM_MB=""
+MEMORY_MODULES_JSON="[]"
+RESOLUTION=""
+NETWORK_JSON="[]"
+TPM_JSON='{"present":false,"devices":[]}'
+USB_JSON="[]"
+GPU_JSON="[]"
+AC_POWER_JSON="[]"
+MEDIA_JSON='{"audio_devices":[],"webcams":[]}'
+BATTERIES_JSON="[]"
+DISKS_JSON="[]"
+CPU_TEST="not_run"
+RAM_TEST="not_run"
+DISK_TESTS_JSON="[]"
+GRADE=""
+WORKSHOP_TESTS_JSON="{}"
+
+ask_ok() {
+    local prompt="$1"
+    local answer
+    printf "%s [o/N] " "${prompt}" >"${FORGE_TEST_TTY}"
+    read -r answer <"${FORGE_TEST_TTY}"
+    case "${answer}" in
+        o|O|oui|OUI|y|Y|yes|YES) echo "ok" ;;
+        *) echo "fail" ;;
+    esac
+}
+
+show_color_screen() {
+    local code="$1" label="$2"
+    local cols lines row
+    cols="$(tput cols 2>/dev/null || echo 80)"
+    lines="$(tput lines 2>/dev/null || echo 25)"
+    {
+        printf '\033[2J\033[H\033[%sm' "${code}"
+        for ((row=1; row<=lines; row++)); do
+            printf '%*s' "${cols}" ''
+        done
+        printf '\033[H'
+        printf '\033[1m'
+        printf '\n\n  %s\n' "${label}"
+        printf '  Inspectez toute la dalle : pixel mort, ligne, tache, fuite de lumiere.\n'
+        printf '  Appuyez sur ENTREE pour la couleur suivante.'
+    } >"${FORGE_TEST_TTY}"
+    read -r _ <"${FORGE_TEST_TTY}"
+    printf '\033[0m\033[2J\033[H' >"${FORGE_TEST_TTY}"
+}
+
+draw_keyboard() {
+    local pressed="$1"
+    local key token
+    local rows=(
+        "ESC F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12"
+        "² & é \" ' ( - è _ ç à ) = BACK"
+        "TAB A Z E R T Y U I O P ^ $"
+        "CAPS Q S D F G H J K L M ù * ENTER"
+        "SHIFT < W X C V B N , ; : ! SHIFT"
+        "CTRL FN WIN ALT SPACE ALTGR MENU CTRL"
+        "NUM / * - 7 8 9 + 4 5 6 1 2 3 ENTER 0 ."
+    )
+    {
+        printf '\033[2J\033[H'
+        echo "============================================================"
+        echo " AOS Deploy - Test clavier visuel"
+        echo " Tapez les touches principales. Les touches saisies passent en vert."
+        echo " ENTREE termine le test, ECHAP annule."
+        echo "============================================================"
+        echo ""
+        for row in "${rows[@]}"; do
+            for key in ${row}; do
+                token="${key^^}"
+                if [[ "${pressed}" == *"|${token}|"* ]]; then
+                    printf '\033[42;30m %-6s \033[0m' "${key}"
+                else
+                    printf '\033[100;97m %-6s \033[0m' "${key}"
+                fi
+            done
+            echo ""
+            echo ""
+        done
+        echo "Touches vues: ${pressed//|/ }"
+    } >"${FORGE_TEST_TTY}"
+}
+
+normalize_key_token() {
+    local char="$1"
+    case "${char}" in
+        " ") echo "SPACE" ;;
+        $'\t') echo "TAB" ;;
+        $'\e') echo "ESC" ;;
+        $'\177') echo "BACK" ;;
+        *) printf '%s' "${char^^}" ;;
+    esac
+}
+
+run_keyboard_visual_test() {
+    local pressed="|" char token count=0
+    stty -echo -icanon time 0 min 1 <"${FORGE_TEST_TTY}" 2>/dev/null || true
+    while true; do
+        draw_keyboard "${pressed}"
+        IFS= read -rsn1 char <"${FORGE_TEST_TTY}" || true
+        [[ "${char}" == $'\n' || "${char}" == $'\r' ]] && break
+        [[ "${char}" == $'\e' ]] && { stty sane <"${FORGE_TEST_TTY}" 2>/dev/null || true; echo "fail"; return; }
+        token="$(normalize_key_token "${char}")"
+        if [[ -n "${token}" && "${pressed}" != *"|${token}|"* ]]; then
+            pressed+="${token}|"
+            count=$((count + 1))
+        fi
+    done
+    stty sane <"${FORGE_TEST_TTY}" 2>/dev/null || true
+    printf '\033[2J\033[H' >"${FORGE_TEST_TTY}"
+    if [[ "${count}" -ge 10 ]]; then
+        echo "ok"
+    else
+        ask_ok "Clavier OK avec seulement ${count} touche(s) detectee(s) ?"
+    fi
+}
+
+urlencode() {
+    VALUE="$1" python3 - <<'PY'
+import os
+from urllib.parse import quote
+print(quote(os.environ.get("VALUE", ""), safe=""))
+PY
+}
+
+browser_cmd() {
+    for candidate in firefox firefox-esr chromium chromium-browser google-chrome; do
+        if command -v "${candidate}" >/dev/null 2>&1; then
+            echo "${candidate}"
+            return 0
+        fi
+    done
+    return 1
+}
+
+run_graphical_workshop_tests() {
+    local browser startx_cmd url serial_q brand_q model_q
+    browser="$(browser_cmd || true)"
+    startx_cmd="$(command -v startx 2>/dev/null || true)"
+    if [[ -z "${browser}" || -z "${startx_cmd}" ]]; then
+        return 1
+    fi
+
+    serial_q="$(urlencode "${SERIAL}")"
+    brand_q="$(urlencode "${BRAND}")"
+    model_q="$(urlencode "${MODEL}")"
+    url="${FORGE_SERVER%/}/tests/?serial=${serial_q}&brand=${brand_q}&model=${model_q}&api=${FORGE_CONTROL_API%/}"
+
+    cat > /root/.xinitrc <<EOF
+#!/bin/sh
+export HOME=/root
+export XDG_RUNTIME_DIR=/tmp/aos-runtime-root
+export MOZ_ENABLE_WAYLAND=0
+export MOZ_DISABLE_NONLOCAL_CONNECTIONS=1
+mkdir -p "\${XDG_RUNTIME_DIR}"
+chmod 700 "\${XDG_RUNTIME_DIR}"
+mkdir -p /root/.mozilla/firefox/aos.default
+cat > /root/.mozilla/firefox/profiles.ini <<'PREFEOF'
+[General]
+StartWithLastProfile=1
+
+[Profile0]
+Name=aos
+IsRelative=1
+Path=aos.default
+Default=1
+PREFEOF
+cat > /root/.mozilla/firefox/aos.default/user.js <<'PREFEOF'
+user_pref("browser.shell.checkDefaultBrowser", false);
+user_pref("browser.startup.page", 0);
+user_pref("browser.startup.homepage_override.mstone", "ignore");
+user_pref("browser.sessionstore.resume_from_crash", false);
+user_pref("browser.tabs.warnOnClose", false);
+user_pref("datareporting.policy.dataSubmissionEnabled", false);
+user_pref("toolkit.telemetry.reportingpolicy.firstRun", false);
+user_pref("media.navigator.permission.disabled", true);
+PREFEOF
+xset -dpms 2>/dev/null || true
+xset s off 2>/dev/null || true
+xrandr --auto 2>/dev/null || true
+if command -v matchbox-window-manager >/dev/null 2>&1; then
+    matchbox-window-manager -use_titlebar no 2>/dev/null &
+elif command -v openbox >/dev/null 2>&1; then
+    openbox 2>/dev/null &
+fi
+if command -v dbus-run-session >/dev/null 2>&1; then
+    exec dbus-run-session -- ${browser} --profile /root/.mozilla/firefox/aos.default --kiosk --private-window --new-instance --no-remote "${url}" 2>/tmp/aos-browser.err
+fi
+exec ${browser} --profile /root/.mozilla/firefox/aos.default --kiosk --private-window --new-instance --no-remote "${url}" 2>/tmp/aos-browser.err
+EOF
+    chmod +x /root/.xinitrc
+
+    cat > /tmp/aos-startx-launch.sh <<EOF
+#!/bin/sh
+"${startx_cmd}" /root/.xinitrc -- :0 vt1 >/tmp/aos-startx.log 2>&1 || \
+    "${startx_cmd}" /root/.xinitrc -- :1 vt1 >>/tmp/aos-startx.log 2>&1
+EOF
+    chmod +x /tmp/aos-startx-launch.sh
+
+    printf '\033[2J\033[H' >"${FORGE_TEST_TTY}"
+    echo "AOS Deploy - ouverture Firefox tests atelier..." >"${FORGE_TEST_TTY}"
+    if command -v setsid >/dev/null 2>&1; then
+        setsid /tmp/aos-startx-launch.sh >/tmp/aos-startx-launch.out 2>&1 </dev/null &
+    else
+        nohup /tmp/aos-startx-launch.sh >/tmp/aos-startx-launch.out 2>&1 </dev/null &
+    fi
+    echo $! >/tmp/aos-startx-launch.pid
+    return 0
+}
+
+run_workshop_tests() {
+    if [[ "${FORGE_GUI_TESTS}" == "1" ]]; then
+        if run_graphical_workshop_tests; then
+            WORKSHOP_TESTS_JSON="$(python3 - <<'PY'
+import json, datetime
+print(json.dumps({
+  "created_at": datetime.datetime.utcnow().isoformat() + "Z",
+  "pixel": "browser_tool",
+  "keyboard": "browser_tool",
+  "usb": "browser_tool",
+  "audio": "browser_tool",
+  "microphone": "browser_tool",
+  "camera": "browser_tool",
+}))
+PY
+)"
+            echo "Interface graphique fermee. Envoi audit machine..."
+            return 0
+        fi
+        WORKSHOP_TESTS_JSON="$(python3 - <<'PY'
+import json, datetime
+print(json.dumps({
+  "created_at": datetime.datetime.utcnow().isoformat() + "Z",
+  "pixel": "gui_failed",
+  "keyboard": "gui_failed",
+  "usb": "gui_failed",
+  "audio": "gui_failed",
+  "microphone": "gui_failed",
+  "camera": "gui_failed",
+}))
+PY
+)"
+        echo "Interface graphique indisponible. Audit envoye sans fallback interactif."
+        return 0
+    fi
+
+    clear || true
+    echo "============================================================"
+    echo " AOS Deploy - Test atelier rapide"
+    echo " Machine : ${BRAND} ${MODEL}"
+    echo " Serie   : ${SERIAL:-inconnue}"
+    echo " IP      : ${IP_ADDR}"
+    echo "============================================================"
+    echo ""
+
+    show_color_screen "40;97" "TEST PIXELS - NOIR"
+    show_color_screen "47;30" "TEST PIXELS - BLANC"
+    show_color_screen "41;97" "TEST PIXELS - ROUGE"
+    show_color_screen "42;30" "TEST PIXELS - VERT"
+    show_color_screen "44;97" "TEST PIXELS - BLEU"
+    local pixel_test keyboard_test usb_test audio_test mic_test camera_test
+    pixel_test="$(ask_ok 'Ecran / pixels OK ?')"
+
+    keyboard_test="$(run_keyboard_visual_test)"
+
+    echo ""
+    echo "Test USB : branchez une cle/peripherique USB maintenant, puis ENTREE."
+    local usb_before usb_after
+    usb_before="$(lsusb 2>/dev/null | wc -l || echo 0)"
+    read -r _
+    sleep 2
+    usb_after="$(lsusb 2>/dev/null | wc -l || echo 0)"
+    if [[ "${usb_after}" -gt "${usb_before}" ]]; then
+        usb_test="ok"
+        echo "USB detecte (${usb_before} -> ${usb_after})."
+    else
+        usb_test="$(ask_ok 'USB OK malgre absence de nouveau peripherique ?')"
+    fi
+
+    echo ""
+    if command -v speaker-test >/dev/null 2>&1; then
+        timeout 4s speaker-test -t sine -f 880 -l 1 >/dev/null 2>&1 || true
+    elif command -v aplay >/dev/null 2>&1; then
+        printf '\a' || true
+    fi
+    audio_test="$(ask_ok 'Son haut-parleur OK ?')"
+
+    echo ""
+    if command -v arecord >/dev/null 2>&1 && arecord -l >/dev/null 2>&1; then
+        echo "Test micro : parlez 3 secondes..."
+        timeout 4s arecord -q -d 3 -f cd /tmp/forge-mic-test.wav >/dev/null 2>&1 || true
+        if [[ -s /tmp/forge-mic-test.wav ]]; then mic_test="ok"; else mic_test="fail"; fi
+    else
+        mic_test="$(ask_ok 'Micro OK / non teste manuellement ?')"
+    fi
+
+    echo ""
+    if ls /dev/video* >/dev/null 2>&1; then
+        if command -v ffmpeg >/dev/null 2>&1; then
+            timeout 6s ffmpeg -y -f v4l2 -i /dev/video0 -frames:v 1 /tmp/forge-camera.jpg >/dev/null 2>&1 || true
+        fi
+        if [[ -s /tmp/forge-camera.jpg || -e /dev/video0 ]]; then camera_test="ok"; else camera_test="fail"; fi
+    else
+        camera_test="$(ask_ok 'Camera OK / absente volontairement ?')"
+    fi
+
+    WORKSHOP_TESTS_JSON="$(PIXEL="${pixel_test}" KEYBOARD="${keyboard_test}" USB="${usb_test}" AUDIO="${audio_test}" MIC="${mic_test}" CAMERA="${camera_test}" python3 - <<'PY'
+import json, os, datetime
+print(json.dumps({
+  "created_at": datetime.datetime.utcnow().isoformat() + "Z",
+  "pixel": os.environ.get("PIXEL", "not_run"),
+  "keyboard": os.environ.get("KEYBOARD", "not_run"),
+  "usb": os.environ.get("USB", "not_run"),
+  "audio": os.environ.get("AUDIO", "not_run"),
+  "microphone": os.environ.get("MIC", "not_run"),
+  "camera": os.environ.get("CAMERA", "not_run"),
+}))
+PY
+)"
+    echo ""
+    echo "Tests atelier termines. Envoi vers AOS Deploy..."
+}
+
+DIAG_PID=""
+if [[ "${FORGE_MODE}" == "quick_audit" && "${FORGE_GUI_TESTS}" == "1" ]]; then
+    run_diag_express >/tmp/aos-diag-express.log 2>&1 &
+    DIAG_PID="$!"
+    run_workshop_tests
+    wait "${DIAG_PID}" 2>/dev/null || true
+elif [[ "${FORGE_MODE}" == "quick_audit" || "${FORGE_MODE}" == "test_atelier" ]]; then
+    run_diag_express
+    run_workshop_tests
+else
+    run_diag_express
+fi
+
+mkdir -p /root/.ssh
+chmod 700 /root/.ssh
+if curl -fsSL "${FORGE_SERVER}/agent/authorized_keys" -o /tmp/forge-authorized_keys 2>/dev/null; then
+    if grep -Eq '^(ssh-ed25519|ssh-rsa|ecdsa-sha2-)' /tmp/forge-authorized_keys; then
+        cat /tmp/forge-authorized_keys >> /root/.ssh/authorized_keys
+        sort -u /root/.ssh/authorized_keys -o /root/.ssh/authorized_keys
+        chmod 600 /root/.ssh/authorized_keys
+        echo "SSH authorized_keys installee depuis ${FORGE_SERVER}/agent/authorized_keys"
+    else
+        echo "authorized_keys ignore: pas de cle publique valide."
+    fi
+else
+    echo "Aucune cle publique agent disponible pour SSH."
+fi
+
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl start sshd 2>/dev/null || systemctl start ssh 2>/dev/null || true
+fi
+pgrep -x sshd >/dev/null 2>&1 || /usr/bin/sshd 2>/dev/null || true
+
+REMOTE_URL=""
+CAPABILITIES='["heartbeat","ssh"]'
+if [[ "${FORGE_VNC_INSECURE}" == "1" ]] && command -v x11vnc >/dev/null 2>&1; then
+    if [[ -n "${DISPLAY:-}" || -S /tmp/.X11-unix/X0 ]]; then
+        DISPLAY="${DISPLAY:-:0}" x11vnc -forever -shared -nopw -bg >/tmp/x11vnc.log 2>&1 || true
+        REMOTE_URL="vnc://${IP_ADDR}:5900"
+        CAPABILITIES='["heartbeat","ssh","vnc"]'
+        echo "VNC demarre en mode insecure explicite sur ${REMOTE_URL}"
+    fi
+fi
+
+write_state() {
+    cat > "${STATE}" <<EOF
+{
+  "client_id": "$(printf '%s' "${FORGE_ID}" | sed 's/"/\\"/g')",
+  "hostname": "$(printf '%s' "${HOSTNAME}" | sed 's/"/\\"/g')",
+  "ip": "$(printf '%s' "${IP_ADDR}" | sed 's/"/\\"/g')",
+  "mac": "$(printf '%s' "${MAC_ADDR}" | sed 's/"/\\"/g')",
+  "serial_number": "$(printf '%s' "${SERIAL}" | sed 's/"/\\"/g')",
+  "brand": "$(printf '%s' "${BRAND}" | sed 's/"/\\"/g')",
+  "model": "$(printf '%s' "${MODEL}" | sed 's/"/\\"/g')",
+  "state": "live systemrescue",
+  "boot_mode": "SystemRescue",
+  "current_task": "agent actif",
+  "progress": 100,
+  "remote_url": "$(printf '%s' "${REMOTE_URL}" | sed 's/"/\\"/g')",
+  "capabilities": ${CAPABILITIES}
+}
+EOF
+}
+
+write_audit_file() {
+    local audit_dir="/mnt/forge-deploy/audit"
+    local local_audit_dir="/tmp/forge-audit"
+    mkdir -p /mnt/forge-deploy
+    if ! mountpoint -q /mnt/forge-deploy; then
+        mount -t cifs "//${FORGE_HOST}/deploy" /mnt/forge-deploy \
+            -o "username=${FORGE_SMB_USER},password=${FORGE_SMB_PASS},vers=3.0,rw,noperm" 2>/tmp/forge-cifs.err || {
+            echo "Montage SMB impossible: $(cat /tmp/forge-cifs.err 2>/dev/null)"
+            audit_dir="${local_audit_dir}"
+        }
+    fi
+    mkdir -p "${audit_dir}"
+    FORGE_ID_E="${FORGE_ID}" HOSTNAME_E="${HOSTNAME}" IP_ADDR_E="${IP_ADDR}" MAC_ADDR_E="${MAC_ADDR}" \
+    SERIAL_E="${SERIAL}" BRAND_E="${BRAND}" MODEL_E="${MODEL}" CPU_MODEL_E="${CPU_MODEL}" \
+    PRODUCT_UUID_E="${PRODUCT_UUID}" BIOS_VENDOR_E="${BIOS_VENDOR}" BIOS_VERSION_E="${BIOS_VERSION}" BIOS_DATE_E="${BIOS_DATE}" \
+    BOARD_VENDOR_E="${BOARD_VENDOR}" BOARD_NAME_E="${BOARD_NAME}" CHASSIS_TYPE_E="${CHASSIS_TYPE}" \
+    CPU_TEST_E="${CPU_TEST}" RAM_MB_E="${RAM_MB}" RAM_TEST_E="${RAM_TEST}" MEMORY_MODULES_JSON_E="${MEMORY_MODULES_JSON}" \
+    RESOLUTION_E="${RESOLUTION}" NETWORK_JSON_E="${NETWORK_JSON}" TPM_JSON_E="${TPM_JSON}" USB_JSON_E="${USB_JSON}" \
+    GPU_JSON_E="${GPU_JSON}" AC_POWER_JSON_E="${AC_POWER_JSON}" MEDIA_JSON_E="${MEDIA_JSON}" \
+    BATTERIES_JSON_E="${BATTERIES_JSON}" DISKS_JSON_E="${DISKS_JSON}" DISK_TESTS_JSON_E="${DISK_TESTS_JSON}" WORKSHOP_TESTS_JSON_E="${WORKSHOP_TESTS_JSON}" \
+    GRADE_E="${GRADE}" AUDIT_DIR_E="${audit_dir}" FORGE_CONTROL_API_E="${FORGE_CONTROL_API}" python3 - <<'PY'
+import json, os, pathlib, datetime
+from urllib import request
+from urllib.error import URLError
+def env(name):
+    return os.environ.get(name, "")
+def env_json(name):
+    try:
+        return json.loads(env(name) or "[]")
+    except json.JSONDecodeError:
+        return []
+audit = {
+  "type": "atelier-forge-diag-express",
+  "created_at": datetime.datetime.utcnow().isoformat() + "Z",
+  "client_id": env("FORGE_ID_E"),
+  "hostname": env("HOSTNAME_E"),
+  "ip": env("IP_ADDR_E"),
+  "mac": env("MAC_ADDR_E"),
+  "serial_number": env("SERIAL_E"),
+  "product_uuid": env("PRODUCT_UUID_E"),
+  "brand": env("BRAND_E"),
+  "model": env("MODEL_E"),
+  "bios": {"vendor": env("BIOS_VENDOR_E"), "version": env("BIOS_VERSION_E"), "date": env("BIOS_DATE_E")},
+  "board": {"vendor": env("BOARD_VENDOR_E"), "name": env("BOARD_NAME_E")},
+  "chassis": {"type": env("CHASSIS_TYPE_E")},
+  "cpu": {"model": env("CPU_MODEL_E"), "quick_test": env("CPU_TEST_E")},
+  "ram": {"total_mb": env("RAM_MB_E"), "quick_test": env("RAM_TEST_E"), "modules": env_json("MEMORY_MODULES_JSON_E")},
+  "network": env_json("NETWORK_JSON_E"),
+  "tpm": env_json("TPM_JSON_E"),
+  "usb": env_json("USB_JSON_E"),
+  "display": {"resolution": env("RESOLUTION_E"), "gpu": env_json("GPU_JSON_E"), "pixel_test": "technician_required"},
+  "power": {"ac_adapters": env_json("AC_POWER_JSON_E")},
+  "media": env_json("MEDIA_JSON_E"),
+  "keyboard": {"test": "technician_required"},
+  "touchpad": {"test": "technician_required"},
+  "battery": env_json("BATTERIES_JSON_E"),
+  "disks": env_json("DISKS_JSON_E"),
+  "disk_tests": env_json("DISK_TESTS_JSON_E"),
+  "workshop_tests": env_json("WORKSHOP_TESTS_JSON_E"),
+  "grade_proposed": env("GRADE_E"),
+  "checks_required": ["pixels", "keyboard", "touchpad", "cosmetic"]
+}
+safe = (audit.get("serial_number") or audit.get("mac") or audit.get("hostname") or "pc").replace("/", "-").replace(":", "")
+path = pathlib.Path(env("AUDIT_DIR_E")) / f"{safe}.json"
+path.write_text(json.dumps(audit, indent=2, ensure_ascii=False), encoding="utf-8")
+(pathlib.Path(env("AUDIT_DIR_E")) / "latest.json").write_text(json.dumps(audit, indent=2, ensure_ascii=False), encoding="utf-8")
+def fmt_ram(total_mb):
+    try:
+        mb = int(float(total_mb))
+        gb = mb / 1024
+        return f"{gb:.0f} GB" if gb >= 10 else f"{gb:.1f} GB"
+    except (TypeError, ValueError):
+        return ""
+
+def fmt_disk(disk):
+    size = disk.get("size_gb")
+    size_text = f"{size:g} GB" if isinstance(size, (int, float)) else ""
+    model = (disk.get("model") or "").strip()
+    dtype = (disk.get("type") or "").strip()
+    smart = (disk.get("smart") or "").strip()
+    parts = [part for part in (size_text, dtype, model) if part]
+    text = " ".join(parts)
+    return {"text": text, "smart": smart, **disk}
+
+def fmt_battery(item):
+    status = item.get("status") or "unknown"
+    health = item.get("health_percent")
+    wear = item.get("wear_percent")
+    cycles = item.get("cycle_count")
+    return {
+        "name": item.get("name"),
+        "status": status,
+        "health_percent": health,
+        "wear_percent": wear,
+        "cycle_count": cycles,
+        "label": (
+            f"{status} | Sante {health}% | Usure {wear}%"
+            if health is not None and wear is not None
+            else f"{status} | Usure inconnue"
+        ),
+    }
+
+label_disks = [fmt_disk(disk) for disk in audit.get("disks", []) if isinstance(disk, dict)]
+label_batteries = [fmt_battery(item) for item in audit.get("battery", []) if isinstance(item, dict)]
+main_disk = label_disks[0]["text"] if label_disks else ""
+main_battery = label_batteries[0]["label"] if label_batteries else "Aucune batterie detectee"
+label = {
+  "serial_number": audit.get("serial_number"),
+  "brand": audit.get("brand"),
+  "model": audit.get("model"),
+  "machine": {
+    "brand": audit.get("brand"),
+    "model": audit.get("model"),
+    "serial_number": audit.get("serial_number"),
+  },
+  "cpu": (audit.get("cpu") or {}).get("model"),
+  "ram_mb": (audit.get("ram") or {}).get("total_mb"),
+  "ram": fmt_ram((audit.get("ram") or {}).get("total_mb")),
+  "disks": label_disks,
+  "main_disk": main_disk,
+  "battery": label_batteries,
+  "battery_status": main_battery,
+  "usb_ports_detected": len(audit.get("usb") or []),
+  "mac": audit.get("mac"),
+  "ip": audit.get("ip"),
+  "grade_proposed": audit.get("grade_proposed"),
+  "workshop_tests": audit.get("workshop_tests") or {},
+  "label_lines": [
+    f"{audit.get('brand','')} {audit.get('model','')}".strip(),
+    f"SN: {audit.get('serial_number','')}",
+    f"CPU: {(audit.get('cpu') or {}).get('model','')}",
+    f"RAM: {fmt_ram((audit.get('ram') or {}).get('total_mb'))}",
+    f"DISQUE: {main_disk}",
+    f"BATTERIE: {main_battery}",
+  ],
+}
+label_path = pathlib.Path(env("AUDIT_DIR_E")) / f"{safe}.label.json"
+label_path.write_text(json.dumps(label, indent=2, ensure_ascii=False), encoding="utf-8")
+(pathlib.Path(env("AUDIT_DIR_E")) / "latest-label.json").write_text(json.dumps(label, indent=2, ensure_ascii=False), encoding="utf-8")
+api = env("FORGE_CONTROL_API_E").rstrip("/")
+if api:
+    body = json.dumps({"audit": audit, "label": label}, ensure_ascii=False).encode("utf-8")
+    req = request.Request(
+        f"{api}/forge/pxe/audits/upload",
+        data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        request.urlopen(req, timeout=8).read()
+        print(f"Audit envoye vers {api}/forge/pxe/audits/upload")
+    except (OSError, URLError) as exc:
+        print(f"Envoi HTTP audit impossible: {exc}")
+print(path)
+PY
+}
+
+write_client_logs() {
+    local log_dir="/mnt/forge-deploy/client-logs"
+    local safe_id="${SERIAL:-${MAC_ADDR:-client}}"
+    safe_id="$(printf '%s' "${safe_id}" | tr -c 'A-Za-z0-9._-' '_')"
+    mkdir -p /mnt/forge-deploy
+    if ! mountpoint -q /mnt/forge-deploy; then
+        mount -t cifs "//${FORGE_HOST}/deploy" /mnt/forge-deploy \
+            -o "username=${FORGE_SMB_USER},password=${FORGE_SMB_PASS},vers=3.0,rw,noperm" 2>/tmp/forge-cifs-log.err || true
+    fi
+    mkdir -p "${log_dir}" 2>/dev/null || true
+    {
+        echo "created_at=$(date -Is)"
+        echo "forge_id=${FORGE_ID}"
+        echo "serial=${SERIAL}"
+        echo "mac=${MAC_ADDR}"
+        echo "ip=${IP_ADDR}"
+        echo "mode=${FORGE_MODE}"
+        echo "gui_tests=${FORGE_GUI_TESTS}"
+        echo "cmdline=$(cat /proc/cmdline 2>/dev/null)"
+        echo
+        echo "== command availability =="
+        for cmd in startx firefox firefox-esr dbus-run-session matchbox-window-manager openbox ip curl python3; do
+            printf '%s=' "${cmd}"
+            command -v "${cmd}" 2>/dev/null || true
+        done
+        echo
+        echo "== /tmp/aos-startx.log =="
+        cat /tmp/aos-startx.log 2>/dev/null || true
+        echo
+        echo "== /tmp/aos-startx-launch.out =="
+        cat /tmp/aos-startx-launch.out 2>/dev/null || true
+        echo
+        echo "== /tmp/aos-startx-launch.pid =="
+        cat /tmp/aos-startx-launch.pid 2>/dev/null || true
+        echo
+        echo "== graphical processes =="
+        ps aux 2>/dev/null | grep -E 'startx|Xorg|firefox|openbox|matchbox' | grep -v grep || true
+        echo
+        echo "== /tmp/aos-browser.err =="
+        cat /tmp/aos-browser.err 2>/dev/null || true
+        echo
+        echo "== /var/log/sysrescue-autorun.log =="
+        cat /var/log/sysrescue-autorun.log 2>/dev/null || true
+        echo
+        echo "== /var/log/atelier-forge-agent.log =="
+        cat "${LOG}" 2>/dev/null || true
+    } >"${log_dir}/${safe_id}.log" 2>/dev/null || true
+}
+
+send_heartbeat() {
+    [[ -n "${FORGE_API}" && -n "${FORGE_KEY}" ]] || return 0
+    curl -fsS \
+        -H "Content-Type: application/json" \
+        -H "X-Forge-Key: ${FORGE_KEY}" \
+        --data-binary @"${STATE}" \
+        "${FORGE_API%/}/forge/agent/heartbeat" >/tmp/forge-heartbeat.out 2>/tmp/forge-heartbeat.err || {
+            echo "Heartbeat echoue: $(cat /tmp/forge-heartbeat.err 2>/dev/null)"
+            return 1
+        }
+    echo "Heartbeat envoye vers ${FORGE_API%/}/forge/agent/heartbeat"
+}
+
+send_control_heartbeat() {
+    curl -fsS \
+        -H "Content-Type: application/json" \
+        --data-binary @"${STATE}" \
+        "${FORGE_CONTROL_API%/}/agent/heartbeat" >/tmp/forge-control-heartbeat.out 2>/tmp/forge-control-heartbeat.err || {
+            echo "Control heartbeat echoue: $(cat /tmp/forge-control-heartbeat.err 2>/dev/null)"
+            return 1
+        }
+    echo "Control heartbeat envoye vers ${FORGE_CONTROL_API%/}/agent/heartbeat"
+}
+
+post_command_result() {
+    local command_id="$1"
+    local status="$2"
+    local message="$3"
+    python3 - "$command_id" "$status" "$message" > /tmp/forge-command-result.json <<'PY'
+import json, sys, datetime
+print(json.dumps({
+    "command_id": sys.argv[1],
+    "status": sys.argv[2],
+    "message": sys.argv[3],
+    "finished_at": datetime.datetime.utcnow().isoformat() + "Z",
+}))
+PY
+    curl -fsS \
+        -H "Content-Type: application/json" \
+        --data-binary @/tmp/forge-command-result.json \
+        "${FORGE_CONTROL_API%/}/agent/${FORGE_ID}/result" >/tmp/forge-command-result.out 2>/tmp/forge-command-result.err || true
+}
+
+execute_command() {
+    local command_id="$1"
+    local action="$2"
+    case "${action}" in
+        diag_express)
+            run_diag_express
+            write_state
+            write_audit_file || true
+            post_command_result "${command_id}" "done" "Diagnostic express exécuté"
+            ;;
+        start_ssh)
+            pgrep -x sshd >/dev/null 2>&1 || /usr/bin/sshd 2>/dev/null || true
+            post_command_result "${command_id}" "done" "SSH actif sur ${IP_ADDR}"
+            ;;
+        open_tests)
+            if run_graphical_workshop_tests; then
+                post_command_result "${command_id}" "done" "Page tests atelier ouverte"
+            else
+                post_command_result "${command_id}" "failed" "Impossible d'ouvrir la page tests atelier"
+            fi
+            ;;
+        reboot)
+            post_command_result "${command_id}" "accepted" "Redémarrage demandé"
+            reboot
+            ;;
+        poweroff)
+            post_command_result "${command_id}" "accepted" "Extinction demandée"
+            poweroff
+            ;;
+        *)
+            post_command_result "${command_id}" "ignored" "Action inconnue: ${action}"
+            ;;
+    esac
+}
+
+poll_commands() {
+    curl -fsS "${FORGE_CONTROL_API%/}/agent/${FORGE_ID}/commands" -o /tmp/forge-commands.json 2>/tmp/forge-commands.err || return 0
+    python3 - <<'PY' > /tmp/forge-commands.tsv
+import json
+try:
+    data=json.load(open('/tmp/forge-commands.json', encoding='utf-8'))
+except Exception:
+    data=[]
+for item in data:
+    print(f"{item.get('id','')}\t{item.get('action','')}")
+PY
+    while IFS=$'\t' read -r command_id action; do
+        [[ -n "${command_id}" && -n "${action}" ]] || continue
+        echo "Commande reçue: ${command_id} ${action}"
+        execute_command "${command_id}" "${action}"
+    done < /tmp/forge-commands.tsv
+}
+
+write_state
+write_audit_file || true
+write_client_logs || true
+send_heartbeat || true
+send_control_heartbeat || true
+
+(
+    while true; do
+        sleep 10
+        write_state
+        write_audit_file || true
+        write_client_logs || true
+        send_heartbeat || true
+        send_control_heartbeat || true
+        poll_commands || true
+    done
+) &
+
+echo "Agent pret. IP=${IP_ADDR} MAC=${MAC_ADDR} HOST=${HOSTNAME}"
+exit 0

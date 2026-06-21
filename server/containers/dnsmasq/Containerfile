@@ -1,0 +1,14 @@
+# Image minimale dnsmasq pour Atelier Forge (proxyDHCP + TFTP).
+# Construite localement => auditable, pas de dépendance à une image tierce.
+FROM docker.io/library/alpine:3.20
+
+RUN apk add --no-cache dnsmasq
+
+# La configuration est fournie par un montage (bind) sur /etc/dnsmasq.d
+# et la racine TFTP par un montage sur /srv/tftp (voir l'unité Quadlet).
+EXPOSE 67/udp 69/udp
+
+ENTRYPOINT ["dnsmasq"]
+# -k : rester au premier plan (requis pour un conteneur)
+# --log-facility=- : logs sur la sortie standard (visibles via journalctl)
+CMD ["-k", "--log-facility=-", "--conf-file=/etc/dnsmasq.d/forge.conf"]

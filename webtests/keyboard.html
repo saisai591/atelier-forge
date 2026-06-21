@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test clavier</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .kbd { display:flex; flex-direction:column; gap:6px; margin-top:14px; }
+  .row { display:flex; gap:6px; }
+  .key { min-width:42px; height:42px; padding:0 8px; border:1px solid #2b3450;
+         border-radius:6px; background:#1b2236; display:flex; align-items:center;
+         justify-content:center; font-size:12px; color:#cdd8ef; }
+  .key.wide { min-width:90px; } .key.xwide { min-width:150px; flex:1; }
+  .key.hit { background:#54d18c; color:#062; border-color:#54d18c; }
+  #count { font-size:15px; margin-top:12px; }
+</style>
+</head>
+<body>
+<header><h1>⌨️ Test clavier</h1><a href="index.html">← retour</a></header>
+<main>
+  <p class="muted">Appuyez sur <strong>chaque touche</strong> : elle devient verte.
+  Les touches restées grises ne fonctionnent pas. (Détection par code physique :
+  AZERTY/QWERTY indifférent.)</p>
+  <div class="kbd" id="kbd"></div>
+  <div id="count"></div>
+  <button class="btn" onclick="reset()">Réinitialiser</button>
+</main>
+<script>
+  // Codes physiques (KeyboardEvent.code) par rangée.
+  const rows = [
+    ["Escape","F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12"],
+    ["Backquote","Digit1","Digit2","Digit3","Digit4","Digit5","Digit6","Digit7","Digit8","Digit9","Digit0","Minus","Equal","Backspace"],
+    ["Tab","KeyQ","KeyW","KeyE","KeyR","KeyT","KeyY","KeyU","KeyI","KeyO","KeyP","BracketLeft","BracketRight","Backslash"],
+    ["CapsLock","KeyA","KeyS","KeyD","KeyF","KeyG","KeyH","KeyJ","KeyK","KeyL","Semicolon","Quote","Enter"],
+    ["ShiftLeft","KeyZ","KeyX","KeyC","KeyV","KeyB","KeyN","KeyM","Comma","Period","Slash","ShiftRight"],
+    ["ControlLeft","MetaLeft","AltLeft","Space","AltRight","ControlRight","ArrowLeft","ArrowUp","ArrowDown","ArrowRight"],
+  ];
+  const wide = {Backspace:1,Tab:1,CapsLock:1,Enter:1,ShiftLeft:1,ShiftRight:1,ControlLeft:1,ControlRight:1,AltLeft:1,AltRight:1,MetaLeft:1};
+  const label = {Backquote:"²",Minus:"-",Equal:"=",BracketLeft:"[",BracketRight:"]",Backslash:"\\",Semicolon:";",Quote:"'",Comma:",",Period:".",Slash:"/",Space:"Espace",MetaLeft:"Win",ArrowLeft:"←",ArrowUp:"↑",ArrowDown:"↓",ArrowRight:"→"};
+  const all = new Set(); const hit = new Set();
+  const kbd = document.getElementById("kbd");
+  rows.forEach(r => {
+    const div = document.createElement("div"); div.className="row";
+    r.forEach(code => {
+      all.add(code);
+      const k = document.createElement("div");
+      k.className = "key" + (code==="Space"?" xwide":(wide[code]?" wide":""));
+      k.id = "k_"+code;
+      k.textContent = label[code] || code.replace(/^(Key|Digit)/,"");
+      div.appendChild(k);
+    });
+    kbd.appendChild(div);
+  });
+  function upd(){ document.getElementById("count").innerHTML =
+    `Touches testées : <b>${hit.size}</b> / ${all.size}` +
+    (hit.size===all.size?` <span class="ok">— toutes OK ✔</span>`:""); }
+  function reset(){ hit.clear(); document.querySelectorAll(".key").forEach(k=>k.classList.remove("hit")); upd(); }
+  document.addEventListener("keydown", e => {
+    e.preventDefault();
+    const el = document.getElementById("k_"+e.code);
+    if (el){ el.classList.add("hit"); hit.add(e.code); upd(); }
+  });
+  upd();
+</script>
+</body>
+</html>

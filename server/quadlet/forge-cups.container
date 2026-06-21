@@ -1,0 +1,22 @@
+# Atelier Forge — CUPS (OPTIONNEL : impression d'étiquettes Brother QL / Dymo, etc.).
+# Activé par install.sh uniquement si LABEL_PRINTER_TYPE="cups".
+# Pour une imprimante Zebra réseau (ZPL), CUPS n'est PAS nécessaire.
+[Unit]
+Description=Atelier Forge CUPS (impression d'étiquettes)
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+ContainerName=forge-cups
+Image=localhost/forge-cups:latest
+Network=host
+# Accès aux imprimantes USB (Brother QL, Dymo...). Ajustez selon votre matériel.
+AddDevice=/dev/bus/usb
+Volume=@CONFIG_DIR@/cups:/etc/cups:z
+
+[Service]
+Restart=always
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target default.target

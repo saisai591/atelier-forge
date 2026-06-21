@@ -1,0 +1,20 @@
+# =============================================================================
+# MODÈLE de module de menu Atelier Forge.
+# Pour créer une nouvelle entrée de menu :
+#   1. copiez ce fichier en  modules/NN-monmodule.ipxe   (NN = ordre, ex: 50)
+#   2. adaptez les 3 lignes de métadonnées + le corps iPXE ci-dessous
+#   3. relancez :  sudo ./server/render-config.sh && sudo systemctl restart forge-nginx
+# Le fichier ".example" est IGNORÉ (seuls les *.ipxe sont pris en compte).
+#
+# Métadonnées (lignes de commentaire lues par render-config.sh) :
+#   # section: <titre de groupe affiché>   (optionnel ; regroupe les entrées)
+#   # item:    <clé>  <texte affiché>       (la clé doit = le label ":clé" ci-dessous)
+#   # enabled: yes|no                       (no = module désactivé, non affiché)
+# =============================================================================
+# section: Exemples
+# item: exemple    Mon module d'exemple  (description)
+# enabled: no
+:exemple
+echo Exemple de module...
+# chain ${base}/chemin/vers/quelquechose || goto failed
+goto start

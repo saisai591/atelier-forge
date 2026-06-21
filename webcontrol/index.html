@@ -1,0 +1,723 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Atelier Forge - Dashboard</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --surface: #ffffff;
+      --surface-2: #f8fafc;
+      --ink: #101828;
+      --muted: #667085;
+      --line: #d8dee8;
+      --nav: #111827;
+      --nav-soft: #1f2937;
+      --blue: #2563eb;
+      --green: #059669;
+      --amber: #d97706;
+      --red: #dc2626;
+      --shadow: 0 16px 44px rgba(16, 24, 40, .08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: "Segoe UI", Roboto, Arial, sans-serif;
+    }
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+    }
+    aside {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 18px;
+      background: var(--nav);
+      color: white;
+      border-right: 1px solid rgba(255,255,255,.08);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 6px 22px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      margin-bottom: 16px;
+    }
+    .mark {
+      width: 42px;
+      height: 42px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: var(--blue);
+      font-weight: 900;
+    }
+    .brand b { display: block; font-size: 15px; }
+    .brand span { display: block; color: #aab3c2; font-size: 12px; margin-top: 2px; }
+    nav { display: grid; gap: 6px; }
+    .navitem {
+      border: 0;
+      width: 100%;
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 11px;
+      border-radius: 8px;
+      color: #d1d5db;
+      background: transparent;
+      cursor: pointer;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      text-align: left;
+    }
+    .navitem:hover, .navitem.active { background: var(--nav-soft); color: white; }
+    .navicon {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      display: grid;
+      place-items: center;
+      background: rgba(255,255,255,.08);
+      font-size: 11px;
+      font-weight: 900;
+      color: white;
+    }
+    .server-card {
+      margin-top: 18px;
+      padding: 12px;
+      border-radius: 8px;
+      background: rgba(255,255,255,.06);
+      color: #d1d5db;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+    .main { min-width: 0; }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      min-height: 66px;
+      padding: 12px 22px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(244,246,248,.9);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--line);
+    }
+    .mobile-title { display: none; font-weight: 900; }
+    .search {
+      flex: 1;
+      max-width: 720px;
+      height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .search input {
+      border: 0;
+      outline: 0;
+      width: 100%;
+      background: transparent;
+      font: inherit;
+      font-size: 14px;
+    }
+    .top-actions {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    button, .btn {
+      min-height: 38px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 9px 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: white;
+      background: var(--blue);
+      cursor: pointer;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    button.secondary, .btn.secondary {
+      background: var(--surface);
+      color: var(--ink);
+      border-color: var(--line);
+    }
+    button.danger { background: var(--red); }
+    main {
+      width: min(1600px, 100%);
+      margin: 0 auto;
+      padding: 22px;
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: end;
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      margin-bottom: 16px;
+    }
+    h1 { margin: 0; font-size: 30px; line-height: 1.1; letter-spacing: 0; }
+    h2 { margin: 0; font-size: 17px; letter-spacing: 0; }
+    h3 { margin: 0; font-size: 14px; }
+    .sub { color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .hero .sub { max-width: 780px; margin: 8px 0 0; }
+    .status-strip {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 26px;
+      border-radius: 999px;
+      padding: 4px 9px;
+      background: #e5e7eb;
+      color: #374151;
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .pill::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 99px;
+      background: currentColor;
+    }
+    .ok { background: #dcfce7; color: var(--green); }
+    .warn { background: #fef3c7; color: var(--amber); }
+    .bad { background: #fee2e2; color: var(--red); }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .stat, .panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: 0 8px 24px rgba(16,24,40,.05);
+      min-width: 0;
+    }
+    .stat { padding: 16px; }
+    .stat small {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+    .stat b { display: block; margin-top: 6px; font-size: 28px; }
+    .grid-main {
+      display: grid;
+      grid-template-columns: 380px minmax(0, 1fr) 390px;
+      gap: 12px;
+      align-items: start;
+    }
+    .panel { margin-bottom: 12px; overflow: hidden; }
+    .panel-head {
+      min-height: 58px;
+      padding: 13px 15px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: var(--surface-2);
+    }
+    .panel-body { padding: 14px; }
+    .machine {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--ink);
+      text-align: left;
+      padding: 12px;
+      margin-bottom: 8px;
+      box-shadow: none;
+    }
+    .machine.active { border-color: #93c5fd; background: #eff6ff; }
+    .machine-title { font-weight: 900; font-size: 14px; }
+    .mono { font-family: Consolas, "Liberation Mono", monospace; }
+    .meta { color: var(--muted); font-size: 12px; margin-top: 4px; }
+    .kv-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .kv {
+      min-height: 74px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface-2);
+    }
+    .kv small {
+      display: block;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+    .kv b {
+      display: block;
+      margin-top: 7px;
+      font-size: 13px;
+      word-break: break-word;
+    }
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .checklist { display: grid; gap: 8px; }
+    .checkrow {
+      display: grid;
+      grid-template-columns: 24px minmax(0, 1fr) auto;
+      gap: 9px;
+      align-items: center;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 99px;
+      background: var(--green);
+      justify-self: center;
+    }
+    .dot.warn { background: var(--amber); }
+    .dot.bad { background: var(--red); }
+    label { display: block; margin-top: 10px; color: #344054; font-size: 12px; font-weight: 900; }
+    input, select {
+      width: 100%;
+      height: 40px;
+      margin-top: 5px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0 10px;
+      background: var(--surface);
+      color: var(--ink);
+      font: inherit;
+      font-size: 13px;
+      outline: 0;
+    }
+    pre.logs {
+      margin: 0;
+      max-height: 360px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      padding: 12px;
+      border-radius: 8px;
+      background: #0b1220;
+      color: #d1fae5;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .label-preview {
+      min-height: 150px;
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px dashed #98a2b3;
+      border-radius: 8px;
+      background: var(--surface-2);
+      overflow: auto;
+    }
+    .empty { padding: 28px 12px; text-align: center; color: var(--muted); }
+    .section-anchor { scroll-margin-top: 86px; }
+    .mobile-nav { display: none; }
+    @media (max-width: 1400px) {
+      .grid-main { grid-template-columns: 360px minmax(0, 1fr); }
+      .rightcol { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+      .rightcol .panel { margin-bottom: 0; }
+    }
+    @media (max-width: 1020px) {
+      .app { grid-template-columns: 84px minmax(0, 1fr); }
+      aside { padding: 14px 10px; }
+      .brand div:last-child, .navitem span, .server-card { display: none; }
+      .brand { justify-content: center; padding-bottom: 14px; }
+      .navitem { justify-content: center; padding: 10px; }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid-main, .rightcol { grid-template-columns: 1fr; }
+      .hero { grid-template-columns: 1fr; }
+      .status-strip { justify-content: flex-start; }
+    }
+    @media (max-width: 720px) {
+      .app { display: block; }
+      aside { display: none; }
+      header { padding: 10px; align-items: flex-start; }
+      .mobile-title { display: block; }
+      .search { display: none; }
+      main { padding: 10px 10px 78px; }
+      .stats, .kv-grid, .action-grid, .rightcol { grid-template-columns: 1fr; }
+      h1 { font-size: 24px; }
+      .mobile-nav {
+        position: fixed;
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        z-index: 20;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 6px;
+        padding: 7px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: rgba(255,255,255,.94);
+        box-shadow: var(--shadow);
+      }
+      .mobile-nav button {
+        min-height: 42px;
+        padding: 7px 4px;
+        background: transparent;
+        color: var(--muted);
+        border: 0;
+        font-size: 11px;
+        box-shadow: none;
+      }
+      .mobile-nav button.active { background: var(--nav); color: white; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside>
+      <div class="brand">
+        <div class="mark">AF</div>
+        <div><b>Atelier Forge</b><span>Dashboard unique</span></div>
+      </div>
+      <nav>
+        <button class="navitem active" data-nav="atelier" onclick="goSection('atelier')"><span class="navicon">AT</span><span>Atelier</span></button>
+        <button class="navitem" data-nav="machines" onclick="goSection('machines')"><span class="navicon">PC</span><span>Machines</span></button>
+        <button class="navitem" data-nav="windows" onclick="goSection('windows')"><span class="navicon">WI</span><span>Windows</span></button>
+        <button class="navitem" data-nav="diagnostic" onclick="goSection('diagnostic')"><span class="navicon">DG</span><span>Diagnostic</span></button>
+        <button class="navitem" data-nav="wipe" onclick="goSection('wipe')"><span class="navicon">EF</span><span>Effacement</span></button>
+        <button class="navitem" data-nav="labels" onclick="goSection('labels')"><span class="navicon">ET</span><span>Etiquettes</span></button>
+        <button class="navitem" data-nav="logs" onclick="goSection('logs')"><span class="navicon">LG</span><span>Logs</span></button>
+        <button class="navitem" data-nav="settings" onclick="goSection('settings')"><span class="navicon">PR</span><span>Parametres</span></button>
+      </nav>
+      <div class="server-card">
+        Serveur: <b id="serverIpSide">-</b><br>
+        Mode: <b>proxyDHCP</b><br>
+        Proxmox: hote direct, pas une VM.
+      </div>
+    </aside>
+
+    <div class="main">
+      <header>
+        <div class="mobile-title">Atelier Forge</div>
+        <div class="search"><span>Rechercher</span><input id="search" placeholder="Machine, IP, MAC, serie..." oninput="renderMachines()"></div>
+        <div class="top-actions">
+          <a class="btn secondary" href="/tests/">Tests</a>
+          <a class="btn secondary" href="/tech/">Technicien</a>
+          <button onclick="refresh()">Actualiser</button>
+        </div>
+      </header>
+
+      <main>
+        <section class="hero section-anchor" id="atelier">
+          <div>
+            <h1>Dashboard atelier PXE</h1>
+            <p class="sub">Une seule interface pour suivre les machines, deployer Windows, lancer les diagnostics, verifier l'effacement et imprimer les etiquettes.</p>
+          </div>
+          <div class="status-strip">
+            <span class="pill" id="apiPill">API...</span>
+            <span class="pill ok">HTTP 1950</span>
+            <span class="pill ok">PXE proxy</span>
+          </div>
+        </section>
+
+        <section class="stats">
+          <div class="stat"><small>Machines</small><b id="statMachines">0</b><span class="sub">agents detectes</span></div>
+          <div class="stat"><small>En ligne</small><b id="statOnline">0</b><span class="sub">IP connue</span></div>
+          <div class="stat"><small>Commandes</small><b id="statCommands">0</b><span class="sub">file API</span></div>
+          <div class="stat"><small>Dernier audit</small><b id="statAudit">-</b><span class="sub">rapport local</span></div>
+        </section>
+
+        <section class="grid-main">
+          <div>
+            <section class="panel section-anchor" id="machines">
+              <div class="panel-head"><div><h2>Machines</h2><div class="sub">PC visibles par les agents PXE</div></div><span class="pill ok" id="livePill">Live</span></div>
+              <div class="panel-body" id="machinesList"><div class="empty">Chargement...</div></div>
+            </section>
+          </div>
+
+          <div>
+            <section class="panel section-anchor" id="diagnostic">
+              <div class="panel-head"><div><h2>Fiche machine</h2><div class="sub">Diagnostic et actions rapides</div></div></div>
+              <div class="panel-body" id="detail"><div class="empty">Selectionne une machine.</div></div>
+            </section>
+
+            <section class="panel section-anchor" id="windows">
+              <div class="panel-head"><div><h2>Deploiement Windows</h2><div class="sub">Etat des fichiers de boot et du partage</div></div></div>
+              <div class="panel-body">
+                <div class="checklist">
+                  <div class="checkrow"><span class="dot" id="dotMenu"></span><div><h3>Menu iPXE</h3><div class="sub">/boot/menu.ipxe</div></div><a class="btn secondary" href="/boot/menu.ipxe" target="_blank">Voir</a></div>
+                  <div class="checkrow"><span class="dot" id="dotWinpe"></span><div><h3>WinPE</h3><div class="sub">boot.wim, BCD et boot.sdi attendus</div></div><span class="pill warn" id="winpeState">A verifier</span></div>
+                  <div class="checkrow"><span class="dot"></span><div><h3>Partage deploy</h3><div class="sub">Images Windows, pilotes, audits, certificats</div></div><span class="pill ok">Samba</span></div>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel section-anchor" id="wipe">
+              <div class="panel-head"><div><h2>Effacement securise</h2><div class="sub">Certificats signes et verification</div></div></div>
+              <div class="panel-body">
+                <div class="kv-grid">
+                  <div class="kv"><small>Methode</small><b>auto</b></div>
+                  <div class="kv"><small>Signature</small><b id="signState">active</b></div>
+                  <div class="kv"><small>Cle publique</small><b><a href="/forge-public-key.pem" target="_blank">telecharger</a></b></div>
+                  <div class="kv"><small>Dossier</small><b class="mono">/deploy/certificates</b></div>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div class="rightcol">
+            <section class="panel section-anchor" id="labels">
+              <div class="panel-head"><div><h2>Etiquettes</h2><div class="sub">Inventaire, grade, prix</div></div></div>
+              <div class="panel-body">
+                <div id="labelForm"></div>
+                <div id="labelPreview" class="label-preview sub">La previsualisation apparaitra ici.</div>
+              </div>
+            </section>
+
+            <section class="panel section-anchor" id="logs">
+              <div class="panel-head"><div><h2>Logs</h2><div class="sub">PXE, HTTP et API locale</div></div><button class="secondary" onclick="renderLogs()">Recharger</button></div>
+              <div class="panel-body"><pre id="logsBox" class="logs">Chargement...</pre></div>
+            </section>
+
+            <section class="panel section-anchor" id="settings">
+              <div class="panel-head"><div><h2>Parametres</h2><div class="sub">Configuration serveur</div></div></div>
+              <div class="panel-body">
+                <div class="kv-grid">
+                  <div class="kv"><small>Serveur</small><b id="serverIp">-</b></div>
+                  <div class="kv"><small>API</small><b id="apiUrl">-</b></div>
+                  <div class="kv"><small>Installation</small><b>hote Proxmox</b></div>
+                  <div class="kv"><small>Conteneurs</small><b>Podman + systemd</b></div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <nav class="mobile-nav">
+    <button class="active" data-nav="atelier" onclick="goSection('atelier')">Atelier</button>
+    <button data-nav="machines" onclick="goSection('machines')">Machines</button>
+    <button data-nav="windows" onclick="goSection('windows')">Windows</button>
+    <button data-nav="labels" onclick="goSection('labels')">Etiq.</button>
+    <button data-nav="logs" onclick="goSection('logs')">Logs</button>
+  </nav>
+
+  <script>
+    const apiBase = `http://${location.hostname}:1953/api`;
+    let machines = [];
+    let commands = [];
+    let latestAudit = null;
+    let selected = null;
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+    const byId = id => document.getElementById(id);
+
+    byId('serverIp').textContent = location.hostname;
+    byId('serverIpSide').textContent = location.hostname;
+    byId('apiUrl').textContent = apiBase;
+
+    async function getJson(url, opts) {
+      const response = await fetch(url, opts);
+      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+      return response.json();
+    }
+
+    function goSection(id) {
+      const el = byId(id);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.querySelectorAll('[data-nav]').forEach(item => item.classList.toggle('active', item.dataset.nav === id));
+    }
+
+    function machineTitle(machine) {
+      const parts = [machine.brand, machine.model].filter(Boolean).join(' ').trim();
+      return parts || machine.hostname || machine.serial_number || machine.mac || machine.client_id || 'Machine inconnue';
+    }
+
+    function stateClass(value) {
+      return /fail|erreur|offline|ko/i.test(value || '') ? 'bad' : /warn|attention|missing/i.test(value || '') ? 'warn' : 'ok';
+    }
+
+    async function refresh() {
+      try {
+        const health = await getJson(`${apiBase}/health`);
+        machines = await getJson(`${apiBase}/machines`);
+        commands = await getJson(`${apiBase}/commands`).catch(() => []);
+        latestAudit = await getJson(`${apiBase}/audits/latest`).catch(() => null);
+        if (!selected && machines[0]) selected = machines[0].client_id;
+
+        byId('apiPill').textContent = health.ok ? 'API OK' : 'API KO';
+        byId('apiPill').className = `pill ${health.ok ? 'ok' : 'bad'}`;
+        byId('statMachines').textContent = machines.length;
+        byId('statOnline').textContent = machines.filter(machine => machine.ip).length;
+        byId('statCommands').textContent = commands.length;
+        byId('statAudit').textContent = latestAudit ? 'OK' : '-';
+        renderMachines();
+        renderDetail();
+        renderLabel();
+        renderLogs();
+        checkWinpe();
+      } catch (error) {
+        byId('apiPill').textContent = 'API KO';
+        byId('apiPill').className = 'pill bad';
+        byId('machinesList').innerHTML = `<div class="empty">API indisponible: ${esc(error.message)}</div>`;
+      }
+    }
+
+    function renderMachines() {
+      const query = (byId('search')?.value || '').toLowerCase();
+      const filtered = machines.filter(machine => JSON.stringify(machine).toLowerCase().includes(query));
+      if (!filtered.length) {
+        byId('machinesList').innerHTML = '<div class="empty">Aucune machine pour le moment. Demarre un PC en PXE diagnostic.</div>';
+        return;
+      }
+      byId('machinesList').innerHTML = filtered.map(machine => `
+        <button class="machine ${selected === machine.client_id ? 'active' : ''}" onclick="selected='${esc(machine.client_id)}'; renderMachines(); renderDetail(); renderLabel();">
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:start">
+            <div>
+              <div class="machine-title">${esc(machineTitle(machine))}</div>
+              <div class="meta mono">${esc(machine.ip || 'IP inconnue')} - ${esc(machine.mac || 'MAC inconnue')}</div>
+            </div>
+            <span class="pill ${stateClass(machine.state)}">${esc(machine.state || 'live')}</span>
+          </div>
+        </button>
+      `).join('');
+    }
+
+    function renderDetail() {
+      const machine = machines.find(item => item.client_id === selected);
+      if (!machine) {
+        byId('detail').innerHTML = '<div class="empty">Selectionne une machine.</div>';
+        return;
+      }
+      byId('detail').innerHTML = `
+        <h2 style="font-size:22px">${esc(machineTitle(machine))}</h2>
+        <p class="sub mono">${esc(machine.serial_number || machine.client_id || '')}</p>
+        <div class="kv-grid">
+          <div class="kv"><small>IP</small><b>${esc(machine.ip || '-')}</b></div>
+          <div class="kv"><small>MAC</small><b>${esc(machine.mac || '-')}</b></div>
+          <div class="kv"><small>Boot</small><b>${esc(machine.boot_mode || '-')}</b></div>
+          <div class="kv"><small>Derniere vue</small><b>${esc(machine.last_seen || '-')}</b></div>
+        </div>
+        <div class="action-grid">
+          <button onclick="sendAction('diag_express')">Diag express</button>
+          <button class="secondary" onclick="sendAction('start_ssh')">Activer SSH</button>
+          <button class="secondary" onclick="sendAction('reboot')">Redemarrer</button>
+          <button class="danger" onclick="sendAction('poweroff')">Eteindre</button>
+        </div>
+        <pre class="logs" style="margin-top:12px;max-height:260px">${esc(JSON.stringify(machine, null, 2))}</pre>
+      `;
+    }
+
+    async function sendAction(action) {
+      if (!selected) return;
+      await getJson(`${apiBase}/machines/${encodeURIComponent(selected)}/actions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, payload: {} })
+      });
+      await refresh();
+    }
+
+    function renderLabel() {
+      const machine = machines.find(item => item.client_id === selected) || {};
+      const title = machineTitle(machine);
+      byId('labelForm').innerHTML = `
+        <label>Titre<input id="labelTitle" value="${esc(title === 'Machine inconnue' ? '' : title)}"></label>
+        <label>Sous-titre<input id="labelSubtitle" value="${esc([machine.serial_number, machine.ip].filter(Boolean).join(' - '))}"></label>
+        <div class="kv-grid">
+          <label>Grade<input id="labelGrade" value="${esc(latestAudit?.grade_proposed || '')}"></label>
+          <label>Prix<input id="labelPrice" value=""></label>
+        </div>
+        <button style="margin-top:12px" onclick="previewLabel()">Previsualiser</button>
+      `;
+    }
+
+    async function previewLabel() {
+      const machine = machines.find(item => item.client_id === selected) || {};
+      const result = await getJson(`${apiBase}/labels/preview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: byId('labelTitle').value,
+          subtitle: byId('labelSubtitle').value,
+          grade: byId('labelGrade').value,
+          price: byId('labelPrice').value,
+          serial_number: machine.serial_number || '',
+          qr_text: machine.client_id || ''
+        })
+      });
+      byId('labelPreview').innerHTML = result.html;
+    }
+
+    async function renderLogs() {
+      try {
+        const result = await getJson(`${apiBase}/logs/pxe?lines=120`);
+        byId('logsBox').textContent = (result.logs || []).join('\n') || 'Aucun log.';
+      } catch (error) {
+        byId('logsBox').textContent = `Logs indisponibles: ${error.message}`;
+      }
+    }
+
+    async function checkWinpe() {
+      byId('dotMenu').className = 'dot';
+      try {
+        await fetch('/winpe/media/sources/boot.wim', { method: 'HEAD' }).then(response => {
+          if (!response.ok) throw new Error('missing');
+        });
+        byId('dotWinpe').className = 'dot';
+        byId('winpeState').className = 'pill ok';
+        byId('winpeState').textContent = 'Pret';
+      } catch {
+        byId('dotWinpe').className = 'dot warn';
+        byId('winpeState').className = 'pill warn';
+        byId('winpeState').textContent = 'WinPE manquant';
+      }
+    }
+
+    refresh();
+    setInterval(refresh, 7000);
+  </script>
+</body>
+</html>

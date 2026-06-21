@@ -1,0 +1,5 @@
+# section: 4 - Systeme
+# item: shell      Console iPXE avancee
+# enabled: yes
+:shell
+shell

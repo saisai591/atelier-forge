@@ -1,0 +1,5 @@
+# section: 4 - Systeme
+# item: poweroff   Eteindre la machine
+# enabled: yes
+:poweroff
+poweroff

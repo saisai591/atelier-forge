@@ -1,0 +1,6 @@
+# section: 1 - Actions rapides
+# item: memtest    [PRET] Test memoire RAM
+# enabled: yes
+:memtest
+echo Chargement de Memtest86+ ...
+chain ${base}/diag/memtest.efi || goto failed

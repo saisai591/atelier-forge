@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Atelier Forge - Tests peripheriques PXE</title>
+  <style>
+    :root {
+      --ink: #08111f;
+      --muted: #64748b;
+      --line: rgba(148, 163, 184, .28);
+      --card: rgba(255,255,255,.86);
+      --blue: #1d4ed8;
+      --green: #059669;
+      --amber: #d97706;
+      --red: #dc2626;
+      --dark: #07111f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: ui-sans-serif, "Segoe UI", Roboto, Arial, sans-serif;
+      background:
+        radial-gradient(circle at 18% 8%, rgba(29,78,216,.18), transparent 34rem),
+        radial-gradient(circle at 90% 22%, rgba(5,150,105,.14), transparent 30rem),
+        linear-gradient(135deg, #f8fafc, #edf6f8);
+    }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(248,250,252,.82);
+      backdrop-filter: blur(18px);
+    }
+    .logo {
+      width: 42px;
+      height: 42px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      color: white;
+      font-weight: 950;
+      background: linear-gradient(135deg, #1d4ed8, #059669);
+      box-shadow: 0 16px 34px rgba(29,78,216,.24);
+    }
+    h1, h2 { margin: 0; letter-spacing: -.04em; }
+    h1 { font-size: clamp(24px, 4vw, 42px); line-height: .95; }
+    h2 { font-size: 18px; }
+    .sub { color: var(--muted); font-size: 13px; line-height: 1.55; }
+    main { max-width: 1320px; margin: 0 auto; padding: 20px; }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: end;
+      margin-bottom: 16px;
+      padding: 22px;
+      border: 1px solid rgba(255,255,255,.75);
+      border-radius: 30px;
+      background: linear-gradient(135deg, rgba(255,255,255,.92), rgba(255,255,255,.62));
+      box-shadow: 0 24px 60px rgba(15,23,42,.08);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .panel {
+      min-width: 0;
+      border: 1px solid rgba(255,255,255,.75);
+      border-radius: 26px;
+      background: var(--card);
+      box-shadow: 0 18px 44px rgba(15,23,42,.07);
+      overflow: hidden;
+    }
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    .panel-body { padding: 16px; }
+    button, .btn {
+      border: 0;
+      border-radius: 15px;
+      padding: 11px 14px;
+      background: var(--blue);
+      color: white;
+      font-weight: 900;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 12px 28px rgba(29,78,216,.22);
+    }
+    button.secondary, .btn.secondary {
+      background: rgba(255,255,255,.86);
+      color: var(--ink);
+      border: 1px solid var(--line);
+      box-shadow: none;
+    }
+    button.ok { background: var(--green); }
+    button.bad { background: var(--red); }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 950;
+      background: #e2e8f0;
+      color: #334155;
+    }
+    .status::before { content: ""; width: 8px; height: 8px; border-radius: 99px; background: currentColor; }
+    .pass { background: #ccfbf1; color: var(--green); }
+    .warn { background: #fef3c7; color: var(--amber); }
+    .fail { background: #fee2e2; color: var(--red); }
+    .keybox {
+      min-height: 110px;
+      border: 1px dashed rgba(100,116,139,.4);
+      border-radius: 20px;
+      padding: 12px;
+      background: rgba(248,250,252,.78);
+      outline: none;
+    }
+    .keys {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 10px;
+    }
+    .key {
+      padding: 6px 9px;
+      border-radius: 10px;
+      background: #e2e8f0;
+      font-size: 12px;
+      font-weight: 900;
+      font-family: ui-monospace, Consolas, monospace;
+    }
+    video {
+      width: 100%;
+      max-height: 340px;
+      border-radius: 20px;
+      background: #020617;
+      object-fit: cover;
+    }
+    .meter {
+      height: 18px;
+      border-radius: 999px;
+      background: #e2e8f0;
+      overflow: hidden;
+      margin-top: 12px;
+    }
+    .bar {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #059669, #f59e0b, #dc2626);
+      transition: width .08s linear;
+    }
+    .screen {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: clamp(22px, 5vw, 64px);
+      font-weight: 950;
+      text-align: center;
+      cursor: pointer;
+    }
+    pre {
+      max-height: 220px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      padding: 12px;
+      border-radius: 18px;
+      background: var(--dark);
+      color: #d1fae5;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    @media (max-width: 820px) {
+      .hero, .grid { grid-template-columns: 1fr; }
+      main { padding: 12px; }
+      header { align-items: start; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">AF</div>
+    <div>
+      <strong>Tests peripheriques PXE</strong>
+      <div class="sub">A ouvrir sur la machine testee pour clavier, micro et camera.</div>
+    </div>
+    <a class="btn secondary" style="margin-left:auto" href="/control/">Control</a>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <h1>Controle rapide<br>clavier, pixels, micro, camera.</h1>
+        <p class="sub">Cette page ne contient aucune donnee fictive. Les tests micro/camera utilisent les peripheriques du navigateur qui ouvre cette page.</p>
+      </div>
+      <span class="status warn" id="secureStatus">Verification navigateur</span>
+    </section>
+
+    <section class="grid">
+      <article class="panel">
+        <div class="panel-head">
+          <div><h2>Clavier</h2><div class="sub">Clique dans la zone puis appuie sur les touches.</div></div>
+          <span class="status warn" id="keyboardStatus">En attente</span>
+        </div>
+        <div class="panel-body">
+          <div id="keybox" class="keybox" tabindex="0">Clique ici puis teste le clavier.</div>
+          <div class="keys" id="keys"></div>
+          <div class="actions">
+            <button class="ok" onclick="mark('keyboardStatus','pass','Clavier OK')">Clavier OK</button>
+            <button class="bad" onclick="mark('keyboardStatus','fail','Defaut clavier')">Defaut</button>
+            <button class="secondary" onclick="clearKeys()">Reset</button>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div><h2>Ecran / pixels</h2><div class="sub">Passe en plein ecran couleur pour verifier les pixels morts.</div></div>
+          <span class="status warn" id="pixelStatus">En attente</span>
+        </div>
+        <div class="panel-body">
+          <div class="actions">
+            <button onclick="startPixelTest()">Lancer test pixels</button>
+            <button class="ok" onclick="mark('pixelStatus','pass','Pixels OK')">Pixels OK</button>
+            <button class="bad" onclick="mark('pixelStatus','fail','Defaut pixels')">Defaut</button>
+          </div>
+          <p class="sub">Couleurs : blanc, noir, rouge, vert, bleu. Clique pour passer a la couleur suivante.</p>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div><h2>Camera</h2><div class="sub">Autorise la camera dans le navigateur.</div></div>
+          <span class="status warn" id="cameraStatus">En attente</span>
+        </div>
+        <div class="panel-body">
+          <video id="video" autoplay playsinline muted></video>
+          <div class="actions">
+            <button onclick="startCamera()">Demarrer camera</button>
+            <button class="secondary" onclick="stopCamera()">Stop</button>
+            <button class="ok" onclick="mark('cameraStatus','pass','Camera OK')">Camera OK</button>
+            <button class="bad" onclick="mark('cameraStatus','fail','Defaut camera')">Defaut</button>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div><h2>Micro & haut-parleur</h2><div class="sub">Barre de niveau micro + bip audio local.</div></div>
+          <span class="status warn" id="audioStatus">En attente</span>
+        </div>
+        <div class="panel-body">
+          <div class="meter"><div class="bar" id="micBar"></div></div>
+          <div class="actions">
+            <button onclick="startMic()">Tester micro</button>
+            <button onclick="playTone()">Bip haut-parleur</button>
+            <button class="secondary" onclick="stopMic()">Stop micro</button>
+            <button class="ok" onclick="mark('audioStatus','pass','Audio OK')">Audio OK</button>
+            <button class="bad" onclick="mark('audioStatus','fail','Defaut audio')">Defaut</button>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel" style="margin-top:14px">
+      <div class="panel-head">
+        <div><h2>Journal local du test</h2><div class="sub">Trace visible pour le technicien.</div></div>
+      </div>
+      <div class="panel-body">
+        <pre id="log">Pret.</pre>
+      </div>
+    </section>
+  </main>
+
+  <div class="screen" id="pixelScreen" onclick="nextPixelColor()"></div>
+
+  <script>
+    let cameraStream = null;
+    let micStream = null;
+    let audioContext = null;
+    let pixelIndex = 0;
+    const pixelColors = [
+      ['#ffffff', '#111827', 'BLANC'],
+      ['#000000', '#ffffff', 'NOIR'],
+      ['#ff0000', '#ffffff', 'ROUGE'],
+      ['#00cc44', '#ffffff', 'VERT'],
+      ['#0057ff', '#ffffff', 'BLEU']
+    ];
+    const seenKeys = new Set();
+    function write(message) {
+      log.textContent = `[${new Date().toLocaleTimeString()}] ${message}\n` + log.textContent;
+    }
+    function mark(id, cls, text) {
+      const el = document.getElementById(id);
+      el.className = `status ${cls}`;
+      el.textContent = text;
+      write(text);
+    }
+    function clearKeys() {
+      seenKeys.clear();
+      keys.innerHTML = '';
+      mark('keyboardStatus', 'warn', 'En attente');
+    }
+    keybox.addEventListener('keydown', e => {
+      e.preventDefault();
+      const label = e.code || e.key;
+      seenKeys.add(label);
+      keys.innerHTML = Array.from(seenKeys).sort().map(k => `<span class="key">${k}</span>`).join('');
+      mark('keyboardStatus', 'pass', `${seenKeys.size} touches vues`);
+    });
+    function startPixelTest() {
+      pixelIndex = 0;
+      pixelScreen.style.display = 'flex';
+      if (pixelScreen.requestFullscreen) pixelScreen.requestFullscreen().catch(() => {});
+      showPixelColor();
+      write('Test pixels lance');
+    }
+    function showPixelColor() {
+      const [bg, fg, name] = pixelColors[pixelIndex];
+      pixelScreen.style.background = bg;
+      pixelScreen.style.color = fg;
+      pixelScreen.textContent = `${name}\nClique pour continuer`;
+    }
+    function nextPixelColor() {
+      pixelIndex += 1;
+      if (pixelIndex >= pixelColors.length) {
+        pixelScreen.style.display = 'none';
+        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+        mark('pixelStatus', 'warn', 'A valider');
+        return;
+      }
+      showPixelColor();
+    }
+    async function startCamera() {
+      try {
+        stopCamera();
+        cameraStream = await navigator.mediaDevices.getUserMedia({video:true, audio:false});
+        video.srcObject = cameraStream;
+        mark('cameraStatus', 'pass', 'Camera active');
+      } catch (e) {
+        mark('cameraStatus', 'fail', 'Camera erreur');
+        write(`Camera: ${e.message}`);
+      }
+    }
+    function stopCamera() {
+      if (cameraStream) cameraStream.getTracks().forEach(t => t.stop());
+      cameraStream = null;
+      video.srcObject = null;
+    }
+    async function startMic() {
+      try {
+        stopMic();
+        micStream = await navigator.mediaDevices.getUserMedia({audio:true, video:false});
+        audioContext = new AudioContext();
+        const source = audioContext.createMediaStreamSource(micStream);
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+        const data = new Uint8Array(analyser.frequencyBinCount);
+        function tick() {
+          if (!micStream) return;
+          analyser.getByteFrequencyData(data);
+          const level = Math.round(data.reduce((a,b)=>a+b,0) / data.length);
+          micBar.style.width = Math.min(100, level * 2) + '%';
+          requestAnimationFrame(tick);
+        }
+        tick();
+        mark('audioStatus', 'pass', 'Micro actif');
+      } catch (e) {
+        mark('audioStatus', 'fail', 'Micro erreur');
+        write(`Micro: ${e.message}`);
+      }
+    }
+    function stopMic() {
+      if (micStream) micStream.getTracks().forEach(t => t.stop());
+      micStream = null;
+      micBar.style.width = '0%';
+      if (audioContext) audioContext.close().catch(() => {});
+      audioContext = null;
+    }
+    function playTone() {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = 880;
+      gain.gain.value = .08;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      setTimeout(() => { osc.stop(); ctx.close(); }, 650);
+      write('Bip haut-parleur joue');
+    }
+    if (window.isSecureContext) {
+      mark('secureStatus', 'pass', 'Navigateur compatible');
+    } else {
+      mark('secureStatus', 'fail', 'Micro/camera exigent localhost ou HTTPS');
+    }
+  </script>
+</body>
+</html>

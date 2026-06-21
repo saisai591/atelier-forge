@@ -1,0 +1,11 @@
+# Atelier Forge — surveille l'arrivée de nouveaux certificats d'effacement.
+# Déclenche forge-sign.service (même nom) qui les signe automatiquement.
+[Unit]
+Description=Atelier Forge - surveillance des certificats d'effacement
+
+[Path]
+PathModified=@CERT_DIR@
+MakeDirectory=true
+
+[Install]
+WantedBy=multi-user.target

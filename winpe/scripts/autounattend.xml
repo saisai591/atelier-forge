@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Atelier Forge — Fichier de réponse OOBE (OPTIONNEL).
+  Copié en W:\Windows\Panther\unattend.xml par deploy.cmd s'il est présent.
+  Il allège le premier démarrage (langue, fuseau, EULA). ADAPTEZ-LE à vos besoins
+  et à votre conformité de licence. Laissez vide la section compte si vous voulez
+  créer le compte manuellement à la livraison.
+-->
+<unattend xmlns="urn:schemas-microsoft-com:unattend">
+  <settings pass="oobeSystem">
+    <component name="Microsoft-Windows-International-Core" processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <InputLocale>040c:0000040c</InputLocale>
+      <SystemLocale>fr-FR</SystemLocale>
+      <UILanguage>fr-FR</UILanguage>
+      <UserLocale>fr-FR</UserLocale>
+    </component>
+    <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <OOBE>
+        <HideEULAPage>true</HideEULAPage>
+        <ProtectYourPC>3</ProtectYourPC>
+        <HideOnlineAccountScreens>false</HideOnlineAccountScreens>
+      </OOBE>
+      <TimeZone>Romance Standard Time</TimeZone>
+    </component>
+  </settings>
+</unattend>

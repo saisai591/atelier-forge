@@ -1,0 +1,7 @@
+# Atelier Forge — signe les certificats d'effacement nouvellement déposés.
+[Unit]
+Description=Atelier Forge - signature automatique des certificats d'effacement
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env bash @BIN@/sign-watch.sh

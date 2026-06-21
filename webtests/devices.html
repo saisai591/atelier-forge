@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Batterie & périphériques</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .panel { background:#1b2236; border:1px solid #2b3450; border-radius:10px;
+           padding:16px; margin-bottom:14px; }
+  video { width:100%; max-width:360px; border-radius:8px; background:#000; }
+  #meter { height:18px; background:#2b3450; border-radius:9px; overflow:hidden; }
+  #meterbar { height:100%; width:0; background:#54d18c; }
+  #pad { width:100%; height:160px; background:#0d1018; border:1px solid #2b3450;
+         border-radius:8px; touch-action:none; }
+</style>
+</head>
+<body>
+<header><h1>🔋 Batterie & périphériques</h1><a href="index.html">← retour</a></header>
+<main>
+  <div class="panel"><h2>🔋 Batterie</h2><div id="bat" class="muted">Lecture…</div></div>
+
+  <div class="panel"><h2>📷 Webcam</h2>
+    <button class="btn" onclick="cam()">Activer la webcam</button>
+    <div><video id="vid" autoplay playsinline muted></video></div>
+  </div>
+
+  <div class="panel"><h2>🎤 Micro (niveau sonore)</h2>
+    <button class="btn" onclick="mic()">Activer le micro</button>
+    <div id="meter"><div id="meterbar"></div></div>
+    <p class="muted">Parlez : la barre doit bouger.</p>
+  </div>
+
+  <div class="panel"><h2>🔊 Haut-parleurs</h2>
+    <button class="btn" onclick="beep('left')">Gauche</button>
+    <button class="btn" onclick="beep('right')">Droite</button>
+    <button class="btn alt" onclick="beep('both')">Les deux</button>
+  </div>
+
+  <div class="panel"><h2>👆 Souris / tactile</h2>
+    <canvas id="pad"></canvas>
+    <p class="muted">Dessinez pour tester souris, trackpad ou écran tactile.</p>
+  </div>
+</main>
+<script>
+  // Batterie
+  if (navigator.getBattery) {
+    navigator.getBattery().then(b => {
+      const show = () => document.getElementById("bat").innerHTML =
+        `Niveau : <b>${Math.round(b.level*100)}%</b> · ` +
+        (b.charging ? '<span class="ok">en charge</span>' : 'sur batterie') +
+        (isFinite(b.dischargingTime) && b.dischargingTime>0 ?
+          ` · autonomie ~${Math.round(b.dischargingTime/60)} min` : "");
+      show(); b.onlevelchange=show; b.onchargingchange=show;
+    });
+  } else { document.getElementById("bat").textContent =
+    "API batterie non disponible (PC fixe ou navigateur non compatible)."; }
+
+  // Webcam
+  async function cam(){ try {
+    document.getElementById("vid").srcObject =
+      await navigator.mediaDevices.getUserMedia({video:true});
+  } catch(e){ alert("Webcam : "+e.message); } }
+
+  // Micro
+  async function mic(){ try {
+    const s = await navigator.mediaDevices.getUserMedia({audio:true});
+    const ctx = new AudioContext(); const an = ctx.createAnalyser();
+    ctx.createMediaStreamSource(s).connect(an);
+    const data = new Uint8Array(an.frequencyBinCount);
+    (function loop(){ an.getByteFrequencyData(data);
+      const v = data.reduce((a,b)=>a+b,0)/data.length;
+      document.getElementById("meterbar").style.width = Math.min(100,v*1.5)+"%";
+      requestAnimationFrame(loop); })();
+  } catch(e){ alert("Micro : "+e.message); } }
+
+  // Haut-parleurs
+  function beep(side){
+    const ctx = new AudioContext(); const o = ctx.createOscillator();
+    const g = ctx.createGain(); const p = ctx.createStereoPanner?.();
+    o.frequency.value = 440; o.connect(g);
+    if (p){ p.pan.value = side==="left"?-1:side==="right"?1:0; g.connect(p); p.connect(ctx.destination); }
+    else g.connect(ctx.destination);
+    o.start(); setTimeout(()=>o.stop(), 800);
+  }
+
+  // Pad dessin
+  const cv = document.getElementById("pad"); const c = cv.getContext("2d");
+  function fit(){ cv.width = cv.clientWidth; cv.height = cv.clientHeight; }
+  fit(); addEventListener("resize", fit);
+  let drawing=false;
+  const pos = e => { const r=cv.getBoundingClientRect(); const t=e.touches?e.touches[0]:e;
+    return [t.clientX-r.left, t.clientY-r.top]; };
+  const start = e=>{ drawing=true; const [x,y]=pos(e); c.beginPath(); c.moveTo(x,y); };
+  const move = e=>{ if(!drawing)return; const [x,y]=pos(e); c.strokeStyle="#54d18c";
+    c.lineWidth=2; c.lineTo(x,y); c.stroke(); e.preventDefault(); };
+  const end = ()=> drawing=false;
+  cv.addEventListener("mousedown",start); cv.addEventListener("mousemove",move);
+  addEventListener("mouseup",end);
+  cv.addEventListener("touchstart",start); cv.addEventListener("touchmove",move);
+  cv.addEventListener("touchend",end);
+</script>
+</body>
+</html>

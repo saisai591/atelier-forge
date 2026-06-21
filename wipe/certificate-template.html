@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<!-- Atelier Forge — Gabarit de certificat d'effacement. Jetons @...@ remplis par
+     make-certificate.sh. Certificat AUTO-ÉMIS (non accrédité par un tiers). -->
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Certificat d'effacement @ID@</title>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; color:#111; max-width: 760px;
+         margin: 24px auto; padding: 0 16px; }
+  h1 { font-size: 20pt; border-bottom: 3px solid #1a4f8b; padding-bottom: 6px; }
+  .soc { color:#1a4f8b; font-weight:bold; }
+  table { width:100%; border-collapse: collapse; margin-top: 14px; }
+  th,td { text-align:left; padding:7px 10px; border-bottom:1px solid #ddd; font-size:11pt; }
+  th { width: 38%; color:#555; }
+  .res { font-size:14pt; font-weight:bold; padding:10px; margin-top:16px;
+         border:2px solid #1a4f8b; text-align:center; }
+  .qr { float:right; }
+  .note { font-size:8.5pt; color:#777; margin-top:22px; border-top:1px solid #ccc; padding-top:8px; }
+</style>
+</head>
+<body>
+  @QR@
+  <h1>Certificat d'effacement de données</h1>
+  <div class="soc">@SOC@ — @CONTACT@</div>
+
+  <table>
+    <tr><th>Identifiant du certificat</th><td>@ID@</td></tr>
+    <tr><th>Norme appliquée</th><td>@NORME@</td></tr>
+    <tr><th>Opérateur</th><td>@OP@</td></tr>
+    <tr><th>Disque (modèle)</th><td>@MODELE@</td></tr>
+    <tr><th>Numéro de série</th><td>@SERIE@</td></tr>
+    <tr><th>Capacité</th><td>@TAILLE@</td></tr>
+    <tr><th>Méthode d'effacement</th><td>@METHODE@</td></tr>
+    <tr><th>Vérification</th><td>@VERIF@</td></tr>
+    <tr><th>Début → Fin</th><td>@T0@ → @T1@</td></tr>
+    <tr><th>Machine hôte</th><td>@HOTE@</td></tr>
+    <tr><th>Signature</th><td>@SIGSTATUS@</td></tr>
+    <tr><th>Token de vérification</th><td><code>@TOKEN@</code></td></tr>
+  </table>
+
+  <div class="res">RÉSULTAT : @RESULTAT@</div>
+
+  <p class="note">
+    Certificat auto-émis par l'atelier au moyen de l'outil Atelier Forge
+    (effacement conforme à la norme NIST SP 800-88 Rev.1). Document
+    <strong>signé numériquement</strong> : son authenticité et son intégrité
+    peuvent être vérifiées avec la clé publique de l'atelier
+    (<code>verify-certificate.sh</code>, clé publique disponible sur
+    <code>http://SERVEUR:1950/forge-public-key.pem</code>). Ce certificat n'est pas
+    délivré par un organisme tiers accrédité (type Blancco) ; conservez-le pour
+    la traçabilité RGPD du traitement des supports de données.
+  </p>
+</body>
+</html>

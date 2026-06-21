@@ -1,0 +1,10 @@
+# section: 1 - Actions rapides
+# item: quickaudit [PRET] Audit rapide texte + etiquette
+# enabled: yes
+:quickaudit
+echo Audit rapide texte : materiel complet, tests console, etiquette...
+kernel ${base}/diag/sysresc/vmlinuz archisobasedir=sysresc archiso_http_srv=${base}/diag/ ip=dhcp checksum=y ar_source=${base}/agent ar_attempts=5 ar_ignorefail ar_ignorefail=1 nofirewall forge_mode=quick_audit forge_gui_tests=0 forge_server=${base} forge_control_api=http://__SERVER_IP__:8000/api forge_smb_user=__SMB_USER__ forge_smb_pass=__SMB_PASSWORD__
+initrd ${base}/diag/sysresc/intel_ucode.img intel_ucode.img
+initrd ${base}/diag/sysresc/amd_ucode.img   amd_ucode.img
+initrd ${base}/diag/sysresc/initrd
+boot || goto failed

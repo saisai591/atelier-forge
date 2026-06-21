@@ -1,0 +1,21 @@
+# Atelier Forge — API locale de contrôle atelier.
+[Unit]
+Description=Atelier Forge Control API
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+ContainerName=forge-control-api
+Image=localhost/forge-control-api:latest
+Network=host
+Environment=DATA_ROOT=/var/lib/forge
+Environment=API_PORT=1953
+Volume=@DATA_ROOT@:/var/lib/forge:z
+PodmanArgs=--security-opt=apparmor=unconfined
+
+[Service]
+Restart=always
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target default.target

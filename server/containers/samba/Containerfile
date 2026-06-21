@@ -1,0 +1,13 @@
+# Image Samba pour Atelier Forge : partage les images Windows et reçoit les audits.
+FROM docker.io/library/alpine:3.20
+
+RUN apk add --no-cache samba samba-common-tools bash python3
+
+# smb.conf et les données sont fournis par des montages (voir l'unité Quadlet).
+EXPOSE 137/udp 138/udp 139/tcp 445/tcp 3702/udp
+
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY wsdd-lite.py /usr/local/bin/wsdd-lite.py
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

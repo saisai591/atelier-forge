@@ -1,0 +1,42 @@
+name: CI anti-régression
+
+# Lance les tests à chaque push et pull request : toute régression est bloquée.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  shell:
+    name: Tests shell + shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Installer shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Suite de tests anti-régression
+        run: bash tests/run-tests.sh
+
+  powershell:
+    name: Parsing des scripts PowerShell
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Vérifier la syntaxe des .ps1 (aucune erreur de parsing)
+        shell: pwsh
+        run: |
+          $had = $false
+          Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object {
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              $_.FullName, [ref]$null, [ref]$errors) | Out-Null
+            if ($errors) {
+              $had = $true
+              Write-Host "ERREUR de parsing : $($_.FullName)" -ForegroundColor Red
+              $errors | ForEach-Object { Write-Host "  $($_.Message)" }
+            } else {
+              Write-Host "OK : $($_.Name)"
+            }
+          }
+          if ($had) { exit 1 }

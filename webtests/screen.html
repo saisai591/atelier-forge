@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test écran / pixels morts</title>
+<style>
+  html,body { margin:0; height:100%; background:#000; color:#fff;
+              font-family: system-ui, Arial, sans-serif; }
+  #stage { position:fixed; inset:0; }
+  #hint { position:fixed; top:10px; left:50%; transform:translateX(-50%);
+          background:rgba(0,0,0,.6); padding:8px 14px; border-radius:8px;
+          font-size:14px; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="hint">Clic / Espace = couleur suivante · F = plein écran · Échap / retour = quitter</div>
+<script>
+  // Séquence : couleurs unies (pixels morts/coincés) puis dégradés.
+  const colors = ["#ff0000","#00ff00","#0000ff","#ffffff","#000000",
+                  "#808080","#ffff00","#00ffff","#ff00ff"];
+  const grads = [
+    "linear-gradient(90deg,#000,#fff)",
+    "linear-gradient(90deg,#f00,#0f0,#00f)",
+  ];
+  const seq = colors.concat(grads);
+  let i = 0;
+  const stage = document.getElementById("stage");
+  const hint = document.getElementById("hint");
+  function show() {
+    const c = seq[i % seq.length];
+    stage.style.background = c;
+    hint.textContent = `(${(i%seq.length)+1}/${seq.length}) ${c} — clic/Espace = suivant · Échap = quitter`;
+    setTimeout(() => hint.style.opacity = "0.15", 1500);
+    hint.style.opacity = "1";
+  }
+  function next() { i++; show(); }
+  function fs() { if (!document.fullscreenElement) document.documentElement.requestFullscreen?.(); }
+  document.addEventListener("click", next);
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") { history.length > 1 ? history.back() : location.href="index.html"; }
+    else if (e.key === "f" || e.key === "F") fs();
+    else next();
+  });
+  show();
+</script>
+</body>
+</html>

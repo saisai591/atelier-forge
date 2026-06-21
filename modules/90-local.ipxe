@@ -1,0 +1,6 @@
+# section: Système
+# item: local      [AUTO] Demarrer disque local
+# enabled: yes
+:local
+echo Demarrage sur le disque local...
+sanboot --no-describe --drive 0x80 || exit

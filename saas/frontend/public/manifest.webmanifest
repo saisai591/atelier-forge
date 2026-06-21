@@ -1,0 +1,11 @@
+{
+  "name": "AOS Deploy Mobile",
+  "short_name": "AOS Mobile",
+  "start_url": "/mobile",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#05080d",
+  "theme_color": "#05080d",
+  "description": "Interface atelier mobile pour scanner les etiquettes AOS Deploy.",
+  "orientation": "portrait"
+}

@@ -1,0 +1,10 @@
+# section: 3 - Securite / RGPD
+# item: wipe       [DANGER] Effacement securise disque
+# enabled: yes
+:wipe
+echo Chargement de SystemRescue pour effacement securise...
+kernel ${base}/diag/sysresc/vmlinuz archisobasedir=sysresc archiso_http_srv=${base}/diag/ ip=dhcp checksum=y
+initrd ${base}/diag/sysresc/intel_ucode.img intel_ucode.img
+initrd ${base}/diag/sysresc/amd_ucode.img   amd_ucode.img
+initrd ${base}/diag/sysresc/initrd
+boot || goto failed
