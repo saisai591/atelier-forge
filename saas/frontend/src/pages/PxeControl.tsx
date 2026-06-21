@@ -551,8 +551,28 @@ const DEMO_CREDENTIALS = {
 
 function resolveApiBase() {
   if (typeof window === 'undefined') return '/api'
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') return '/api'
+  if (window.location.port !== '5173') return '/api'
   return `http://${window.location.hostname}:8000/api`
+}
+
+function resolveUploadApiBase() {
+  if (typeof window === 'undefined') return '/api'
+  return `http://${window.location.hostname}:8000/api`
+}
+
+function describeUploadFailure(xhr: XMLHttpRequest) {
+  const status = `${xhr.status || 'reseau'} ${xhr.statusText || ''}`.trim()
+  const raw = xhr.responseText?.trim()
+  if (!raw) return `${status}: aucune reponse du serveur`
+  if (raw.startsWith('<!DOCTYPE') || raw.startsWith('<html')) {
+    return `${status}: le dashboard a repondu a la place de l API. Recharge la page puis relance l upload.`
+  }
+  try {
+    const parsed = JSON.parse(raw) as { detail?: string; message?: string }
+    return `${status}: ${parsed.detail || parsed.message || raw.slice(0, 500)}`
+  } catch {
+    return `${status}: ${raw.slice(0, 500)}`
+  }
 }
 
 async function requestJson<T>(path: string, token?: string, init?: RequestInit): Promise<T> {
@@ -8079,7 +8099,7 @@ export default function PxeControl({
 
       const uploaded = await new Promise<ForgeMediaUploadResponse>((resolve, reject) => {
         const xhr = new XMLHttpRequest()
-        xhr.open('POST', `${resolveApiBase()}/forge/pxe/media/upload`)
+        xhr.open('POST', `${resolveUploadApiBase()}/forge/pxe/media/upload`)
         xhr.setRequestHeader('Authorization', `Bearer ${token}`)
         xhr.upload.onprogress = (event) => {
           if (!event.lengthComputable) return
@@ -8088,11 +8108,7 @@ export default function PxeControl({
         }
         xhr.onload = () => {
           if (xhr.status < 200 || xhr.status >= 300) {
-            let message = `${xhr.status} ${xhr.statusText}`
-            if (xhr.responseText) {
-              message = `${message}: ${xhr.responseText}`
-            }
-            reject(new Error(message))
+            reject(new Error(describeUploadFailure(xhr)))
             return
           }
           try {
@@ -8101,7 +8117,7 @@ export default function PxeControl({
             reject(error instanceof Error ? error : new Error('Réponse serveur invalide'))
           }
         }
-        xhr.onerror = () => reject(new Error('Erreur réseau pendant l upload'))
+        xhr.onerror = () => reject(new Error(`Erreur reseau pendant l upload vers ${resolveUploadApiBase()}`))
         xhr.send(form)
       })
 
