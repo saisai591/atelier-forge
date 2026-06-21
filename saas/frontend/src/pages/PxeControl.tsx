@@ -842,7 +842,7 @@ function Sidebar({
             <Zap className="h-5 w-5 text-cyan-200" />
           </div>
           <div className="min-w-0">
-            <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400 sm:text-sm">AOS Deploy</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400 sm:text-sm">AtelierOS</div>
             <div className="text-lg font-bold tracking-tight text-white">AtelierOS</div>
           </div>
           <button
@@ -2562,7 +2562,7 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
           >
             <div className={cn('grid grid-cols-[minmax(0,1fr)_auto] items-start', slimLabel ? 'gap-2 pb-0.5' : 'gap-2 pb-2')}>
               <div className="min-w-0">
-                <div className={cn('text-center font-black uppercase tracking-[0.12em]', slimLabel ? 'text-[6px]' : 'mb-1 text-[9px]')}>AOS Deploy - Certified Device</div>
+                <div className={cn('text-center font-black uppercase tracking-[0.12em]', slimLabel ? 'text-[6px]' : 'mb-1 text-[9px]')}>AtelierOS - Certified Device</div>
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-1">
                   <div className={cn('break-words text-center font-black leading-tight', slimLabel ? 'max-h-10 overflow-hidden text-[15px]' : compactLabel ? 'text-base' : 'text-xl')}>{printLabel.title}</div>
                   <div className={cn('grid shrink-0 place-items-center border border-black font-black', slimLabel ? 'h-5 w-5 text-xs' : compactLabel ? 'h-8 w-8 text-base' : 'h-9 w-9 text-xl')}>{label.grade}</div>
@@ -3537,7 +3537,7 @@ function GuideModule({
       <section className="rounded-2xl border border-white/10 bg-slate-950/65 p-4 shadow-xl shadow-black/20 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="text-lg font-semibold text-white">Centre client AOS Deploy</h3>
+            <h3 className="text-lg font-semibold text-white">Centre client AtelierOS</h3>
             <p className="mt-1 text-sm leading-6 text-slate-400">Parcours integre pour installer, diagnostiquer et maintenir l'appliance sans documentation externe.</p>
           </div>
           <span className={cn('rounded-full border px-3 py-1 text-xs font-semibold', offlineServices.length ? 'border-amber-300/25 bg-amber-300/10 text-amber-200' : 'border-emerald-300/25 bg-emerald-300/10 text-emerald-200')}>
@@ -3738,7 +3738,7 @@ function GuideClientPanel({
       category: 'Installation',
       items: [
         {
-          q: 'Quelle est la procedure normale apres installation de AOS Deploy ?',
+          q: 'Quelle est la procedure normale apres installation de AtelierOS ?',
           a: 'Brancher le serveur au reseau atelier, ouvrir le dashboard, verifier les voyants API/SMB/PXE HTTP, ouvrir le partage deploy depuis Windows, importer une image Windows, definir une image par defaut, puis tester un PC en PXE.',
           steps: ['Ouvrir le dashboard.', 'Aller dans Guide > Diagnostic.', 'Verifier que les services sont verts.', 'Ouvrir le partage reseau.', 'Lancer un boot PXE sur un PC test.'],
           critical: true,
@@ -5819,7 +5819,7 @@ function UnattendPanel({
     computer_name: 'AOS-%SERIAL%',
     admin_username: 'Admin',
     admin_password: 'ChangeMe123!',
-    organization: 'AOS Deploy',
+    organization: 'AtelierOS',
     product_key: '',
     deployment_mode: 'standard',
     accept_eula: true,
@@ -6654,7 +6654,7 @@ function Header({
         onKeyDown={handleSearchKeyDown}
         className={searchInputClass}
         placeholder="Rechercher hostname, MAC, IP, image..."
-        aria-label="Recherche globale AOS Deploy"
+        aria-label="Recherche globale AtelierOS"
       />
       {hasQuery ? (
         <button
@@ -6849,7 +6849,58 @@ export default function PxeControl({
   const effectiveLogs = useMemo(() => logsFromStatus(pxeStatus, apiError), [apiError, pxeStatus])
   const visibleNavigation = useMemo(() => navigationForMode(interfaceMode), [interfaceMode])
   const globalSearchResults = useMemo(() => {
+    const actionResults: GlobalSearchResult[] = [
+      {
+        id: 'action-network-repair',
+        title: 'Reparer / resynchroniser le reseau',
+        subtitle: 'Verifier IP, PXE, SMB, services et changement de switch',
+        section: 'settings',
+        badge: 'action',
+        keywords: 'reseau ip switch direct dhcp pxe smb reparer resynchroniser regeneration diagnostic bloque',
+      },
+      {
+        id: 'action-usb-kit',
+        title: 'Creer une cle USB bootable atelier',
+        subtitle: 'Generer le kit, ajouter AOS DISK/Ventoy, preparer une cle Multitool',
+        section: 'tools',
+        badge: 'usb',
+        keywords: 'cle usb bootable multitool ventoy aos disk outil technicien debutant secours hors ligne',
+      },
+      {
+        id: 'action-wim-flow',
+        title: 'Importer ISO et preparer WIM',
+        subtitle: 'ISO -> WIM/ESD -> image par defaut -> profil deploiement',
+        section: 'images',
+        badge: 'wim',
+        keywords: 'iso wim esd image windows import upload creer preparer declarer deploiement default',
+      },
+      {
+        id: 'action-label-print',
+        title: 'Imprimer une etiquette machine',
+        subtitle: 'Audit, QR code, code-barres, Brother 29x90 ou 62 mm',
+        section: 'audit',
+        badge: 'label',
+        keywords: 'etiquette label qr code barre brother ql500 ql820 impression audit serie batterie ram disque',
+      },
+      {
+        id: 'action-backup',
+        title: 'Sauvegarder ou restaurer appliance',
+        subtitle: 'Archive configuration, images declarees, profils, drivers et audits recents',
+        section: 'guide',
+        badge: 'backup',
+        keywords: 'sauvegarde backup restauration restaurer appliance configuration securite migration client',
+      },
+      {
+        id: 'action-faq',
+        title: 'Ouvrir FAQ et guide technicien',
+        subtitle: 'Installation, PXE, audit, WIM, drivers, etiquettes, mobile, depannage',
+        section: 'guide',
+        badge: 'faq',
+        keywords: 'faq guide aide documentation technicien debutant depannage installation client procedure',
+      },
+    ]
     const baseResults: GlobalSearchResult[] = [
+      ...actionResults,
       ...visibleNavigation.map((item) => ({
         id: `module-${item.id}`,
         title: item.label,
@@ -7432,7 +7483,7 @@ export default function PxeControl({
           windows_version: 'Windows 11 24H2',
           architecture: 'x64',
           category: 'other',
-          notes: 'Pack prepare depuis l audit rapide AOS Deploy.',
+          notes: 'Pack prepare depuis l audit rapide AtelierOS.',
         }),
       })
       setDriverPacks((current) => {
