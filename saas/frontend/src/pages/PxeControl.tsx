@@ -843,7 +843,7 @@ function Sidebar({
           </div>
           <div className="min-w-0">
             <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400 sm:text-sm">AOS Deploy</div>
-            <div className="text-lg font-bold tracking-tight text-white">V5 Command</div>
+            <div className="text-lg font-bold tracking-tight text-white">AtelierOS</div>
           </div>
           <button
             type="button"
