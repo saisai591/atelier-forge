@@ -3203,8 +3203,19 @@ function ImagesModule({
     return { label: 'Pret a deployer', tool: 'profiles' as const, tone: 'emerald' as const }
   })()
   const workspaceRef = useRef<HTMLElement | null>(null)
+  const activeToolLabel = {
+    assets: 'Assets PXE',
+    images: 'Image PXE',
+    browse: 'Importer ISO/WIM',
+    wim: 'Creer WIM',
+    unattend: 'Unattend',
+    profiles: 'Profil complet',
+  }[activeTool ?? 'browse']
   const openTool = (tool: NonNullable<typeof activeTool>) => {
     setActiveTool(tool)
+    window.requestAnimationFrame(() => {
+      workspaceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
   }
   const exportDeploymentChecklist = () => {
     const lines = [
@@ -3359,7 +3370,7 @@ function ImagesModule({
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-white">Espace de travail</h2>
-            <p className="text-sm text-slate-400">{activeTool ? 'Module actif' : 'Choisis une action pour afficher le module d’édition.'}</p>
+            <p className="text-sm text-slate-400">{activeTool ? `Module actif : ${activeToolLabel}` : 'Choisis une action pour afficher le module d’édition.'}</p>
           </div>
           {activeTool && (
             <button
