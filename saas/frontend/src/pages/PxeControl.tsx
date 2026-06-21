@@ -1849,6 +1849,10 @@ function AuditReturnPanel({
                   <FileText className="h-4 w-4" />
                   PDF audit
                 </button>
+                <button type="button" onClick={() => downloadAuditReport(selected)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.045] px-3 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-white/[0.07]">
+                  <Download className="h-4 w-4" />
+                  Exporter
+                </button>
                 <button type="button" onClick={() => onPrepareDrivers(selected.id)} disabled={isPreparingDrivers || !selected.brand || !selected.model} className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-3 py-2.5 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-300/15 disabled:cursor-not-allowed disabled:opacity-60">
                   <HardDrive className="h-4 w-4" />
                   Drivers
@@ -2108,6 +2112,14 @@ function AuditReturnPanel({
               >
                 <FileText className="h-4 w-4" />
                 PDF audit machine
+              </button>
+              <button
+                type="button"
+                onClick={() => downloadAuditReport(selected)}
+                className="col-span-2 inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.045] px-3 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-white/[0.07]"
+              >
+                <Download className="h-4 w-4" />
+                Exporter rapport HTML
               </button>
               {auditUrl ? (
                 <a href={auditUrl} target="_blank" rel="noreferrer" className="col-span-2 inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.045] px-3 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-white/[0.07]">
@@ -3039,7 +3051,7 @@ function htmlEscape(value: unknown) {
     .replace(/'/g, '&#39;')
 }
 
-function printAuditReport(audit: ForgePxeAuditSummary) {
+function buildAuditReportHtml(audit: ForgePxeAuditSummary, autoPrint = false) {
   const tests = workshopTestSummary(audit)
   const completion = auditCompletionSummary(audit)
   const rows = [
@@ -3064,7 +3076,7 @@ function printAuditReport(audit: ForgePxeAuditSummary) {
     ? audit.battery.map((battery, index) => [`Batterie ${index + 1}`, `${battery.name || battery.label || '-'} usure ${battery.wear_percent ?? '-'}% sante ${battery.health_percent ?? '-'}% cycles ${battery.cycle_count || '-'}`])
     : [['Batterie detaillee', 'Non remontee']]
 
-  const html = `<!doctype html>
+  return `<!doctype html>
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
@@ -3107,15 +3119,29 @@ function printAuditReport(audit: ForgePxeAuditSummary) {
     </div>
   </div>
   <footer>Genere depuis AtelierOS le ${htmlEscape(new Date().toLocaleString('fr-FR'))}. Fichier source: ${htmlEscape(audit.filename)}</footer>
-  <script>window.addEventListener('load', () => window.print())</script>
+  ${autoPrint ? "<script>window.addEventListener('load', () => window.print())</script>" : ''}
 </body>
 </html>`
+}
 
+function printAuditReport(audit: ForgePxeAuditSummary) {
+  const html = buildAuditReportHtml(audit, true)
   const popup = window.open('', '_blank', 'noopener,noreferrer,width=920,height=1100')
   if (!popup) return
   popup.document.open()
   popup.document.write(html)
   popup.document.close()
+}
+
+function downloadAuditReport(audit: ForgePxeAuditSummary) {
+  const reference = [audit.brand, audit.model, audit.serial_number || audit.hostname || audit.mac || audit.id]
+    .filter(Boolean)
+    .join('-')
+    .replace(/[^a-z0-9._-]+/gi, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .toLowerCase() || 'audit-machine'
+  downloadTextFile(`atelieros-${reference}-${new Date().toISOString().slice(0, 10)}.html`, buildAuditReportHtml(audit, false))
 }
 
 function InfoRow({ label, value, mono, tone }: { label: string; value: ReactNode; mono?: boolean; tone?: 'ok' | 'warn' }) {
