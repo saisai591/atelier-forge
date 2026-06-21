@@ -2,6 +2,7 @@ param(
   [string]$HostName = "192.168.1.57",
   [string]$User = "aos",
   [string]$KeyPath = ".\aos_deploy_ed25519",
+  [string]$LocalVentoyDir = "C:\Users\Admin\Pictures\ventoy-1.1.12-windows\ventoy-1.1.12",
   [switch]$Backend
 )
 
@@ -14,6 +15,7 @@ $FrontendArchive = Join-Path $Root "deploy-frontend-dist.tgz"
 $SpaServer = Join-Path $Root "scripts\aos-dashboard-spa-server.py"
 $BackendModuleDir = Join-Path $Root "saas\backend\modules\atelier_forge"
 $BackendArchive = Join-Path $Root "deploy-backend-atelier-forge.tgz"
+$VentoyArchive = Join-Path $Root "deploy-ventoy-assets.tgz"
 $SshTarget = "${User}@${HostName}"
 
 if (-not (Test-Path $KeyPath)) {
@@ -80,6 +82,24 @@ if ($Backend) {
 
   Write-Host "[AOS] Envoi backend vers $SshTarget..."
   scp -i $KeyPath -o StrictHostKeyChecking=no $BackendArchive "${SshTarget}:/tmp/deploy-backend-atelier-forge.tgz"
+  ssh -i $KeyPath -o StrictHostKeyChecking=no $SshTarget "rm -f /tmp/deploy-ventoy-assets.tgz"
+
+  $HasVentoyAssets = Test-Path $LocalVentoyDir
+  if ($HasVentoyAssets) {
+    if (Test-Path $VentoyArchive) {
+      Remove-Item -LiteralPath $VentoyArchive -Force
+    }
+    Write-Host "[AOS] Creation archive assets Ventoy/AOS DISK..."
+    Push-Location $LocalVentoyDir
+    try {
+      tar -czf $VentoyArchive .
+    }
+    finally {
+      Pop-Location
+    }
+    Write-Host "[AOS] Envoi assets Ventoy/AOS DISK vers $SshTarget..."
+    scp -i $KeyPath -o StrictHostKeyChecking=no $VentoyArchive "${SshTarget}:/tmp/deploy-ventoy-assets.tgz"
+  }
 
   $DeployBackend = @"
 set -e
@@ -90,6 +110,12 @@ sudo cp /tmp/aos-back/__init__.py /opt/aos-backend-src/modules/atelier_forge/__i
 sudo cp /tmp/aos-back/schemas.py /opt/aos-backend-src/modules/atelier_forge/schemas.py
 sudo cp /tmp/aos-back/__init__.py /opt/aos-backend/backend/modules/atelier_forge/__init__.py
 sudo cp /tmp/aos-back/schemas.py /opt/aos-backend/backend/modules/atelier_forge/schemas.py
+if [ -f /tmp/deploy-ventoy-assets.tgz ]; then
+  sudo rm -rf /opt/aos-backend-src/assets/ventoy /opt/aos-backend/backend/assets/ventoy
+  sudo mkdir -p /opt/aos-backend-src/assets/ventoy /opt/aos-backend/backend/assets/ventoy
+  sudo tar -xzf /tmp/deploy-ventoy-assets.tgz -C /opt/aos-backend-src/assets/ventoy
+  sudo cp -a /opt/aos-backend-src/assets/ventoy/. /opt/aos-backend/backend/assets/ventoy/
+fi
 cd /opt/aos-backend-src
 sudo podman build -t localhost/aos-backend:latest . >/tmp/aos-backend-build.log
 sudo systemctl restart aos-backend
