@@ -3551,6 +3551,7 @@ function GuideModule({
   onCreateBackup,
   onRefreshBackups,
   onDeleteBackup,
+  onDownloadBackup,
   onRestoreBackup,
   onLoadSystemReport,
 }: {
@@ -3563,6 +3564,7 @@ function GuideModule({
   onCreateBackup: () => Promise<void>
   onRefreshBackups: () => Promise<void>
   onDeleteBackup: (filename: string) => Promise<void>
+  onDownloadBackup: (filename: string) => Promise<void>
   onRestoreBackup: (filename: string, dryRun: boolean) => Promise<void>
   onLoadSystemReport: () => Promise<void>
 }) {
@@ -3699,6 +3701,7 @@ function GuideModule({
           onCreateBackup={onCreateBackup}
           onRefreshBackups={onRefreshBackups}
           onDeleteBackup={onDeleteBackup}
+          onDownloadBackup={onDownloadBackup}
           onRestoreBackup={onRestoreBackup}
           onLoadSystemReport={onLoadSystemReport}
         />
@@ -3827,6 +3830,7 @@ function GuideClientPanel({
   onCreateBackup,
   onRefreshBackups,
   onDeleteBackup,
+  onDownloadBackup,
   onRestoreBackup,
   onLoadSystemReport,
 }: {
@@ -3845,6 +3849,7 @@ function GuideClientPanel({
   onCreateBackup: () => Promise<void>
   onRefreshBackups: () => Promise<void>
   onDeleteBackup: (filename: string) => Promise<void>
+  onDownloadBackup: (filename: string) => Promise<void>
   onRestoreBackup: (filename: string, dryRun: boolean) => Promise<void>
   onLoadSystemReport: () => Promise<void>
 }) {
@@ -4374,6 +4379,14 @@ function GuideClientPanel({
                     <div>{backup.size_mb} MB</div>
                     <div>{new Date(backup.created_at).toLocaleString('fr-FR')}</div>
                     <div className="mt-2 flex flex-wrap justify-start gap-2 sm:justify-end">
+                      <button
+                        type="button"
+                        disabled={isSaving}
+                        onClick={() => void onDownloadBackup(backup.filename)}
+                        className="rounded-lg border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-100 transition hover:bg-emerald-300/15 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Telecharger
+                      </button>
                       <button
                         type="button"
                         disabled={isSaving}
@@ -7305,6 +7318,28 @@ export default function PxeControl({
     }
   }
 
+  const downloadApplianceBackup = async (filename: string) => {
+    setSavingConfig(true)
+    setApiError(null)
+    try {
+      const token = await getDemoToken()
+      const response = await fetch(`${resolveApiBase()}/forge/pxe/backups/${encodeURIComponent(filename)}/download`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!response.ok) {
+        const text = await response.text()
+        throw new Error(`${response.status} ${response.statusText}${text ? `: ${text}` : ''}`)
+      }
+      const blob = await response.blob()
+      downloadBlobFile(filename, blob)
+      setBackupMessage(`Telechargement sauvegarde: ${filename}`)
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : 'Erreur telechargement sauvegarde')
+    } finally {
+      setSavingConfig(false)
+    }
+  }
+
   const deleteApplianceBackup = async (filename: string) => {
     setSavingConfig(true)
     setBackupMessage(null)
@@ -8035,6 +8070,7 @@ export default function PxeControl({
         onCreateBackup={createApplianceBackup}
         onRefreshBackups={refreshBackups}
         onDeleteBackup={deleteApplianceBackup}
+        onDownloadBackup={downloadApplianceBackup}
         onRestoreBackup={restoreApplianceBackup}
         onLoadSystemReport={loadSystemReport}
       />

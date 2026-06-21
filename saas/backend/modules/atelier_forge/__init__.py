@@ -2529,6 +2529,31 @@ async def delete_appliance_backup(
     )
 
 
+@router.get("/pxe/backups/{filename}/download")
+async def download_appliance_backup(
+    filename: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Telecharge une archive de sauvegarde appliance."""
+    _ = current_user
+    safe_name = _safe_filename(filename, "backup.zip")
+    if not safe_name.startswith("aos-backup-") or Path(safe_name).suffix.lower() != ".zip":
+        raise HTTPException(status_code=400, detail="Archive de sauvegarde invalide")
+    backup_path = BACKUP_DIR / safe_name
+    try:
+        resolved_backup = backup_path.resolve()
+        resolved_root = BACKUP_DIR.resolve()
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Sauvegarde introuvable") from None
+    if resolved_root not in resolved_backup.parents or not resolved_backup.exists() or not resolved_backup.is_file():
+        raise HTTPException(status_code=404, detail="Sauvegarde introuvable")
+    return FileResponse(
+        resolved_backup,
+        media_type="application/zip",
+        filename=safe_name,
+    )
+
+
 @router.post("/pxe/backups/{filename}/restore", response_model=ForgeApplianceRestoreResponse)
 async def restore_appliance_backup(
     filename: str,
