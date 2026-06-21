@@ -1492,7 +1492,7 @@ Write-Host "Copie de AOS-USB vers $targetAos ..." -ForegroundColor Cyan
 New-Item -ItemType Directory -Force -Path $targetAos | Out-Null
 Copy-Item -Path (Join-Path $aosFolder "*") -Destination $targetAos -Recurse -Force
 
-$urlFile = Join-Path $targetRoot "AOS Dashboard.url"
+$urlFile = Join-Path $targetRoot "AtelierOS Dashboard.url"
 @"
 [InternetShortcut]
 URL={dashboard_url}
@@ -1504,7 +1504,7 @@ $logFile = Join-Path $logDir ("creation-cle-" + (Get-Date -Format "yyyyMMdd-HHmm
 $checks = @(
   (Join-Path $targetAos "README.txt"),
   (Join-Path $targetAos "manifest.json"),
-  (Join-Path $targetRoot "AOS Dashboard.url")
+  (Join-Path $targetRoot "AtelierOS Dashboard.url")
 )
 $missing = @($checks | Where-Object {{ -not (Test-Path $_) }})
 @(
@@ -1613,9 +1613,9 @@ def _create_usb_kit_archive(config: ForgePxeConfig, profile: str = "complete") -
         "AOS-USB/drivers/DEPOSER-PACKS-DRIVERS-ICI.txt": "Copier ici les packs drivers extraits par marque/modele.\n",
         "AOS-USB/tools/README-OUTILS.txt": "Ajouter ici les outils audit hors-ligne valides par l'atelier.\n",
         "AOS-USB/logs/README-LOGS.txt": "Placer ici les notes d'intervention si le reseau est indisponible.\n",
-        "AOS-USB/raccourcis/AOS Dashboard.url": _windows_url_file(dashboard_url),
-        "AOS-USB/raccourcis/AOS Tests PXE.url": _windows_url_file(f"{config.server_url.rstrip('/')}/tests/"),
-        "AOS-USB/raccourcis/AOS Boot Menu.url": _windows_url_file(f"{config.server_url.rstrip('/')}/boot/menu.ipxe"),
+        "AOS-USB/raccourcis/AtelierOS Dashboard.url": _windows_url_file(dashboard_url),
+        "AOS-USB/raccourcis/AtelierOS Tests PXE.url": _windows_url_file(f"{config.server_url.rstrip('/')}/tests/"),
+        "AOS-USB/raccourcis/AtelierOS Boot Menu.url": _windows_url_file(f"{config.server_url.rstrip('/')}/boot/menu.ipxe"),
     }
     with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for arcname, content in files.items():

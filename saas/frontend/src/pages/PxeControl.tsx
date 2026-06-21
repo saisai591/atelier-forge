@@ -3756,10 +3756,10 @@ function GuideModule({
           </div>
           <div className="rounded-2xl border border-white/10 bg-slate-950/65 shadow-xl shadow-black/20 p-4">
             <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-cyan-200"><Smartphone className="h-4 w-4" /> EA520</h3>
-            <p className="mt-3 text-sm leading-6 text-slate-400">Scanne ce QR avec le terminal pour configurer l'APK AOS Mobile sur ce serveur.</p>
+            <p className="mt-3 text-sm leading-6 text-slate-400">Scanne ce QR avec le terminal pour configurer l'APK AtelierOS Mobile sur ce serveur.</p>
             {mobileQr ? (
               <div className="mt-4 grid place-items-center rounded-2xl border border-white/10 bg-white p-3">
-                <img src={mobileQr} alt="QR AOS Mobile" className="h-36 w-36" />
+                <img src={mobileQr} alt="QR AtelierOS Mobile" className="h-36 w-36" />
               </div>
             ) : null}
             <div className="mt-3 break-all rounded-xl border border-cyan-300/10 bg-cyan-300/[0.045] p-3 font-mono text-xs text-cyan-100">{mobileConfigUrl}</div>
@@ -4042,7 +4042,7 @@ function GuideClientPanel({
         {
           q: 'A quoi sert le terminal Unitech EA520 ?',
           a: 'Scanner les etiquettes, ouvrir une fiche machine, changer un statut atelier, retrouver rapidement un audit ou preparer expedition/inventaire.',
-          steps: ['Installer APK AOS Mobile.', 'Scanner QR de configuration.', 'Scanner etiquette machine.', 'Verifier retour dans l interface.'],
+          steps: ['Installer APK AtelierOS Mobile.', 'Scanner QR de configuration.', 'Scanner etiquette machine.', 'Verifier retour dans l interface.'],
         },
         {
           q: 'Comment configurer le mobile ?',
@@ -4865,7 +4865,7 @@ function WorkshopUsbPanel({
           <div>
             <h3 className="font-semibold text-white">Cle USB atelier bootable</h3>
             <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
-              Parcours complet: AOS genere le kit, l'utilitaire Windows installe Ventoy/AOS DISK sur la cle, puis copie le dossier AOS-USB.
+              Parcours complet: AtelierOS genere le kit, l'utilitaire Windows installe Ventoy/AOS DISK sur la cle, puis copie le dossier AOS-USB.
             </p>
           </div>
         </div>
@@ -5720,7 +5720,7 @@ function MediaUploadPanel({
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="text-sm font-semibold text-white">Fichiers deja sur le serveur</h3>
-            <p className="mt-1 text-xs text-slate-500">ISO, WIM et ESD detectes dans le stockage AOS.</p>
+            <p className="mt-1 text-xs text-slate-500">ISO, WIM et ESD detectes dans le stockage AtelierOS.</p>
           </div>
           <div className="flex items-center gap-2">
             <button
