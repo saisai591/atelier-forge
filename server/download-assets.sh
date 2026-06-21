@@ -142,6 +142,13 @@ fetch "${IPXE_EFI64_URL}" "${TFTP_ROOT}/ipxe.efi" \
     || fetch_ipxe_alpine "ipxe.efi" "${TFTP_ROOT}/ipxe.efi" \
     || ERRORS=$((ERRORS+1))
 # UEFI 32 bits : best-effort. Matériel très rare -> non bloquant si absent.
+if [[ -s "${TFTP_ROOT}/ipxe.efi" ]]; then
+    cp -f "${TFTP_ROOT}/ipxe.efi" "${TFTP_ROOT}/bootx64.efi"
+    mkdir -p "${TFTP_ROOT}/EFI/BOOT"
+    cp -f "${TFTP_ROOT}/ipxe.efi" "${TFTP_ROOT}/EFI/BOOT/BOOTX64.EFI"
+    chmod 0644 "${TFTP_ROOT}/bootx64.efi" "${TFTP_ROOT}/EFI/BOOT/BOOTX64.EFI"
+    echo "       OK : fallbacks UEFI bootx64.efi et EFI/BOOT/BOOTX64.EFI"
+fi
 if ! fetch "${IPXE_EFI32_URL}" "${TFTP_ROOT}/ipxe32.efi" \
         && ! fetch_ipxe_alpine "ipxe32.efi" "${TFTP_ROOT}/ipxe32.efi"; then
     echo "       (ignoré : UEFI 32 bits indisponible/rare — non bloquant)"
