@@ -1,7 +1,14 @@
 import axios from 'axios'
 import { useAuthStore } from '../store/auth'
 
-const api = axios.create({ baseURL: '/api', withCredentials: true })
+function resolveApiBase(): string {
+  if (typeof window === 'undefined') return '/api'
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') return '/api'
+  return `http://${window.location.hostname}:8000/api`
+}
+
+const apiBase = resolveApiBase()
+const api = axios.create({ baseURL: apiBase, withCredentials: true })
 
 api.interceptors.request.use((config) => {
   const token = useAuthStore.getState().accessToken
@@ -23,7 +30,7 @@ api.interceptors.response.use(
       }
       refreshing = true
       try {
-        const { data } = await axios.post('/api/auth/refresh', {}, { withCredentials: true })
+        const { data } = await axios.post(`${apiBase}/auth/refresh`, {}, { withCredentials: true })
         useAuthStore.getState().setAccessToken(data.access_token)
         queue.forEach((fn) => fn())
         queue = []
