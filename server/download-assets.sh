@@ -147,6 +147,19 @@ if ! fetch "${IPXE_EFI32_URL}" "${TFTP_ROOT}/ipxe32.efi" \
     echo "       (ignoré : UEFI 32 bits indisponible/rare — non bloquant)"
 fi
 
+cat > "${TFTP_ROOT}/autoexec.ipxe" <<EOF
+#!ipxe
+dhcp || goto retry
+chain http://${SERVER_IP}:${HTTP_PORT}/boot/menu.ipxe || goto retry
+:retry
+sleep 2
+goto start
+:start
+chain http://${SERVER_IP}:${HTTP_PORT}/boot/menu.ipxe || shell
+EOF
+chmod 0644 "${TFTP_ROOT}/autoexec.ipxe"
+echo "       OK : ${TFTP_ROOT}/autoexec.ipxe"
+
 echo "==> wimboot (démarrage de WinPE par le réseau)"
 fetch "${WIMBOOT_URL}" "${HTTP_ROOT}/winpe/wimboot" || ERRORS=$((ERRORS+1))
 
