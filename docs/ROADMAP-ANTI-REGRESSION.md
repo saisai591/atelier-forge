@@ -30,6 +30,7 @@ Objectif: garder une trace claire de ce qui est stable, de ce qui est pret local
 - Logs PXE enrichis avec diagnostics francais pour SMB, HTTP PXE, API, assets manquants et client sans IP.
 - Creation WIM serveur active: ISO -> extraction `sources/install.wim` ou `sources/install.esd`, conversion ESD -> WIM avec `wimlib-imagex`.
 - Image backend contient maintenant `wimtools`; verification realisee dans le conteneur: `7z` et `wimlib-imagex` disponibles.
+- Export WIM par index Windows: ISO/WIM/ESD utilisent maintenant `image_index` au lieu d'exporter toute l'image.
 
 ## Pret localement, a deployer apres transfert
 
@@ -53,6 +54,7 @@ Objectif: garder une trace claire de ce qui est stable, de ce qui est pret local
 - Extraction serveur reelle depuis ISO Windows avec `7z`.
 - Conversion ESD vers WIM avec `wimlib-imagex`.
 - Enregistrement automatique du WIM genere si le fichier de sortie existe.
+- Choix d'index Windows minimal via prompt interface avant build.
 - Anti-doublon sur profil WIM depuis ISO.
 - Compteurs `ISO` et `WIM/ESD`.
 - Liste des procedures WIM preparees:
@@ -310,8 +312,8 @@ Etat local:
 9. Monitoring espace disque serveur.
 10. Alertes: stockage plein, service PXE KO, WIM manquant, drivers manquants.
 
-1. Lecture des index Windows disponibles.
-2. Choix de l'edition Windows avant export WIM.
+1. Lecture automatique des index Windows disponibles avec noms d'editions.
+2. Remplacer le prompt index par une selection claire `Windows Pro`, `Home`, etc.
 3. Progression fine pendant extraction/conversion des gros ISO.
 4. Test complet sur ISO Windows reelle depuis l'interface.
 5. Definition image par defaut.
