@@ -4643,18 +4643,21 @@ function WorkshopUsbPanel({
   const files = [
     { path: 'AOS-USB\\README.txt', detail: 'Guide rapide technicien' },
     { path: 'UTILITAIRE-CREER-CLE-BOOTABLE.bat', detail: 'Assistant Windows' },
+    { path: 'UTILITAIRE-CREER-CLE-BOOTABLE.ps1', detail: 'Script admin pour copier AOS-USB' },
+    { path: 'ventoy\\AOS DISK.exe', detail: 'Optionnel: outil Ventoy/AOS a deposer ici' },
     { path: 'AOS-USB\\boot\\ipxe.iso', detail: 'ISO boot reseau secours' },
     { path: 'AOS-USB\\images\\', detail: 'Depot ISO/WIM si reseau indisponible' },
     { path: 'AOS-USB\\drivers\\', detail: 'Packs drivers atelier' },
     { path: 'AOS-USB\\tools\\', detail: 'Outils audit hors-ligne' },
   ]
   const steps = [
-    'Extraire le kit ZIP sur le poste atelier.',
+    'Generer puis telecharger le ZIP depuis AOS.',
+    'Extraire le ZIP dans un dossier du poste atelier.',
+    'Mettre AOS DISK.exe ou Ventoy2Disk.exe dans le dossier ventoy si disponible.',
     'Lancer UTILITAIRE-CREER-CLE-BOOTABLE.bat en administrateur.',
-    'Installer Ventoy sur la cle depuis l assistant.',
+    'Choisir la bonne cle USB dans Ventoy puis installer.',
     `Copier les ressources depuis ${share} si besoin.`,
-    `Ajouter un raccourci vers ${serverUrl} pour retrouver le serveur.`,
-    'Tester la cle sur un PC de test avant livraison atelier.',
+    'Redemarrer un PC test et verifier que la cle boote.',
   ]
   const readiness = [
     { label: 'Ventoy installe sur la cle', detail: 'La cle doit booter en UEFI et Legacy si possible.' },
@@ -4664,18 +4667,19 @@ function WorkshopUsbPanel({
     { label: 'Test sur un PC reel', detail: 'Ne pas livrer une cle jamais testee.' },
   ]
   const readme = [
-    'AOS Deploy V5 - Cle USB atelier autonome',
+    'AtelierOS - Cle USB atelier autonome',
     '',
     `Dashboard: ${dashboardUrl}`,
     `Serveur PXE/tests: ${serverUrl}`,
     `Partage reseau: ${share}`,
     '',
     'Utilisation rapide:',
-    '1. Demarrer le PC sur la cle USB.',
-    '2. Choisir le menu Ventoy/iPXE ou WinPE selon le besoin.',
-    '3. Si le reseau est disponible, ouvrir le dashboard AOS et lancer Audit rapide ou Deploiement.',
-    '4. Si le reseau est indisponible, utiliser les dossiers images, drivers et tools comme secours.',
-    '5. Apres intervention, remonter les resultats dans AOS des que le reseau revient.',
+    '1. Creer la cle avec UTILITAIRE-CREER-CLE-BOOTABLE.bat.',
+    '2. Demarrer le PC sur la cle USB.',
+    '3. Choisir le menu Ventoy/iPXE ou WinPE selon le besoin.',
+    '4. Si le reseau est disponible, ouvrir le dashboard AtelierOS et lancer Audit rapide ou Deploiement.',
+    '5. Si le reseau est indisponible, utiliser les dossiers images, drivers et tools comme secours.',
+    '6. Apres intervention, remonter les resultats dans AtelierOS des que le reseau revient.',
     '',
     'Structure attendue:',
     ...files.map((file) => `- ${file.path}: ${file.detail}`),
@@ -4713,9 +4717,9 @@ function WorkshopUsbPanel({
             <Smartphone className="h-5 w-5" />
           </div>
           <div>
-            <h3 className="font-semibold text-white">Cle USB atelier autonome</h3>
+            <h3 className="font-semibold text-white">Cle USB atelier bootable</h3>
             <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
-              Utilitaire type Ventoy pour creer une cle bootable de secours : boot, ISO/WIM, drivers et outils d'audit sans dependance immediate au reseau.
+              Parcours complet: AOS genere le kit, l'utilitaire Windows installe Ventoy/AOS DISK sur la cle, puis copie le dossier AOS-USB.
             </p>
           </div>
         </div>
@@ -4787,7 +4791,7 @@ function WorkshopUsbPanel({
           <div>
             <h4 className="text-base font-semibold text-white">Assistant debutant - creer une cle Multitool bootable</h4>
             <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
-              Parcours simple pour un technicien: generer le kit, le telecharger, puis lancer l'utilitaire Windows qui installe Ventoy et copie AOS-USB.
+              Parcours simple pour un technicien: generer le kit, telecharger le ZIP, lancer l'utilitaire Windows, choisir la cle, tester le boot.
             </p>
           </div>
           <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs font-semibold text-cyan-100">Mode guide</span>
@@ -4826,7 +4830,7 @@ function WorkshopUsbPanel({
               {kit ? <CheckCircle2 className="h-5 w-5 text-emerald-300" /> : <Zap className="h-5 w-5 text-cyan-200" />}
             </div>
             <div className="font-semibold text-white">Creer le kit {profileTitle(usbProfile)}</div>
-            <div className="mt-2 text-sm leading-6 text-slate-400">AOS prepare l'archive avec utilitaire bootable et contenu adapte au profil choisi.</div>
+            <div className="mt-2 text-sm leading-6 text-slate-400">AtelierOS prepare le ZIP, les dossiers AOS-USB, README, raccourcis et scripts de creation.</div>
           </button>
           <button
             type="button"
@@ -4857,14 +4861,19 @@ function WorkshopUsbPanel({
               <span className="grid h-9 w-9 place-items-center rounded-xl border border-amber-300/25 bg-amber-300/10 font-mono text-sm font-bold text-amber-100">03</span>
               <Printer className="h-5 w-5 text-amber-200" />
             </div>
-            <div className="font-semibold text-white">Lancer l'utilitaire</div>
+            <div className="font-semibold text-white">Rendre la cle bootable</div>
             <div className="mt-2 text-sm leading-6 text-slate-400">
-              Extraire le ZIP, clic droit sur `UTILITAIRE-CREER-CLE-BOOTABLE.bat`, executer en administrateur, choisir la cle USB, puis tester le boot.
+              Extraire le ZIP, clic droit sur `UTILITAIRE-CREER-CLE-BOOTABLE.bat`, executer en administrateur, installer Ventoy, puis tester le boot.
             </div>
           </div>
         </div>
-        <div className="mt-4 rounded-xl border border-amber-300/20 bg-amber-300/10 p-3 text-sm leading-6 text-amber-100">
-          Important: le navigateur ne peut pas formater une cle USB directement. Le formatage bootable est fait par Ventoy via l'utilitaire Windows inclus, avec validation humaine du disque pour eviter d'effacer le mauvais support.
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          <div className="rounded-xl border border-amber-300/20 bg-amber-300/10 p-3 text-sm leading-6 text-amber-100">
+            Important: le navigateur ne peut pas formater une cle USB directement. Le formatage bootable est fait par Ventoy/AOS DISK via l'utilitaire Windows inclus, avec validation humaine du disque pour eviter d'effacer le mauvais support.
+          </div>
+          <div className="rounded-xl border border-emerald-300/20 bg-emerald-300/10 p-3 text-sm leading-6 text-emerald-100">
+            Pour inclure ton outil local, copie `AOS DISK.exe` dans le dossier `ventoy` du ZIP extrait avant de lancer l'utilitaire. Sinon le script te demandera d'ajouter Ventoy manuellement.
+          </div>
         </div>
       </div>
       {kits.length ? (
