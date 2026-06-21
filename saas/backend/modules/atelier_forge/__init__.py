@@ -71,6 +71,7 @@ from .schemas import (
     ForgeApplianceBackup,
     ForgeApplianceBackupListResponse,
     ForgeApplianceBackupResponse,
+    ForgeApplianceBackupDeleteResponse,
     ForgeApplianceRestoreRequest,
     ForgeApplianceRestoreResponse,
     ForgeUsbKitListResponse,
@@ -2498,6 +2499,32 @@ async def create_appliance_backup(
         backup=_backup_summary(backup_path),
         included=included,
         message=f"Sauvegarde creee: {backup_path.name}",
+    )
+
+
+@router.delete("/pxe/backups/{filename}", response_model=ForgeApplianceBackupDeleteResponse)
+async def delete_appliance_backup(
+    filename: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Supprime une archive de sauvegarde appliance, sans toucher aux donnees actives."""
+    _ = current_user
+    safe_name = _safe_filename(filename, "backup.zip")
+    if not safe_name.startswith("aos-backup-") or Path(safe_name).suffix.lower() != ".zip":
+        raise HTTPException(status_code=400, detail="Archive de sauvegarde invalide")
+    backup_path = BACKUP_DIR / safe_name
+    try:
+        resolved_backup = backup_path.resolve()
+        resolved_root = BACKUP_DIR.resolve()
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Sauvegarde introuvable") from None
+    if resolved_root not in resolved_backup.parents or not resolved_backup.exists() or not resolved_backup.is_file():
+        raise HTTPException(status_code=404, detail="Sauvegarde introuvable")
+    resolved_backup.unlink()
+    return ForgeApplianceBackupDeleteResponse(
+        deleted=True,
+        filename=safe_name,
+        message=f"Sauvegarde supprimee: {safe_name}",
     )
 
 

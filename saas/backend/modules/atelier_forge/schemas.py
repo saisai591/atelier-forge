@@ -418,6 +418,12 @@ class ForgeApplianceBackupListResponse(BaseModel):
     message: str
 
 
+class ForgeApplianceBackupDeleteResponse(BaseModel):
+    deleted: bool
+    filename: str
+    message: str
+
+
 class ForgeApplianceRestoreRequest(BaseModel):
     dry_run: bool = True
     restore_config: bool = True

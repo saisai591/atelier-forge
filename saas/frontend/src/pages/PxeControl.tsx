@@ -360,6 +360,12 @@ interface ForgeApplianceBackupListResponse {
   message: string
 }
 
+interface ForgeApplianceBackupDeleteResponse {
+  deleted: boolean
+  filename: string
+  message: string
+}
+
 interface ForgeApplianceRestoreResponse {
   backup: ForgeApplianceBackup
   dry_run: boolean
@@ -3488,6 +3494,7 @@ function GuideModule({
   backupMessage,
   onCreateBackup,
   onRefreshBackups,
+  onDeleteBackup,
   onRestoreBackup,
   onLoadSystemReport,
 }: {
@@ -3499,6 +3506,7 @@ function GuideModule({
   backupMessage: string | null
   onCreateBackup: () => Promise<void>
   onRefreshBackups: () => Promise<void>
+  onDeleteBackup: (filename: string) => Promise<void>
   onRestoreBackup: (filename: string, dryRun: boolean) => Promise<void>
   onLoadSystemReport: () => Promise<void>
 }) {
@@ -3634,6 +3642,7 @@ function GuideModule({
           backupMessage={backupMessage}
           onCreateBackup={onCreateBackup}
           onRefreshBackups={onRefreshBackups}
+          onDeleteBackup={onDeleteBackup}
           onRestoreBackup={onRestoreBackup}
           onLoadSystemReport={onLoadSystemReport}
         />
@@ -3761,6 +3770,7 @@ function GuideClientPanel({
   backupMessage,
   onCreateBackup,
   onRefreshBackups,
+  onDeleteBackup,
   onRestoreBackup,
   onLoadSystemReport,
 }: {
@@ -3778,6 +3788,7 @@ function GuideClientPanel({
   backupMessage: string | null
   onCreateBackup: () => Promise<void>
   onRefreshBackups: () => Promise<void>
+  onDeleteBackup: (filename: string) => Promise<void>
   onRestoreBackup: (filename: string, dryRun: boolean) => Promise<void>
   onLoadSystemReport: () => Promise<void>
 }) {
@@ -4307,6 +4318,18 @@ function GuideClientPanel({
                     <div>{backup.size_mb} MB</div>
                     <div>{new Date(backup.created_at).toLocaleString('fr-FR')}</div>
                     <div className="mt-2 flex flex-wrap justify-start gap-2 sm:justify-end">
+                      <button
+                        type="button"
+                        disabled={isSaving}
+                        onClick={() => {
+                          if (window.confirm(`Supprimer la sauvegarde ${backup.filename} ? Les donnees actives ne seront pas modifiees.`)) {
+                            void onDeleteBackup(backup.filename)
+                          }
+                        }}
+                        className="rounded-lg border border-rose-300/20 bg-rose-300/10 px-2.5 py-1.5 text-[11px] font-semibold text-rose-100 transition hover:bg-rose-300/15 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Supprimer
+                      </button>
                       <button
                         type="button"
                         disabled={isSaving}
@@ -7207,6 +7230,25 @@ export default function PxeControl({
     }
   }
 
+  const deleteApplianceBackup = async (filename: string) => {
+    setSavingConfig(true)
+    setBackupMessage(null)
+    setApiError(null)
+    try {
+      const token = await getDemoToken()
+      const deleted = await requestJson<ForgeApplianceBackupDeleteResponse>(`/forge/pxe/backups/${encodeURIComponent(filename)}`, token, {
+        method: 'DELETE',
+      })
+      setBackupMessage(deleted.message)
+      const data = await requestJson<ForgeApplianceBackupListResponse>('/forge/pxe/backups', token)
+      setApplianceBackups(data.backups)
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : 'Erreur suppression sauvegarde')
+    } finally {
+      setSavingConfig(false)
+    }
+  }
+
   const createImageFromMediaFile = async (file: ForgeServerMediaFile) => {
     if (file.kind !== 'image') return
     const alreadyRegistered = wimImages.some((image) => image.path.toLowerCase() === file.smb_path.toLowerCase())
@@ -7901,6 +7943,7 @@ export default function PxeControl({
         backupMessage={backupMessage}
         onCreateBackup={createApplianceBackup}
         onRefreshBackups={refreshBackups}
+        onDeleteBackup={deleteApplianceBackup}
         onRestoreBackup={restoreApplianceBackup}
         onLoadSystemReport={loadSystemReport}
       />
