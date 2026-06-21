@@ -14,6 +14,7 @@ $FrontendDist = Join-Path $FrontendDir "dist"
 $FrontendArchive = Join-Path $Root "deploy-frontend-dist.tgz"
 $SpaServer = Join-Path $Root "scripts\aos-dashboard-spa-server.py"
 $BackendModuleDir = Join-Path $Root "saas\backend\modules\atelier_forge"
+$BackendDockerfile = Join-Path $Root "saas\backend\Dockerfile"
 $BackendArchive = Join-Path $Root "deploy-backend-atelier-forge.tgz"
 $VentoyArchive = Join-Path $Root "deploy-ventoy-assets.tgz"
 $SshTarget = "${User}@${HostName}"
@@ -82,6 +83,7 @@ if ($Backend) {
 
   Write-Host "[AOS] Envoi backend vers $SshTarget..."
   scp -i $KeyPath -o StrictHostKeyChecking=no $BackendArchive "${SshTarget}:/tmp/deploy-backend-atelier-forge.tgz"
+  scp -i $KeyPath -o StrictHostKeyChecking=no $BackendDockerfile "${SshTarget}:/tmp/deploy-backend-Dockerfile"
   ssh -i $KeyPath -o StrictHostKeyChecking=no $SshTarget "rm -f /tmp/deploy-ventoy-assets.tgz"
 
   $HasVentoyAssets = Test-Path $LocalVentoyDir
@@ -110,6 +112,8 @@ sudo cp /tmp/aos-back/__init__.py /opt/aos-backend-src/modules/atelier_forge/__i
 sudo cp /tmp/aos-back/schemas.py /opt/aos-backend-src/modules/atelier_forge/schemas.py
 sudo cp /tmp/aos-back/__init__.py /opt/aos-backend/backend/modules/atelier_forge/__init__.py
 sudo cp /tmp/aos-back/schemas.py /opt/aos-backend/backend/modules/atelier_forge/schemas.py
+sudo cp /tmp/deploy-backend-Dockerfile /opt/aos-backend-src/Dockerfile
+sudo cp /tmp/deploy-backend-Dockerfile /opt/aos-backend/backend/Dockerfile
 if [ -f /tmp/deploy-ventoy-assets.tgz ]; then
   sudo rm -rf /opt/aos-backend-src/assets/ventoy /opt/aos-backend/backend/assets/ventoy
   sudo mkdir -p /opt/aos-backend-src/assets/ventoy /opt/aos-backend/backend/assets/ventoy

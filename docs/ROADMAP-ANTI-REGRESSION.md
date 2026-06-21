@@ -28,6 +28,8 @@ Objectif: garder une trace claire de ce qui est stable, de ce qui est pret local
 - Images WIM indique maintenant les fichiers serveur deja declares et evite le bouton `Declarer` inutile.
 - Images WIM fait defiler automatiquement vers l'espace de travail quand on ouvre une etape.
 - Logs PXE enrichis avec diagnostics francais pour SMB, HTTP PXE, API, assets manquants et client sans IP.
+- Creation WIM serveur active: ISO -> extraction `sources/install.wim` ou `sources/install.esd`, conversion ESD -> WIM avec `wimlib-imagex`.
+- Image backend contient maintenant `wimtools`; verification realisee dans le conteneur: `7z` et `wimlib-imagex` disponibles.
 
 ## Pret localement, a deployer apres transfert
 
@@ -48,6 +50,9 @@ Objectif: garder une trace claire de ce qui est stable, de ce qui est pret local
 - Defilement automatique vers l'espace de travail quand le technicien clique une etape.
 - Bouton `Preparer WIM` pour ISO.
 - Creation automatique d'un profil WIM depuis ISO.
+- Extraction serveur reelle depuis ISO Windows avec `7z`.
+- Conversion ESD vers WIM avec `wimlib-imagex`.
+- Enregistrement automatique du WIM genere si le fichier de sortie existe.
 - Anti-doublon sur profil WIM depuis ISO.
 - Compteurs `ISO` et `WIM/ESD`.
 - Liste des procedures WIM preparees:
@@ -305,10 +310,10 @@ Etat local:
 9. Monitoring espace disque serveur.
 10. Alertes: stockage plein, service PXE KO, WIM manquant, drivers manquants.
 
-1. Extraction reelle ISO vers `install.wim` ou `install.esd`.
-2. Conversion ESD vers WIM.
-3. Lecture des index Windows disponibles.
-4. Declaration automatique du WIM genere.
+1. Lecture des index Windows disponibles.
+2. Choix de l'edition Windows avant export WIM.
+3. Progression fine pendant extraction/conversion des gros ISO.
+4. Test complet sur ISO Windows reelle depuis l'interface.
 5. Definition image par defaut.
 6. Journal de creation WIM: commencer par historiser les procedures serveur generees.
 7. Progression creation WIM: a brancher quand l'execution serveur DISM sera automatisee.

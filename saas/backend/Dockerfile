@@ -3,7 +3,7 @@ FROM python:3.11-slim
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends gcc build-essential python3-dev libpq-dev p7zip-full cabextract unzip \
+    && apt-get install -y --no-install-recommends gcc build-essential python3-dev libpq-dev p7zip-full cabextract unzip wimtools \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
