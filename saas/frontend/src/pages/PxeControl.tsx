@@ -3176,7 +3176,7 @@ function ImagesModule({
   onRefreshMediaFiles: () => Promise<void>
   onDeleteMediaFile: (file: ForgeServerMediaFile) => Promise<void>
   onCreateImageFromMedia: (file: ForgeServerMediaFile) => Promise<void>
-  onPrepareIsoMedia: (file: ForgeServerMediaFile) => Promise<void>
+  onPrepareIsoMedia: (file: ForgeServerMediaFile, imageIndex?: number) => Promise<void>
   onInspectWimIndexes: (sourcePath: string) => Promise<ForgeWimIndex[]>
   checkStatusMessage: string
   uploadMessage: string | null
@@ -5637,7 +5637,7 @@ function MediaUploadPanel({
   onRefreshMediaFiles: () => Promise<void>
   onDeleteMediaFile: (file: ForgeServerMediaFile) => Promise<void>
   onCreateImageFromMedia: (file: ForgeServerMediaFile) => Promise<void>
-  onPrepareIsoMedia: (file: ForgeServerMediaFile) => Promise<void>
+  onPrepareIsoMedia: (file: ForgeServerMediaFile, imageIndex?: number) => Promise<void>
   onInspectWimIndexes: (sourcePath: string) => Promise<ForgeWimIndex[]>
   checkStatusMessage: string
   uploadMessage: string | null
@@ -5651,6 +5651,13 @@ function MediaUploadPanel({
   const [mediaStatus, setMediaStatus] = useState<ForgeMediaStatusResponse | null>(null)
   const [overwriteExisting, setOverwriteExisting] = useState(false)
   const [progress, setProgress] = useState<number | null>(null)
+  const [indexChooser, setIndexChooser] = useState<{
+    file: ForgeServerMediaFile
+    indexes: ForgeWimIndex[]
+    isLoading: boolean
+    error: string | null
+    mode: 'view' | 'prepare'
+  } | null>(null)
   const inputClass = 'w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 font-mono text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-300/40 focus:bg-cyan-300/5'
   const fileSize = file ? `${(file.size / (1024 ** 3)).toFixed(2)} GB` : 'Aucun fichier'
   const humanSize = mediaStatus?.size ? `${Math.max(0.1, mediaStatus.size / (1024 ** 2)).toFixed(1)} MB` : null
@@ -5663,17 +5670,26 @@ function MediaUploadPanel({
   const isoCount = serverMediaFiles.filter((item) => item.kind === 'iso').length
   const imageCount = serverMediaFiles.filter((item) => item.kind === 'image').length
   const declaredImagePaths = new Set(images.map((image) => image.path.trim().toLowerCase()))
-  const showIndexes = async (item: ForgeServerMediaFile) => {
+  const openIndexes = async (item: ForgeServerMediaFile, mode: 'view' | 'prepare') => {
+    setIndexChooser({ file: item, indexes: [], isLoading: true, error: null, mode })
     try {
       const indexes = await onInspectWimIndexes(item.smb_path)
-      if (!indexes.length) {
-        window.alert('Aucune edition Windows detectee dans ce fichier.')
-        return
-      }
-      window.alert(indexes.map((entry) => `${entry.index} - ${entry.name}${entry.architecture ? ` (${entry.architecture})` : ''}`).join('\n'))
+      setIndexChooser({ file: item, indexes, isLoading: false, error: indexes.length ? null : 'Aucune edition Windows detectee dans ce fichier.', mode })
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : 'Lecture editions impossible')
+      setIndexChooser({
+        file: item,
+        indexes: [],
+        isLoading: false,
+        error: error instanceof Error ? error.message : 'Lecture editions impossible',
+        mode,
+      })
     }
+  }
+  const selectImageIndex = (entry: ForgeWimIndex) => {
+    if (!indexChooser) return
+    const selectedFile = indexChooser.file
+    setIndexChooser(null)
+    void onPrepareIsoMedia(selectedFile, entry.index)
   }
 
   useEffect(() => {
@@ -5864,7 +5880,7 @@ function MediaUploadPanel({
                       <div className="flex justify-end gap-2">
                         <button
                           type="button"
-                          onClick={() => void showIndexes(item)}
+                          onClick={() => void openIndexes(item, 'view')}
                           className="inline-flex items-center gap-1 rounded-lg border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1.5 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/15"
                         >
                           <Search className="h-3.5 w-3.5" />
@@ -5891,7 +5907,7 @@ function MediaUploadPanel({
                         ) : (
                           <button
                             type="button"
-                            onClick={() => void onPrepareIsoMedia(item)}
+                            onClick={() => void openIndexes(item, 'prepare')}
                             className="inline-flex items-center gap-1 rounded-lg border border-amber-300/20 bg-amber-300/10 px-2.5 py-1.5 text-xs font-semibold text-amber-100 transition hover:bg-amber-300/15"
                           >
                             <Terminal className="h-3.5 w-3.5" />
@@ -5920,6 +5936,80 @@ function MediaUploadPanel({
           </div>
         )}
       </div>
+      {indexChooser ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm">
+          <div className="w-full max-w-3xl rounded-2xl border border-cyan-300/20 bg-[#08101b] p-5 shadow-2xl shadow-black/50">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">
+                  {indexChooser.mode === 'prepare' ? 'Choisir edition a exporter' : 'Editions Windows detectees'}
+                </div>
+                <h3 className="mt-1 text-lg font-semibold text-white">{indexChooser.file.filename}</h3>
+                <p className="mt-1 break-all font-mono text-xs text-slate-500">{indexChooser.file.smb_path}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIndexChooser(null)}
+                className="rounded-lg border border-white/10 bg-white/[0.04] p-2 text-slate-300 transition hover:bg-white/10 hover:text-white"
+                aria-label="Fermer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {indexChooser.isLoading ? (
+              <div className="mt-5 flex items-center gap-3 rounded-xl border border-white/10 bg-black/25 p-4 text-sm text-slate-300">
+                <RefreshCw className="h-4 w-4 animate-spin text-cyan-200" />
+                Lecture des editions dans le fichier Windows...
+              </div>
+            ) : indexChooser.error ? (
+              <div className="mt-5 rounded-xl border border-amber-300/20 bg-amber-300/10 p-4">
+                <div className="text-sm font-semibold text-amber-100">{indexChooser.error}</div>
+                <p className="mt-1 text-xs text-amber-100/70">
+                  Si l'image est valide mais non lisible, tu peux forcer l'index 1 pour demarrer la preparation.
+                </p>
+                {indexChooser.mode === 'prepare' ? (
+                  <button
+                    type="button"
+                    onClick={() => selectImageIndex({ index: 1, name: 'Index 1', description: null, architecture: null })}
+                    className="mt-3 rounded-lg border border-amber-200/25 bg-amber-200/10 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-200/15"
+                  >
+                    Utiliser index 1
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              <div className="mt-5 grid gap-3">
+                {indexChooser.indexes.map((entry) => (
+                  <div key={`${indexChooser.file.filename}-${entry.index}`} className="rounded-xl border border-white/10 bg-white/[0.035] p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-xs font-semibold text-cyan-100">Index {entry.index}</span>
+                          {entry.architecture ? (
+                            <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs font-semibold text-slate-300">{entry.architecture}</span>
+                          ) : null}
+                        </div>
+                        <div className="mt-2 text-base font-semibold text-white">{entry.name || `Edition ${entry.index}`}</div>
+                        {entry.description ? <div className="mt-1 text-sm leading-5 text-slate-400">{entry.description}</div> : null}
+                      </div>
+                      {indexChooser.mode === 'prepare' ? (
+                        <button
+                          type="button"
+                          onClick={() => selectImageIndex(entry)}
+                          className="rounded-lg border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-300/15"
+                        >
+                          Utiliser cette edition
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }
@@ -5952,13 +6042,11 @@ function WimImageInventory({
   const inputClass = 'w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 font-mono text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-300/40 focus:bg-cyan-300/5'
   const update = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm((current) => ({ ...current, [key]: value }))
   const buildImage = async (image: ForgeWimImage) => {
-    const rawIndex = window.prompt('Index edition Windows a exporter (1 = premiere edition)', '1')
-    const imageIndex = Math.max(1, Number(rawIndex || '1') || 1)
     const result = await onBuildWim(image.id, {
       reference: `${image.name}-${image.architecture}`,
       version: image.version,
-      notes: `Procedure WIM creee depuis ${image.path}`,
-      image_index: imageIndex,
+      notes: `Procedure WIM creee depuis ${image.path} avec index 1 par defaut`,
+      image_index: 1,
     })
     if (result) setBuildResult(result)
   }
@@ -7612,26 +7700,23 @@ export default function PxeControl({
       const indexes = await inspectWimIndexes(sourcePath)
       if (indexes.length === 1) return indexes[0].index
       if (indexes.length > 1) {
-        const list = indexes.map((item) => `${item.index} - ${item.name}${item.architecture ? ` (${item.architecture})` : ''}`).join('\n')
-        const rawIndex = window.prompt(`Choisis l'edition Windows a exporter:\n\n${list}`, String(indexes[0].index))
-        return Math.max(1, Number(rawIndex || String(indexes[0].index)) || indexes[0].index)
+        return indexes[0].index
       }
     } catch (error) {
       setSaveMessage(error instanceof Error ? `Lecture editions impossible, index 1 utilise: ${error.message}` : 'Lecture editions impossible, index 1 utilise')
     }
-    const rawIndex = window.prompt('Index edition Windows a exporter (1 = premiere edition)', '1')
-    return Math.max(1, Number(rawIndex || '1') || 1)
+    return 1
   }
 
-  const prepareIsoMediaFile = async (file: ForgeServerMediaFile) => {
+  const prepareIsoMediaFile = async (file: ForgeServerMediaFile, imageIndex?: number) => {
     if (file.kind !== 'iso') return
     const baseName = file.filename.replace(/\.iso$/i, '').replace(/[-_]+/g, ' ').trim() || 'Windows ISO'
-    const imageIndex = await chooseWimIndex(file.smb_path)
+    const selectedImageIndex = imageIndex ?? await chooseWimIndex(file.smb_path)
     const result = await buildWimFromMedia(file, {
       reference: baseName,
       version: '01',
       notes: `Build auto depuis ${file.filename}`,
-      image_index: imageIndex,
+      image_index: selectedImageIndex,
     })
     if (result) {
       setSaveMessage(`Demarrage OK: ${result.reference} ${result.version} (${result.status}).`)
