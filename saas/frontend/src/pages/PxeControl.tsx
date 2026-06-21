@@ -1512,7 +1512,7 @@ function AuditModule({
   onPrepareDrivers: (auditId: string) => Promise<void>
   onSendAction: (clientId: string, action: string) => Promise<void>
   onDeleteAudit: (auditId: string) => Promise<void>
-  onPruneAudits: (keepLatest: number, dryRun: boolean) => Promise<void>
+  onPruneAudits: (keepLatest: number, dryRun: boolean) => Promise<ForgePxeAuditPruneResponse | null>
 }) {
   const latest = audits[0]
   const batteryWarnings = audits.filter((audit) => audit.battery.some((item) => (item.wear_percent ?? 0) >= 30)).length
@@ -1641,12 +1641,14 @@ function AuditReturnPanel({
   onPrepareDrivers: (auditId: string) => Promise<void>
   onSendAction: (clientId: string, action: string) => Promise<void>
   onDeleteAudit: (auditId: string) => Promise<void>
-  onPruneAudits: (keepLatest: number, dryRun: boolean) => Promise<void>
+  onPruneAudits: (keepLatest: number, dryRun: boolean) => Promise<ForgePxeAuditPruneResponse | null>
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [labelEditorOpen, setLabelEditorOpen] = useState(false)
   const [auditPageSize, setAuditPageSize] = useState<number>(25)
   const [auditPageIndex, setAuditPageIndex] = useState(0)
+  const [pruneKeepLatest, setPruneKeepLatest] = useState(50)
+  const [prunePreview, setPrunePreview] = useState<ForgePxeAuditPruneResponse | null>(null)
   const selected = audits.find((audit) => audit.id === selectedId) ?? audits[0]
   const safePageSize = auditPageSize < 1 ? audits.length : auditPageSize
   const totalPages = audits.length ? Math.max(1, Math.ceil(audits.length / safePageSize)) : 1
@@ -1706,16 +1708,21 @@ function AuditReturnPanel({
   }
 
   async function pruneOldAudits() {
-    if (audits.length <= 50) {
-      await onPruneAudits(50, true)
+    const keepLatest = pruneKeepLatest
+    if (audits.length <= keepLatest) {
+      const preview = await onPruneAudits(keepLatest, true)
+      setPrunePreview(preview)
       return
     }
-    const confirmed = window.confirm(`Nettoyer les anciens retours en gardant les 50 plus recents ?\n\nUne simulation sera faite avant suppression definitive.`)
+    const confirmed = window.confirm(`Nettoyer les anciens retours en gardant les ${keepLatest} plus recents ?\n\nUne simulation sera faite avant suppression definitive.`)
     if (!confirmed) return
-    await onPruneAudits(50, true)
-    const apply = window.confirm('Simulation terminee. Appliquer vraiment le nettoyage des anciens audits ?')
+    const preview = await onPruneAudits(keepLatest, true)
+    setPrunePreview(preview)
+    if (!preview?.candidates) return
+    const apply = window.confirm(`Simulation terminee: ${preview.candidates} fichier(s) candidat(s).\n\nAppliquer vraiment le nettoyage des anciens audits ?`)
     if (!apply) return
-    await onPruneAudits(50, false)
+    const applied = await onPruneAudits(keepLatest, false)
+    setPrunePreview(applied)
   }
 
   function exportAuditCsv() {
@@ -1825,8 +1832,23 @@ function AuditReturnPanel({
               className="inline-flex items-center gap-2 rounded-xl border border-amber-300/20 bg-amber-300/10 px-2.5 py-1.5 text-xs font-semibold text-amber-100 transition hover:bg-amber-300/15 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              Nettoyer anciens
+              Garder {pruneKeepLatest}
             </button>
+            <div className="inline-flex rounded-xl border border-white/10 bg-white/[0.045] p-1">
+              {[25, 50, 100].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => {
+                    setPruneKeepLatest(value)
+                    setPrunePreview(null)
+                  }}
+                  className={cn('rounded-lg px-2.5 py-1 text-[11px] font-semibold', pruneKeepLatest === value ? 'bg-amber-300/20 text-amber-100' : 'text-slate-300')}
+                >
+                  {value}
+                </button>
+              ))}
+            </div>
             <button
               type="button"
               onClick={exportAuditCsv}
@@ -1837,6 +1859,12 @@ function AuditReturnPanel({
               Export CSV
             </button>
           </div>
+          {prunePreview ? (
+            <div className="max-w-xl rounded-xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs leading-5 text-amber-100">
+              Nettoyage: garder {prunePreview.keep_latest}, {prunePreview.candidates} ancien(s) retour(s) candidat(s).
+              {prunePreview.deleted_files.length ? ` Supprimes: ${prunePreview.deleted_files.length}.` : ' Aucun fichier supprime.'}
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -8201,8 +8229,10 @@ export default function PxeControl({
       const audits = await requestJson<ForgePxeAuditSummary[]>('/forge/pxe/audits', token)
       setPxeAudits(audits)
       setSaveMessage(result.message)
+      return result
     } catch (error) {
       setApiError(error instanceof Error ? error.message : 'Erreur nettoyage audits')
+      return null
     }
   }
 

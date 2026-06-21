@@ -256,7 +256,7 @@ Objectif: garder une trace claire de ce qui est stable, de ce qui est pret local
 6. Sauvegarde/restauration complete appliance.
 7. EN COURS - Export PDF audit machine: impression navigateur + export rapport HTML audit depuis la machine selectionnee.
 8. EN COURS - Historique machine par numero de serie: liste liee numero de serie/MAC et export CSV par machine.
-9. Suppression/archivage automatique des anciens audits.
+9. EN COURS - Suppression/archivage automatique des anciens audits: simulation, seuil 25/50/100, suppression confirmee.
 10. Test impression etiquette integre avec choix rouleau Brother.
 
 ### Priorite 2 - Deploiement Windows complet
