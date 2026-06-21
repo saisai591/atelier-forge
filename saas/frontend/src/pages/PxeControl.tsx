@@ -7278,6 +7278,7 @@ export default function PxeControl({
   const [sendingPxeAction, setSendingPxeAction] = useState(false)
   const [pxeActionMessage, setPxeActionMessage] = useState<string | null>(null)
   const [globalSearch, setGlobalSearch] = useState('')
+  const wimIndexCacheRef = useRef<Map<string, ForgeWimIndex[]>>(new Map())
   const effectiveMetrics = useMemo(() => metricsFromStatus(pxeStatus, health), [health, pxeStatus])
   const effectiveDeployments = useMemo(
     () => pxeStatus?.clients.map(mapClientToDeployment) ?? deployments,
@@ -7500,6 +7501,7 @@ export default function PxeControl({
     try {
       const token = await getDemoToken()
       const media = await requestJson<ForgeServerMediaListResponse>('/forge/pxe/media/files', token)
+      wimIndexCacheRef.current.clear()
       setServerMediaFiles(media.files)
       setSaveMessage(media.message)
     } catch (error) {
@@ -7518,6 +7520,7 @@ export default function PxeControl({
       })
       setSaveMessage(deleted.message)
       const media = await requestJson<ForgeServerMediaListResponse>('/forge/pxe/media/files', token)
+      wimIndexCacheRef.current.delete(file.smb_path)
       setServerMediaFiles(media.files)
     } catch (error) {
       setApiError(error instanceof Error ? error.message : 'Erreur suppression fichier serveur')
@@ -7687,11 +7690,14 @@ export default function PxeControl({
   }
 
   const inspectWimIndexes = async (sourcePath: string): Promise<ForgeWimIndex[]> => {
+    const cached = wimIndexCacheRef.current.get(sourcePath)
+    if (cached) return cached
     const token = await getDemoToken()
     const result = await requestJson<ForgeWimIndexListResponse>('/forge/pxe/media/indexes', token, {
       method: 'POST',
       body: JSON.stringify({ source_path: sourcePath }),
     })
+    wimIndexCacheRef.current.set(sourcePath, result.indexes)
     return result.indexes
   }
 
@@ -7917,6 +7923,7 @@ export default function PxeControl({
         requestJson<ForgeWimImage[]>('/forge/pxe/wim-images', token),
         requestJson<ForgeServerMediaListResponse>('/forge/pxe/media/files', token),
       ])
+      wimIndexCacheRef.current.clear()
       setWimImages(images)
       setServerMediaFiles(media.files)
       onProgress(null)

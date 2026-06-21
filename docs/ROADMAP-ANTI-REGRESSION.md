@@ -315,10 +315,10 @@ Etat local:
 9. Monitoring espace disque serveur.
 10. Alertes: stockage plein, service PXE KO, WIM manquant, drivers manquants.
 
-1. Remplacer les alert/prompt index par une selection graphique `Windows Pro`, `Home`, etc.
+1. FAIT - Remplacer les alert/prompt index par une selection graphique `Windows Pro`, `Home`, etc.
 2. Progression fine pendant extraction/conversion des gros ISO.
 3. Test complet sur ISO Windows reelle depuis l'interface.
-4. Cache des indexes par fichier pour eviter de relire une grosse ISO trop souvent.
+4. FAIT - Cache des indexes par fichier pour eviter de relire une grosse ISO trop souvent.
 5. Definition image par defaut.
 6. Journal de creation WIM: commencer par historiser les procedures serveur generees.
 7. Progression creation WIM: a brancher quand l'execution serveur DISM sera automatisee.
