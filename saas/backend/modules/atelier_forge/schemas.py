@@ -456,6 +456,12 @@ class ForgeUsbKitListResponse(BaseModel):
     message: str
 
 
+class ForgeUsbKitDeleteResponse(BaseModel):
+    deleted: bool
+    filename: str
+    message: str
+
+
 class ForgeUsbKitCreateRequest(BaseModel):
     profile: str = "complete"
 

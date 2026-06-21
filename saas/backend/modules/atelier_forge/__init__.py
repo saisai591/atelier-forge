@@ -76,6 +76,7 @@ from .schemas import (
     ForgeApplianceRestoreResponse,
     ForgeUsbKitListResponse,
     ForgeUsbKitCreateRequest,
+    ForgeUsbKitDeleteResponse,
     ForgeUsbKitResponse,
 )
 from .grading import normalize_audit, compute_grade
@@ -2635,6 +2636,32 @@ async def download_usb_kit(
         resolved_path,
         media_type="application/zip",
         filename=safe_name,
+    )
+
+
+@router.delete("/pxe/usb-kit/{filename}", response_model=ForgeUsbKitDeleteResponse)
+async def delete_usb_kit(
+    filename: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Supprime un ancien ZIP de cle USB atelier."""
+    _ = current_user
+    safe_name = _safe_filename(filename, "aos-usb-kit.zip")
+    if not safe_name.startswith("aos-usb-kit-") or Path(safe_name).suffix.lower() != ".zip":
+        raise HTTPException(status_code=400, detail="Archive USB invalide")
+    kit_path = USB_KIT_DIR / safe_name
+    try:
+        resolved_path = kit_path.resolve()
+        resolved_root = USB_KIT_DIR.resolve()
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Kit USB introuvable") from None
+    if resolved_root not in resolved_path.parents or not resolved_path.exists() or not resolved_path.is_file():
+        raise HTTPException(status_code=404, detail="Kit USB introuvable")
+    resolved_path.unlink()
+    return ForgeUsbKitDeleteResponse(
+        deleted=True,
+        filename=safe_name,
+        message=f"Kit USB supprime: {safe_name}",
     )
 
 

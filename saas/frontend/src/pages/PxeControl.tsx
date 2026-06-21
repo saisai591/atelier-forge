@@ -467,6 +467,12 @@ interface ForgeUsbKitListResponse {
   message: string
 }
 
+interface ForgeUsbKitDeleteResponse {
+  deleted: boolean
+  filename: string
+  message: string
+}
+
 interface HealthStatus {
   status: string
   app: string
@@ -4520,6 +4526,7 @@ function ToolsModule({
   onCreateUsbKit,
   onRefreshUsbKits,
   onDownloadUsbKit,
+  onDeleteUsbKit,
 }: {
   pxeStatus: ForgePxeStatus | null
   config: ForgePxeConfig | null
@@ -4527,13 +4534,14 @@ function ToolsModule({
   onCreateUsbKit: (profile: string) => Promise<ForgeUsbKitResponse | null>
   onRefreshUsbKits: () => Promise<ForgeUsbKitResponse[]>
   onDownloadUsbKit: (filename: string) => Promise<void>
+  onDeleteUsbKit: (filename: string) => Promise<void>
 }) {
   const serverUrl = pxeStatus?.server_url || `http://${window.location.hostname}:1950`
   const toolsUrl = `${serverUrl.replace(/\/$/, '')}/tests/`
   return (
     <div className="space-y-6">
       <PageTitle title="Outils" description="Tests navigateur atelier : clavier, pixels, USB, camera, micro et audio." icon={TestTube2} />
-      <WorkshopUsbPanel config={config} isSaving={isSaving} onCreateUsbKit={onCreateUsbKit} onRefreshUsbKits={onRefreshUsbKits} onDownloadUsbKit={onDownloadUsbKit} />
+      <WorkshopUsbPanel config={config} isSaving={isSaving} onCreateUsbKit={onCreateUsbKit} onRefreshUsbKits={onRefreshUsbKits} onDownloadUsbKit={onDownloadUsbKit} onDeleteUsbKit={onDeleteUsbKit} />
       <section className="rounded-2xl border border-white/10 bg-slate-950/65 p-5 shadow-xl shadow-black/20">
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div>
@@ -4699,12 +4707,14 @@ function WorkshopUsbPanel({
   onCreateUsbKit,
   onRefreshUsbKits,
   onDownloadUsbKit,
+  onDeleteUsbKit,
 }: {
   config: ForgePxeConfig | null
   isSaving: boolean
   onCreateUsbKit: (profile: string) => Promise<ForgeUsbKitResponse | null>
   onRefreshUsbKits: () => Promise<ForgeUsbKitResponse[]>
   onDownloadUsbKit: (filename: string) => Promise<void>
+  onDeleteUsbKit: (filename: string) => Promise<void>
 }) {
   const [kit, setKit] = useState<ForgeUsbKitResponse | null>(null)
   const [kits, setKits] = useState<ForgeUsbKitResponse[]>([])
@@ -4983,6 +4993,21 @@ function WorkshopUsbPanel({
                     className="rounded-lg border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-300/15"
                   >
                     Telecharger
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSaving}
+                    onClick={async () => {
+                      if (window.confirm(`Supprimer le kit USB ${item.filename} ?`)) {
+                        await onDeleteUsbKit(item.filename)
+                        const result = await onRefreshUsbKits()
+                        setKits(result)
+                        if (kit?.filename === item.filename) setKit(result[0] ?? null)
+                      }
+                    }}
+                    className="rounded-lg border border-rose-300/20 bg-rose-300/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-300/15 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Supprimer
                   </button>
                 </div>
               </div>
@@ -7842,6 +7867,22 @@ export default function PxeControl({
     }
   }
 
+  const deleteUsbKit = async (filename: string) => {
+    setSavingConfig(true)
+    setApiError(null)
+    try {
+      const token = await getDemoToken()
+      const deleted = await requestJson<ForgeUsbKitDeleteResponse>(`/forge/pxe/usb-kit/${encodeURIComponent(filename)}`, token, {
+        method: 'DELETE',
+      })
+      setSaveMessage(deleted.message)
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : 'Erreur suppression kit USB')
+    } finally {
+      setSavingConfig(false)
+    }
+  }
+
   const navigateSection = (sectionId: NavigationSection) => {
     setActiveSection(sectionId)
     setMobileMenuOpen(false)
@@ -7932,7 +7973,7 @@ export default function PxeControl({
         onDeleteDriverPack={deleteDriverPack}
       />
     ),
-    tools: <ToolsModule pxeStatus={pxeStatus} config={pxeConfig} isSaving={savingConfig} onCreateUsbKit={createUsbKit} onRefreshUsbKits={refreshUsbKits} onDownloadUsbKit={downloadUsbKit} />,
+    tools: <ToolsModule pxeStatus={pxeStatus} config={pxeConfig} isSaving={savingConfig} onCreateUsbKit={createUsbKit} onRefreshUsbKits={refreshUsbKits} onDownloadUsbKit={downloadUsbKit} onDeleteUsbKit={deleteUsbKit} />,
     guide: (
       <GuideModule
         status={pxeStatus}
