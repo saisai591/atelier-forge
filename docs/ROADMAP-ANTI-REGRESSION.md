@@ -31,6 +31,7 @@ Objectif: garder une trace claire de ce qui est stable, de ce qui est pret local
 - Creation WIM serveur active: ISO -> extraction `sources/install.wim` ou `sources/install.esd`, conversion ESD -> WIM avec `wimlib-imagex`.
 - Image backend contient maintenant `wimtools`; verification realisee dans le conteneur: `7z` et `wimlib-imagex` disponibles.
 - Export WIM par index Windows: ISO/WIM/ESD utilisent maintenant `image_index` au lieu d'exporter toute l'image.
+- Endpoint `POST /forge/pxe/media/indexes` pour lire les editions Windows d'une ISO/WIM/ESD avec `wimlib-imagex info`.
 
 ## Pret localement, a deployer apres transfert
 
@@ -55,6 +56,8 @@ Objectif: garder une trace claire de ce qui est stable, de ce qui est pret local
 - Conversion ESD vers WIM avec `wimlib-imagex`.
 - Enregistrement automatique du WIM genere si le fichier de sortie existe.
 - Choix d'index Windows minimal via prompt interface avant build.
+- Bouton `Editions` dans la liste des fichiers serveur pour voir les indexes detectes.
+- Preparation ISO utilise la detection d'editions avant de demander/choisir l'index.
 - Anti-doublon sur profil WIM depuis ISO.
 - Compteurs `ISO` et `WIM/ESD`.
 - Liste des procedures WIM preparees:
@@ -312,10 +315,10 @@ Etat local:
 9. Monitoring espace disque serveur.
 10. Alertes: stockage plein, service PXE KO, WIM manquant, drivers manquants.
 
-1. Lecture automatique des index Windows disponibles avec noms d'editions.
-2. Remplacer le prompt index par une selection claire `Windows Pro`, `Home`, etc.
-3. Progression fine pendant extraction/conversion des gros ISO.
-4. Test complet sur ISO Windows reelle depuis l'interface.
+1. Remplacer les alert/prompt index par une selection graphique `Windows Pro`, `Home`, etc.
+2. Progression fine pendant extraction/conversion des gros ISO.
+3. Test complet sur ISO Windows reelle depuis l'interface.
+4. Cache des indexes par fichier pour eviter de relire une grosse ISO trop souvent.
 5. Definition image par defaut.
 6. Journal de creation WIM: commencer par historiser les procedures serveur generees.
 7. Progression creation WIM: a brancher quand l'execution serveur DISM sera automatisee.

@@ -272,6 +272,24 @@ class ForgeWimBuildListResponse(BaseModel):
     message: str
 
 
+class ForgeWimIndexRequest(BaseModel):
+    source_path: str
+
+
+class ForgeWimIndex(BaseModel):
+    index: int
+    name: str
+    description: str | None = None
+    architecture: str | None = None
+
+
+class ForgeWimIndexListResponse(BaseModel):
+    source_path: str
+    source_type: str
+    indexes: list[ForgeWimIndex] = Field(default_factory=list)
+    message: str
+
+
 class ForgeDriverPackCreate(BaseModel):
     name: str = "Intel RST / NVMe"
     vendor: str = "Intel"

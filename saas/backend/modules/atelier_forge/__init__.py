@@ -62,6 +62,9 @@ from .schemas import (
     ForgeWimBuildResponse,
     ForgeWimBuildListResponse,
     ForgeWimBuildSummary,
+    ForgeWimIndex,
+    ForgeWimIndexListResponse,
+    ForgeWimIndexRequest,
     ForgeWimRecipe,
     ForgeWimRecipeCreate,
     ForgeRemoteActionRequest,
@@ -613,6 +616,102 @@ def _list_server_media_files(config: ForgePxeConfig) -> list[ForgeServerMediaFil
                 )
             )
     return files
+
+
+def _parse_wim_indexes(output: str) -> list[ForgeWimIndex]:
+    indexes: list[ForgeWimIndex] = []
+    current: dict[str, str] = {}
+
+    def flush() -> None:
+        if not current.get("index"):
+            return
+        try:
+            index = int(current["index"])
+        except ValueError:
+            return
+        indexes.append(
+            ForgeWimIndex(
+                index=index,
+                name=current.get("name") or f"Index {index}",
+                description=current.get("description") or None,
+                architecture=current.get("architecture") or None,
+            )
+        )
+
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        match = re.match(r"Index\s*:\s*(\d+)", line, flags=re.IGNORECASE)
+        if match:
+            flush()
+            current = {"index": match.group(1)}
+            continue
+        key_match = re.match(r"(Name|Description|Architecture)\s*:\s*(.+)", line, flags=re.IGNORECASE)
+        if key_match and current:
+            current[key_match.group(1).lower()] = key_match.group(2).strip()
+    flush()
+    return indexes
+
+
+def _inspect_wim_indexes(source_path: str) -> ForgeWimIndexListResponse:
+    source_local = _deploy_share_path(source_path) or Path(source_path)
+    if not source_local.exists():
+        raise HTTPException(status_code=404, detail=f"Source introuvable: {source_path}")
+    source_kind = source_local.suffix.lower()
+    if source_kind not in {".iso", ".wim", ".esd"}:
+        raise HTTPException(status_code=400, detail="Source .iso, .wim ou .esd requise")
+
+    work_dir: Path | None = None
+    inspect_target = source_local
+    source_type = source_kind.removeprefix(".")
+    try:
+        if source_kind == ".iso":
+            stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
+            work_dir = DEPLOY_SHARE_DIR / "images" / "wim-index-inspect" / stamp
+            work_dir.mkdir(parents=True, exist_ok=True)
+            extracted_wim = work_dir / "sources" / "install.wim"
+            extracted_esd = work_dir / "sources" / "install.esd"
+            wim_result = subprocess.run(
+                ["7z", "x", str(source_local), "sources/install.wim", f"-o{work_dir}", "-y"],
+                capture_output=True,
+                text=True,
+                timeout=3600,
+            )
+            if wim_result.returncode == 0 and extracted_wim.exists():
+                inspect_target = extracted_wim
+                source_type = "iso:wim"
+            else:
+                esd_result = subprocess.run(
+                    ["7z", "x", str(source_local), "sources/install.esd", f"-o{work_dir}", "-y"],
+                    capture_output=True,
+                    text=True,
+                    timeout=3600,
+                )
+                if esd_result.returncode != 0 or not extracted_esd.exists():
+                    raise HTTPException(status_code=422, detail="Aucun sources/install.wim ou sources/install.esd trouve dans l ISO")
+                inspect_target = extracted_esd
+                source_type = "iso:esd"
+
+        info_result = subprocess.run(
+            ["wimlib-imagex", "info", str(inspect_target)],
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+        if info_result.returncode != 0:
+            detail = (info_result.stderr or info_result.stdout or "lecture indexes impossible").strip()
+            raise HTTPException(status_code=500, detail=detail[:500])
+        indexes = _parse_wim_indexes(info_result.stdout)
+        return ForgeWimIndexListResponse(
+            source_path=source_path,
+            source_type=source_type,
+            indexes=indexes,
+            message=f"{len(indexes)} edition(s) Windows detectee(s).",
+        )
+    finally:
+        if work_dir:
+            shutil.rmtree(work_dir, ignore_errors=True)
 
 
 def _manifest_update(manifest_path: Path, data: dict) -> None:
@@ -2287,6 +2386,16 @@ async def list_wim_builds(
         total=len(builds),
         message=f"{len(builds)} procedure(s) WIM preparee(s).",
     )
+
+
+@router.post("/pxe/media/indexes", response_model=ForgeWimIndexListResponse)
+async def inspect_wim_indexes(
+    payload: ForgeWimIndexRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Lit les editions Windows disponibles dans une ISO, un WIM ou un ESD."""
+    _ = current_user
+    return _inspect_wim_indexes(payload.source_path.strip())
 
 
 @router.post("/pxe/wim-images", response_model=ForgeWimImage, status_code=201)

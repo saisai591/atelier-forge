@@ -415,6 +415,20 @@ interface ForgeWimBuildListResponse {
   message: string
 }
 
+interface ForgeWimIndex {
+  index: number
+  name: string
+  description: string | null
+  architecture: string | null
+}
+
+interface ForgeWimIndexListResponse {
+  source_path: string
+  source_type: string
+  indexes: ForgeWimIndex[]
+  message: string
+}
+
 interface ForgeNetworkResyncResponse {
   server_ip: string
   server_url: string
@@ -3120,6 +3134,7 @@ function ImagesModule({
   onDeleteMediaFile,
   onCreateImageFromMedia,
   onPrepareIsoMedia,
+  onInspectWimIndexes,
   checkStatusMessage,
   uploadMessage,
   onClearMessages,
@@ -3162,6 +3177,7 @@ function ImagesModule({
   onDeleteMediaFile: (file: ForgeServerMediaFile) => Promise<void>
   onCreateImageFromMedia: (file: ForgeServerMediaFile) => Promise<void>
   onPrepareIsoMedia: (file: ForgeServerMediaFile) => Promise<void>
+  onInspectWimIndexes: (sourcePath: string) => Promise<ForgeWimIndex[]>
   checkStatusMessage: string
   uploadMessage: string | null
   onClearMessages: () => void
@@ -3402,6 +3418,7 @@ function ImagesModule({
               onDeleteMediaFile={onDeleteMediaFile}
               onCreateImageFromMedia={onCreateImageFromMedia}
               onPrepareIsoMedia={onPrepareIsoMedia}
+              onInspectWimIndexes={onInspectWimIndexes}
               checkStatusMessage={checkStatusMessage}
               uploadMessage={uploadMessage}
               onClearMessages={onClearMessages}
@@ -5599,6 +5616,7 @@ function MediaUploadPanel({
   onDeleteMediaFile,
   onCreateImageFromMedia,
   onPrepareIsoMedia,
+  onInspectWimIndexes,
   checkStatusMessage,
   uploadMessage,
   onClearMessages,
@@ -5620,6 +5638,7 @@ function MediaUploadPanel({
   onDeleteMediaFile: (file: ForgeServerMediaFile) => Promise<void>
   onCreateImageFromMedia: (file: ForgeServerMediaFile) => Promise<void>
   onPrepareIsoMedia: (file: ForgeServerMediaFile) => Promise<void>
+  onInspectWimIndexes: (sourcePath: string) => Promise<ForgeWimIndex[]>
   checkStatusMessage: string
   uploadMessage: string | null
   onClearMessages: () => void
@@ -5644,6 +5663,18 @@ function MediaUploadPanel({
   const isoCount = serverMediaFiles.filter((item) => item.kind === 'iso').length
   const imageCount = serverMediaFiles.filter((item) => item.kind === 'image').length
   const declaredImagePaths = new Set(images.map((image) => image.path.trim().toLowerCase()))
+  const showIndexes = async (item: ForgeServerMediaFile) => {
+    try {
+      const indexes = await onInspectWimIndexes(item.smb_path)
+      if (!indexes.length) {
+        window.alert('Aucune edition Windows detectee dans ce fichier.')
+        return
+      }
+      window.alert(indexes.map((entry) => `${entry.index} - ${entry.name}${entry.architecture ? ` (${entry.architecture})` : ''}`).join('\n'))
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Lecture editions impossible')
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -5831,6 +5862,14 @@ function MediaUploadPanel({
                     <td className="max-w-[260px] truncate px-3 py-2 font-mono text-xs text-cyan-200">{item.smb_path}</td>
                     <td className="px-3 py-2 text-right">
                       <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void showIndexes(item)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1.5 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/15"
+                        >
+                          <Search className="h-3.5 w-3.5" />
+                          Editions
+                        </button>
                         {declared ? (
                           <button
                             type="button"
@@ -7559,11 +7598,35 @@ export default function PxeControl({
     }
   }
 
+  const inspectWimIndexes = async (sourcePath: string): Promise<ForgeWimIndex[]> => {
+    const token = await getDemoToken()
+    const result = await requestJson<ForgeWimIndexListResponse>('/forge/pxe/media/indexes', token, {
+      method: 'POST',
+      body: JSON.stringify({ source_path: sourcePath }),
+    })
+    return result.indexes
+  }
+
+  const chooseWimIndex = async (sourcePath: string): Promise<number> => {
+    try {
+      const indexes = await inspectWimIndexes(sourcePath)
+      if (indexes.length === 1) return indexes[0].index
+      if (indexes.length > 1) {
+        const list = indexes.map((item) => `${item.index} - ${item.name}${item.architecture ? ` (${item.architecture})` : ''}`).join('\n')
+        const rawIndex = window.prompt(`Choisis l'edition Windows a exporter:\n\n${list}`, String(indexes[0].index))
+        return Math.max(1, Number(rawIndex || String(indexes[0].index)) || indexes[0].index)
+      }
+    } catch (error) {
+      setSaveMessage(error instanceof Error ? `Lecture editions impossible, index 1 utilise: ${error.message}` : 'Lecture editions impossible, index 1 utilise')
+    }
+    const rawIndex = window.prompt('Index edition Windows a exporter (1 = premiere edition)', '1')
+    return Math.max(1, Number(rawIndex || '1') || 1)
+  }
+
   const prepareIsoMediaFile = async (file: ForgeServerMediaFile) => {
     if (file.kind !== 'iso') return
     const baseName = file.filename.replace(/\.iso$/i, '').replace(/[-_]+/g, ' ').trim() || 'Windows ISO'
-    const rawIndex = window.prompt('Index edition Windows a exporter (1 = premiere edition)', '1')
-    const imageIndex = Math.max(1, Number(rawIndex || '1') || 1)
+    const imageIndex = await chooseWimIndex(file.smb_path)
     const result = await buildWimFromMedia(file, {
       reference: baseName,
       version: '01',
@@ -8185,6 +8248,7 @@ export default function PxeControl({
         onDeleteMediaFile={deleteMediaFile}
         onCreateImageFromMedia={createImageFromMediaFile}
         onPrepareIsoMedia={prepareIsoMediaFile}
+        onInspectWimIndexes={inspectWimIndexes}
         checkStatusMessage={mediaStatusMessage}
         uploadMessage={saveMessage}
         onClearMessages={clearMediaMessages}
