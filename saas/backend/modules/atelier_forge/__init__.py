@@ -6,6 +6,7 @@ le serveur PXE n'est pas un utilisateur connectÃ©.
 """
 import os
 import json
+import hashlib
 import re
 import shutil
 import socket
@@ -52,6 +53,7 @@ from .schemas import (
     ForgeMediaStatusResponse,
     ForgeServerMediaFile,
     ForgeServerMediaDeleteResponse,
+    ForgeServerMediaChecksumResponse,
     ForgeServerMediaListResponse,
     ForgeUnattendProfile,
     ForgeUnattendProfileCreate,
@@ -616,6 +618,39 @@ def _list_server_media_files(config: ForgePxeConfig) -> list[ForgeServerMediaFil
                 )
             )
     return files
+
+
+def _resolve_server_media_file(folder: str, filename: str) -> tuple[str, str, Path]:
+    allowed = {
+        "iso": ("iso", {".iso"}),
+        "images": ("image", {".wim", ".esd"}),
+        "incoming": ("incoming", {".iso", ".wim", ".esd"}),
+    }
+    if folder not in allowed:
+        raise HTTPException(status_code=400, detail="Dossier media invalide")
+    safe_name = _safe_filename(filename)
+    kind, suffixes = allowed[folder]
+    path = DEPLOY_SHARE_DIR / folder / safe_name
+    if path.suffix.lower() not in suffixes:
+        raise HTTPException(status_code=400, detail="Extension media invalide")
+    try:
+        resolved_path = path.resolve()
+        resolved_root = (DEPLOY_SHARE_DIR / folder).resolve()
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Fichier media introuvable") from None
+    if resolved_root not in resolved_path.parents:
+        raise HTTPException(status_code=400, detail="Chemin media refuse")
+    if not resolved_path.exists() or not resolved_path.is_file():
+        raise HTTPException(status_code=404, detail="Fichier media introuvable")
+    return kind, safe_name, resolved_path
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024 * 4), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _parse_wim_indexes(output: str) -> list[ForgeWimIndex]:
@@ -2622,6 +2657,27 @@ async def list_pxe_media_files(
     )
 
 
+@router.post("/pxe/media/files/{folder}/{filename}/checksum", response_model=ForgeServerMediaChecksumResponse)
+async def checksum_pxe_media_file(
+    folder: str,
+    filename: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Calcule le SHA-256 d'un media serveur a la demande."""
+    _ = current_user
+    kind, safe_name, resolved_path = _resolve_server_media_file(folder, filename)
+    info = resolved_path.stat()
+    sha256 = _sha256_file(resolved_path)
+    return ForgeServerMediaChecksumResponse(
+        filename=safe_name,
+        kind=kind,
+        folder=folder,
+        size=info.st_size,
+        sha256=sha256,
+        message=f"SHA-256 calcule pour {safe_name}.",
+    )
+
+
 @router.delete("/pxe/media/files/{folder}/{filename}", response_model=ForgeServerMediaDeleteResponse)
 async def delete_pxe_media_file(
     folder: str,
@@ -2630,27 +2686,7 @@ async def delete_pxe_media_file(
 ):
     """Supprime un ISO/WIM/ESD du stockage serveur, uniquement dans les dossiers media autorises."""
     _ = current_user
-    allowed = {
-        "iso": ("iso", {".iso"}),
-        "images": ("image", {".wim", ".esd"}),
-        "incoming": ("incoming", {".iso", ".wim", ".esd"}),
-    }
-    if folder not in allowed:
-        raise HTTPException(status_code=400, detail="Dossier media invalide")
-    safe_name = _safe_filename(filename)
-    kind, suffixes = allowed[folder]
-    path = DEPLOY_SHARE_DIR / folder / safe_name
-    if path.suffix.lower() not in suffixes:
-        raise HTTPException(status_code=400, detail="Extension media invalide")
-    try:
-        resolved_path = path.resolve()
-        resolved_root = (DEPLOY_SHARE_DIR / folder).resolve()
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Fichier media introuvable") from None
-    if resolved_root not in resolved_path.parents:
-        raise HTTPException(status_code=400, detail="Chemin media refuse")
-    if not resolved_path.exists() or not resolved_path.is_file():
-        raise HTTPException(status_code=404, detail="Fichier media introuvable")
+    kind, safe_name, resolved_path = _resolve_server_media_file(folder, filename)
     resolved_path.unlink()
     return ForgeServerMediaDeleteResponse(
         deleted=True,

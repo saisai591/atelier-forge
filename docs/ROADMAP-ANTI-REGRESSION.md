@@ -268,7 +268,7 @@ Objectif: garder une trace claire de ce qui est stable, de ce qui est pret local
 5. Validation avant deploiement: image OK, drivers OK, unattend OK, reseau OK.
 6. Generateur cle USB bootable multitool depuis l'interface.
 7. Import ISO/WIM avec vraie progression.
-8. Controle checksum ISO/WIM.
+8. FAIT - Controle checksum ISO/WIM.
 9. Gestion versions images Windows.
 10. Rollback / desactivation d'une image problematique.
 

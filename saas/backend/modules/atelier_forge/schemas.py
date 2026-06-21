@@ -421,6 +421,15 @@ class ForgeServerMediaDeleteResponse(BaseModel):
     message: str
 
 
+class ForgeServerMediaChecksumResponse(BaseModel):
+    filename: str
+    kind: str
+    folder: str
+    size: int
+    sha256: str
+    message: str
+
+
 class ForgeApplianceBackup(BaseModel):
     filename: str
     path: str

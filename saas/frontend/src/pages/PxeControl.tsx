@@ -341,6 +341,15 @@ interface ForgeServerMediaDeleteResponse {
   message: string
 }
 
+interface ForgeServerMediaChecksumResponse {
+  filename: string
+  kind: string
+  folder: string
+  size: number
+  sha256: string
+  message: string
+}
+
 interface ForgeApplianceBackup {
   filename: string
   path: string
@@ -3132,6 +3141,7 @@ function ImagesModule({
   serverMediaFiles,
   onRefreshMediaFiles,
   onDeleteMediaFile,
+  onChecksumMediaFile,
   onCreateImageFromMedia,
   onPrepareIsoMedia,
   onInspectWimIndexes,
@@ -3175,6 +3185,7 @@ function ImagesModule({
   serverMediaFiles: ForgeServerMediaFile[]
   onRefreshMediaFiles: () => Promise<void>
   onDeleteMediaFile: (file: ForgeServerMediaFile) => Promise<void>
+  onChecksumMediaFile: (file: ForgeServerMediaFile) => Promise<ForgeServerMediaChecksumResponse | null>
   onCreateImageFromMedia: (file: ForgeServerMediaFile) => Promise<void>
   onPrepareIsoMedia: (file: ForgeServerMediaFile, imageIndex?: number) => Promise<void>
   onInspectWimIndexes: (sourcePath: string) => Promise<ForgeWimIndex[]>
@@ -3416,6 +3427,7 @@ function ImagesModule({
               serverMediaFiles={serverMediaFiles}
               onRefreshMediaFiles={onRefreshMediaFiles}
               onDeleteMediaFile={onDeleteMediaFile}
+              onChecksumMediaFile={onChecksumMediaFile}
               onCreateImageFromMedia={onCreateImageFromMedia}
               onPrepareIsoMedia={onPrepareIsoMedia}
               onInspectWimIndexes={onInspectWimIndexes}
@@ -5614,6 +5626,7 @@ function MediaUploadPanel({
   serverMediaFiles,
   onRefreshMediaFiles,
   onDeleteMediaFile,
+  onChecksumMediaFile,
   onCreateImageFromMedia,
   onPrepareIsoMedia,
   onInspectWimIndexes,
@@ -5636,6 +5649,7 @@ function MediaUploadPanel({
   serverMediaFiles: ForgeServerMediaFile[]
   onRefreshMediaFiles: () => Promise<void>
   onDeleteMediaFile: (file: ForgeServerMediaFile) => Promise<void>
+  onChecksumMediaFile: (file: ForgeServerMediaFile) => Promise<ForgeServerMediaChecksumResponse | null>
   onCreateImageFromMedia: (file: ForgeServerMediaFile) => Promise<void>
   onPrepareIsoMedia: (file: ForgeServerMediaFile, imageIndex?: number) => Promise<void>
   onInspectWimIndexes: (sourcePath: string) => Promise<ForgeWimIndex[]>
@@ -5651,6 +5665,8 @@ function MediaUploadPanel({
   const [mediaStatus, setMediaStatus] = useState<ForgeMediaStatusResponse | null>(null)
   const [overwriteExisting, setOverwriteExisting] = useState(false)
   const [progress, setProgress] = useState<number | null>(null)
+  const [checksums, setChecksums] = useState<Record<string, string>>({})
+  const [checksumLoadingKey, setChecksumLoadingKey] = useState<string | null>(null)
   const [indexChooser, setIndexChooser] = useState<{
     file: ForgeServerMediaFile
     indexes: ForgeWimIndex[]
@@ -5670,6 +5686,7 @@ function MediaUploadPanel({
   const isoCount = serverMediaFiles.filter((item) => item.kind === 'iso').length
   const imageCount = serverMediaFiles.filter((item) => item.kind === 'image').length
   const declaredImagePaths = new Set(images.map((image) => image.path.trim().toLowerCase()))
+  const mediaKey = (item: ForgeServerMediaFile) => `${item.folder}/${item.filename}`
   const openIndexes = async (item: ForgeServerMediaFile, mode: 'view' | 'prepare') => {
     setIndexChooser({ file: item, indexes: [], isLoading: true, error: null, mode })
     try {
@@ -5690,6 +5707,18 @@ function MediaUploadPanel({
     const selectedFile = indexChooser.file
     setIndexChooser(null)
     void onPrepareIsoMedia(selectedFile, entry.index)
+  }
+  const calculateChecksum = async (item: ForgeServerMediaFile) => {
+    const key = mediaKey(item)
+    setChecksumLoadingKey(key)
+    try {
+      const result = await onChecksumMediaFile(item)
+      if (result?.sha256) {
+        setChecksums((current) => ({ ...current, [key]: result.sha256 }))
+      }
+    } finally {
+      setChecksumLoadingKey(null)
+    }
   }
 
   useEffect(() => {
@@ -5865,6 +5894,8 @@ function MediaUploadPanel({
                   const declared = item.kind === 'image' && declaredImagePaths.has(item.smb_path.trim().toLowerCase())
                   const stateLabel = declared ? 'Pret PXE' : item.kind === 'iso' ? 'A convertir' : 'A declarer'
                   const stateTone = declared ? 'emerald' : item.kind === 'iso' ? 'amber' : 'cyan'
+                  const key = mediaKey(item)
+                  const checksum = checksums[key]
                   return (
                   <tr key={`${item.folder}-${item.filename}`} className="bg-black/10">
                     <td className="px-3 py-2">
@@ -5894,6 +5925,16 @@ function MediaUploadPanel({
                     <td className="max-w-[260px] truncate px-3 py-2 font-mono text-xs text-cyan-200">{item.smb_path}</td>
                     <td className="px-3 py-2 text-right">
                       <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => checksum ? void navigator.clipboard?.writeText(checksum) : void calculateChecksum(item)}
+                          disabled={checksumLoadingKey === key}
+                          className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs font-semibold text-slate-200 transition hover:bg-white/[0.08] disabled:cursor-wait disabled:opacity-70"
+                          title={checksum ? checksum : 'Calculer le SHA-256'}
+                        >
+                          <ShieldCheck className="h-3.5 w-3.5" />
+                          {checksumLoadingKey === key ? 'Calcul...' : checksum ? `${checksum.slice(0, 8)}...` : 'SHA-256'}
+                        </button>
                         <button
                           type="button"
                           onClick={() => void openIndexes(item, 'view')}
@@ -7543,6 +7584,24 @@ export default function PxeControl({
     }
   }
 
+  const checksumMediaFile = async (file: ForgeServerMediaFile): Promise<ForgeServerMediaChecksumResponse | null> => {
+    setApiError(null)
+    setSaveMessage(null)
+    try {
+      const token = await getDemoToken()
+      const folder = encodeURIComponent(file.folder)
+      const filename = encodeURIComponent(file.filename)
+      const checksum = await requestJson<ForgeServerMediaChecksumResponse>(`/forge/pxe/media/files/${folder}/${filename}/checksum`, token, {
+        method: 'POST',
+      })
+      setSaveMessage(`${checksum.message} ${checksum.sha256.slice(0, 16)}...`)
+      return checksum
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : 'Erreur calcul checksum media')
+      return null
+    }
+  }
+
   const refreshBackups = async () => {
     setApiError(null)
     try {
@@ -8354,6 +8413,7 @@ export default function PxeControl({
         onCheckMedia={checkMediaOnServer}
         onRefreshMediaFiles={refreshMediaFiles}
         onDeleteMediaFile={deleteMediaFile}
+        onChecksumMediaFile={checksumMediaFile}
         onCreateImageFromMedia={createImageFromMediaFile}
         onPrepareIsoMedia={prepareIsoMediaFile}
         onInspectWimIndexes={inspectWimIndexes}
