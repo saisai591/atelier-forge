@@ -1745,6 +1745,39 @@ function AuditReturnPanel({
     downloadCsvFile(`aos-audits-${new Date().toISOString().slice(0, 10)}.csv`, rows)
   }
 
+  function exportSelectedHistoryCsv() {
+    if (!selected || !selectedHistory.length) return
+    const rows = [
+      ['date', 'marque', 'modele', 'serie', 'hostname', 'ip', 'mac', 'cpu', 'ram', 'disque', 'batterie', 'grade', 'tests_ok', 'tests_total', 'fichier'],
+      ...selectedHistory.map((audit) => {
+        const tests = workshopTestSummary(audit)
+        return [
+          audit.updated_at || audit.created_at || '',
+          audit.brand || '',
+          audit.model || '',
+          audit.serial_number || '',
+          audit.hostname || '',
+          audit.ip || '',
+          audit.mac || '',
+          audit.cpu || '',
+          audit.ram || (audit.ram_mb ? `${audit.ram_mb} MB` : ''),
+          audit.main_disk || '',
+          audit.battery_status || '',
+          audit.grade_proposed || '',
+          tests.ok,
+          tests.total,
+          audit.filename,
+        ]
+      }),
+    ]
+    const reference = (selected.serial_number || selected.mac || selected.hostname || selected.id || 'machine')
+      .replace(/[^a-z0-9._-]+/gi, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .toLowerCase()
+    downloadCsvFile(`atelieros-historique-${reference}-${new Date().toISOString().slice(0, 10)}.csv`, rows)
+  }
+
   return (
     <section className="rounded-2xl border border-white/10 bg-slate-950/65 p-5 shadow-xl shadow-black/20">
       <div className="mb-5 flex items-center justify-between gap-4">
@@ -2030,9 +2063,19 @@ function AuditReturnPanel({
             <div className="mt-4 rounded-lg border border-white/10 bg-black/20 p-3">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Historique machine</div>
-                <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[11px] font-semibold text-slate-300">
-                  {selectedHistory.length}
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={exportSelectedHistoryCsv}
+                    disabled={!selectedHistory.length}
+                    className="rounded-md border border-cyan-300/20 bg-cyan-300/10 px-2 py-1 text-[11px] font-semibold text-cyan-100 transition hover:bg-cyan-300/15 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Export
+                  </button>
+                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[11px] font-semibold text-slate-300">
+                    {selectedHistory.length}
+                  </span>
+                </div>
               </div>
               <div className="space-y-2">
                 {selectedHistory.slice(0, 4).map((item) => (
@@ -2046,6 +2089,11 @@ function AuditReturnPanel({
                     <span className="text-[11px] font-semibold text-cyan-200">{auditCompletionSummary(item).complete ? 'OK' : 'A faire'}</span>
                   </button>
                 ))}
+                {!selectedHistory.length ? (
+                  <div className="rounded-md border border-white/10 bg-white/[0.035] px-2 py-1.5 text-xs text-slate-500">
+                    Aucun historique encore lie a ce numero de serie ou MAC.
+                  </div>
+                ) : null}
               </div>
             </div>
 
