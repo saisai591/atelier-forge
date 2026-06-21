@@ -438,6 +438,9 @@ interface ForgeSystemReportResponse {
   generated_at: string
   pxe_config: ForgePxeConfig
   network: ForgeNetworkDiagnosticResponse
+  storage_total_gb: number
+  storage_free_gb: number
+  storage_used_percent: number
   media_total: number
   wim_images_total: number
   wim_recipes_total: number
@@ -771,6 +774,7 @@ function systemReportSupportText(report: ForgeSystemReportResponse) {
     `IP configuree: ${report.network.configured_ip || 'non definie'}`,
     `IP detectee: ${report.network.detected_ip || 'non detectee'}`,
     `Services: ${services || 'aucun service remonte'}`,
+    `Stockage: ${report.storage_free_gb} GB libres / ${report.storage_total_gb} GB (${report.storage_used_percent}% utilise)`,
     `Medias: ${report.media_total} | Images: ${report.wim_images_total} | WIM procedures: ${report.wim_builds_total}`,
     `Pilotes: ${report.driver_packs_total} | Audits visibles: ${report.audits_total_visible} | Sauvegardes: ${report.backups_total}`,
     `Recommandations: ${report.recommendations.join(' / ') || 'aucune'}`,
@@ -4211,8 +4215,10 @@ function GuideClientPanel({
                   <InfoRow label="IP detectee" value={systemReport.network.detected_ip || 'Non detectee'} mono />
                   <InfoRow label="Mode PXE" value={systemReport.pxe_config.mode} />
                 </div>
-                <div className="grid gap-2 sm:grid-cols-4">
+                <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
                   {[
+                    ['Libre', `${systemReport.storage_free_gb} GB`],
+                    ['Utilise', `${systemReport.storage_used_percent}%`],
                     ['Medias', systemReport.media_total],
                     ['Images', systemReport.wim_images_total],
                     ['Pilotes', systemReport.driver_packs_total],

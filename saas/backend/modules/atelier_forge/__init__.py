@@ -2070,12 +2070,20 @@ async def get_pxe_system_report(
     config = _read_pxe_config()
     network = _network_diagnostic(config)
     media = _list_server_media_files(config)
+    usage = shutil.disk_usage(DEPLOY_SHARE_DIR if DEPLOY_SHARE_DIR.exists() else Path("/"))
+    storage_total_gb = round(usage.total / (1024 ** 3), 1)
+    storage_free_gb = round(usage.free / (1024 ** 3), 1)
+    storage_used_percent = round(((usage.total - usage.free) / max(usage.total, 1)) * 100, 1)
     backups = [
         path
         for path in BACKUP_DIR.glob("aos-backup-*.zip")
         if path.is_file()
     ] if BACKUP_DIR.exists() else []
     recommendations: list[str] = [network.recommendation]
+    if storage_free_gb < 20:
+        recommendations.append("Espace disque critique: liberer des anciens ISO/WIM/kits USB/sauvegardes.")
+    elif storage_free_gb < 50:
+        recommendations.append("Espace disque a surveiller avant import ISO ou creation WIM.")
     if not _read_wim_images():
         recommendations.append("Declarer une image WIM/ESD ou importer une ISO Windows.")
     if not any(image.is_default for image in _read_wim_images()):
@@ -2088,6 +2096,9 @@ async def get_pxe_system_report(
         generated_at=datetime.now(timezone.utc).isoformat(),
         pxe_config=config,
         network=network,
+        storage_total_gb=storage_total_gb,
+        storage_free_gb=storage_free_gb,
+        storage_used_percent=storage_used_percent,
         media_total=len(media),
         wim_images_total=len(_read_wim_images()),
         wim_recipes_total=len(_read_wim_recipes()),

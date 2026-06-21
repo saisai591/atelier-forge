@@ -167,6 +167,9 @@ class ForgeSystemReportResponse(BaseModel):
     generated_at: str
     pxe_config: ForgePxeConfig
     network: ForgeNetworkDiagnosticResponse
+    storage_total_gb: float
+    storage_free_gb: float
+    storage_used_percent: float
     media_total: int
     wim_images_total: int
     wim_recipes_total: int
