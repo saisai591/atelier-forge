@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# =============================================================================
-# Atelier Forge — Génère les fichiers de configuration des services et les menus iPXE
+# =================================================================================
+# AtelierOS — Génère les fichiers de configuration des services et les menus iPXE
 # à partir de config.env. Idempotent : peut être relancé à volonté.
-# =============================================================================
+# =================================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -35,9 +35,9 @@ mkdir -p "${TFTP_ROOT}" "${HTTP_ROOT}/boot" "${HTTP_ROOT}/winpe" "${HTTP_ROOT}/d
 #   \\SERVEUR\deploy\drivers  -> packs pilotes
 #   \\SERVEUR\deploy\audit    -> retours audit + étiquettes
 #   \\SERVEUR\deploy\exports  -> exports inventaire / rapports
-cat > "${SMB_SHARE}/README-AOS-DEPLOY.txt" <<EOF
-AOS Deploy V5 - Stockage reseau
-================================
+cat > "${SMB_SHARE}/README-ATELIEROS-DEPLOY.txt" <<EOF
+AtelierOS Deploy - Stockage reseau
+==================================
 
 Depuis Windows : \\\\${SERVER_IP}\\${SMB_SHARE_NAME}
 Utilisateur    : ${SMB_USER}
@@ -99,7 +99,7 @@ chmod 0777 \
 # --- dnsmasq ---------------------------------------------------------------
 DNSMASQ_CONF="${CONFIG_DIR}/dnsmasq/forge.conf"
 {
-    echo "# Atelier Forge dnsmasq — généré automatiquement. Ne pas éditer à la main."
+    echo "# AtelierOS dnsmasq — généré automatiquement. Ne pas éditer à la main."
     echo "# Régénéré par render-config.sh à partir de config.env."
     echo "port=0                 # Désactive le serveur DNS (la box garde le DNS)."
     echo "log-dhcp"
@@ -135,13 +135,13 @@ DNSMASQ_CONF="${CONFIG_DIR}/dnsmasq/forge.conf"
     echo "# 2e chargement (iPXE en cours) -> menu via HTTP (rapide & fiable) :"
     echo "dhcp-boot=tag:ipxe,http://${SERVER_IP}:${HTTP_PORT}/boot/menu.ipxe"
     echo ""
-    echo 'pxe-prompt="Atelier Forge — Reconditionnement",1'
+    echo 'pxe-prompt="AtelierOS Deploy - Reconditionnement",1'
 } > "${DNSMASQ_CONF}"
 echo "    - dnsmasq : ${DNSMASQ_CONF} (mode ${DHCP_MODE})"
 
 # --- nginx -----------------------------------------------------------------
 cat > "${CONFIG_DIR}/nginx/forge.conf" <<'NGINX'
-# Atelier Forge nginx — sert les menus iPXE, WinPE (wimboot) et les outils de diag.
+# AtelierOS nginx — sert les menus iPXE, WinPE (wimboot) et les outils de diag.
 server {
     listen __HTTP_PORT__ default_server;
     listen [::]:__HTTP_PORT__ default_server;
@@ -176,11 +176,11 @@ echo "    - nginx   : ${CONFIG_DIR}/nginx/forge.conf (port ${HTTP_PORT})"
 
 # --- Samba -----------------------------------------------------------------
 cat > "${CONFIG_DIR}/samba/smb.conf" <<SAMBA
-# Atelier Forge Samba — généré automatiquement.
+# AtelierOS Samba — généré automatiquement.
 [global]
    workgroup = WORKGROUP
    netbios name = AOS-DEPLOY
-   server string = Atelier Forge Deploy
+   server string = AtelierOS Deploy
    security = user
    map to guest = never
    server min protocol = SMB2
