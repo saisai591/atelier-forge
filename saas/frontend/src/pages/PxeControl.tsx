@@ -754,7 +754,7 @@ function systemReportSupportText(report: ForgeSystemReportResponse) {
     .map((service) => `${service.label}: ${service.status}`)
     .join(', ')
   return [
-    `AOS Deploy V5 - rapport support (${generatedAt})`,
+    `AtelierOS - rapport support (${generatedAt})`,
     `Mode PXE: ${report.pxe_config.mode}`,
     `IP configuree: ${report.network.configured_ip || 'non definie'}`,
     `IP detectee: ${report.network.detected_ip || 'non detectee'}`,
@@ -3036,7 +3036,7 @@ function printAuditReport(audit: ForgePxeAuditSummary) {
   <header>
     <div>
       <h1>${htmlEscape(machineName(audit))}</h1>
-      <div>Rapport audit atelier AOS Deploy V5</div>
+  <div>Rapport audit atelier AtelierOS</div>
     </div>
     <div class="status">${completion.complete ? 'AUDIT COMPLET' : `AUDIT INCOMPLET - ${htmlEscape(completion.missing.join(', '))}`}</div>
   </header>
@@ -3052,7 +3052,7 @@ function printAuditReport(audit: ForgePxeAuditSummary) {
       <table>${[...diskRows, ...batteryRows].map(([label, value]) => `<tr><td>${htmlEscape(label)}</td><td>${htmlEscape(value)}</td></tr>`).join('')}</table>
     </div>
   </div>
-  <footer>Genere depuis AOS Deploy V5 le ${htmlEscape(new Date().toLocaleString('fr-FR'))}. Fichier source: ${htmlEscape(audit.filename)}</footer>
+  <footer>Genere depuis AtelierOS le ${htmlEscape(new Date().toLocaleString('fr-FR'))}. Fichier source: ${htmlEscape(audit.filename)}</footer>
   <script>window.addEventListener('load', () => window.print())</script>
 </body>
 </html>`
@@ -4523,7 +4523,7 @@ function SettingsModule({
 }) {
   return (
     <div className="space-y-6">
-      <PageTitle title="Parametres" description="Configuration active lue depuis le backend AOS Deploy V5." icon={Settings} />
+      <PageTitle title="Parametres" description="Configuration active lue depuis le backend AtelierOS." icon={Settings} />
       <AssistantSettingsPanel enabled={assistantEnabled} onChange={onAssistantEnabledChange} />
       <NetworkResyncPanel status={status} config={config} diagnostic={diagnostic} isRunning={isSaving} message={networkMessage} onResync={onResyncNetwork} />
       <SettingsPanel status={status} config={config} isSaving={isSaving} saveMessage={saveMessage} onSave={onSave} />
@@ -6707,7 +6707,7 @@ function Header({
         <div className="min-w-0">
           <div className="hidden text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300 sm:block">Enterprise PXE Orchestrator</div>
           <h1 className="truncate text-lg font-semibold tracking-tight text-white sm:mt-1 sm:text-2xl">
-            {current ? current.label : 'AOS Deploy V5'}
+            {current ? current.label : 'AtelierOS'}
           </h1>
         </div>
         <div className="relative z-40 ml-auto hidden w-[min(34rem,36vw)] min-w-[280px] xl:block">

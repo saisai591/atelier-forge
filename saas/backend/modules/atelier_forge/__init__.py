@@ -636,7 +636,8 @@ def _safelist_to_smb_path(share_root: str, relative_path: str) -> str:
     smb_base = share_root.rstrip("\\/")
     if relative_path.startswith("\\"):
         relative_path = relative_path[1:]
-    return rf"{smb_base}\{relative_path.replace('/', '\\')}"
+    smb_relative = relative_path.replace("/", "\\")
+    return f"{smb_base}\\{smb_relative}"
 
 
 def _register_built_wim_if_ready(
@@ -1371,7 +1372,7 @@ def _usb_readme(config: ForgePxeConfig, profile: str = "complete") -> str:
     dashboard_url = config.server_url.replace(":1950", "")
     profile_label = _usb_profile_label(profile)
     return "\n".join([
-        "AOS Deploy V5 - Cle USB Multitool bootable",
+        "AtelierOS - Cle USB Multitool bootable",
         f"Profil: {profile_label}",
         "",
         "Objectif",
@@ -1404,7 +1405,7 @@ def _usb_readme(config: ForgePxeConfig, profile: str = "complete") -> str:
         "Utilisation",
         "1. Demarrer le PC sur la cle USB.",
         "2. Choisir l'ISO iPXE/WinPE ou l'ISO Windows selon le cas.",
-        "3. Si le reseau est disponible, ouvrir le dashboard AOS.",
+        "3. Si le reseau est disponible, ouvrir le dashboard AtelierOS.",
         "4. Lancer Audit rapide ou Deploiement depuis l'interface.",
         "5. Si le reseau est indisponible, stocker les informations dans AOS-USB/logs puis resynchroniser plus tard.",
         "",
@@ -1413,7 +1414,7 @@ def _usb_readme(config: ForgePxeConfig, profile: str = "complete") -> str:
 
 def _usb_bootable_script(config: ForgePxeConfig) -> str:
     dashboard_url = config.server_url.replace(":1950", "")
-    return rf'''# AOS Deploy V5 - utilitaire creation cle USB Multitool bootable
+    return rf'''# AtelierOS - utilitaire creation cle USB Multitool bootable
 # A executer depuis le dossier extrait du kit ZIP.
 param(
   [string]$UsbDrive = "",
@@ -1426,7 +1427,7 @@ $aosFolder = Join-Path $root "AOS-USB"
 $aosDiskExe = Join-Path $root "ventoy\AOS DISK.exe"
 $ventoyExe = Join-Path $root "ventoy\Ventoy2Disk.exe"
 
-Write-Host "AOS Deploy V5 - creation cle USB Multitool bootable" -ForegroundColor Cyan
+Write-Host "AtelierOS - creation cle USB Multitool bootable" -ForegroundColor Cyan
 Write-Host "Dashboard: {dashboard_url}"
 Write-Host "Serveur tests/PXE: {config.server_url}"
 Write-Host ""
@@ -1505,7 +1506,7 @@ $checks = @(
 )
 $missing = @($checks | Where-Object {{ -not (Test-Path $_) }})
 @(
-  "AOS Deploy V5 - creation cle USB Multitool",
+  "AtelierOS - creation cle USB Multitool",
   "Date: $(Get-Date -Format s)",
   "Lecteur: $targetRoot",
   "Dashboard: {dashboard_url}",
@@ -1548,7 +1549,7 @@ def _usb_profile_instructions(profile: str) -> str:
             "Usage:",
             "- Demarrer un PC pour collecter marque, modele, serie, CPU, RAM, disque, batterie.",
             "- Utiliser ensuite les tests atelier clavier, pixels, USB, camera, micro.",
-            "- Remonter le resultat dans l'onglet Audit AOS.",
+            "- Remonter le resultat dans l'onglet Audit AtelierOS.",
             "",
             "A privilegier pour: tri atelier, etiquettes, controle rapide avant revente.",
             "",
@@ -1559,7 +1560,7 @@ def _usb_profile_instructions(profile: str) -> str:
             "",
             "Usage:",
             "- Stocker ici les ISO/WIM/ESD Windows utiles.",
-            "- Associer drivers et Unattend depuis AOS Deploy.",
+            "- Associer drivers et Unattend depuis AtelierOS.",
             "- Utiliser la cle comme secours quand le PXE reseau n'est pas disponible.",
             "",
             "A privilegier pour: installation Windows, reinstallation atelier, secours client.",
