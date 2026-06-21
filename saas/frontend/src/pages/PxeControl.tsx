@@ -5299,6 +5299,48 @@ function LogConsole({ logs }: { logs: LogEntry[] }) {
 
 function logDiagnosis(log: LogEntry) {
   const text = `${log.source} ${log.message}`.toLowerCase()
+  if (text.includes('service') && text.includes('offline')) {
+    if (text.includes('smb') || text.includes('partage')) {
+      return {
+        title: 'Partage SMB indisponible',
+        detail: 'Le depot reseau peut etre inaccessible depuis les PC atelier. Les ISO, audits ou drivers peuvent ne pas se synchroniser.',
+        action: 'Aller dans Parametres > Regeneration reseau puis tester \\\\IP_SERVEUR\\deploy depuis Windows.',
+        tone: 'rose' as const,
+      }
+    }
+    if (text.includes('http') || text.includes('pxe')) {
+      return {
+        title: 'HTTP PXE indisponible',
+        detail: 'Le client peut recevoir le boot PXE mais ne pas telecharger le menu, WinPE ou les scripts.',
+        action: 'Verifier forge-nginx-pxe, puis Parametres > Regenerer reseau.',
+        tone: 'rose' as const,
+      }
+    }
+    if (text.includes('api') || text.includes('backend')) {
+      return {
+        title: 'Backend API indisponible',
+        detail: 'L interface peut s ouvrir mais les retours audits, images et commandes machines ne fonctionneront pas correctement.',
+        action: 'Verifier aos-backend puis ouvrir Guide > Diagnostic.',
+        tone: 'rose' as const,
+      }
+    }
+  }
+  if (text.includes('asset') && (text.includes('missing') || text.includes('absent') || text.includes('a generer') || text.includes('deposer'))) {
+    return {
+      title: 'Ressource PXE manquante',
+      detail: 'Un fichier de boot ou WinPE manque sur le serveur. Le menu peut apparaitre mais l audit graphique ou le deploiement ne partira pas.',
+      action: 'Ouvrir Images WIM > Assets PXE et deposer/generer le fichier indique.',
+      tone: 'amber' as const,
+    }
+  }
+  if (text.includes('ip inconnue') || text.includes('no ip') || text.includes('unknown ip')) {
+    return {
+      title: 'Client sans adresse IP',
+      detail: 'La machine PXE est vue mais son adresse IP ne remonte pas. Causes probables: DHCP, cable, VLAN, switch ou lien direct mal configure.',
+      action: 'Relancer Parametres > Regenerer reseau puis refaire un boot PXE propre.',
+      tone: 'amber' as const,
+    }
+  }
   if (text.includes('tftp') && (text.includes('timeout') || text.includes('not found') || text.includes('failed'))) {
     return {
       title: 'TFTP ne fournit pas le fichier',
