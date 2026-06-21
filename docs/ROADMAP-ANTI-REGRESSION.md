@@ -246,6 +246,14 @@ Objectif: garder une trace claire de ce qui est stable, de ce qui est pret local
 
 ## Prochaines implementations prioritaires
 
+## Inventaire applications
+
+- FAIT - Inventaire des applications et prototypes dans `docs/APPLICATIONS-INVENTAIRE.md`.
+- Decision: `saas/` reste le produit principal.
+- Decision: `mobile/aos-mobile-webview/`, `webtests/`, `winpe/`, `modules/`, `boot/` restent actifs.
+- Decision: `server/control-api/`, `webcontrol/`, `webpxetest/`, `webtech/`, `labels/` sont legacy/a fusionner.
+- Decision: `wipe/` devient un futur module produit: effacement securise + certificat.
+
 ### Priorite 1 - Vente client et stabilite atelier
 
 1. Assistant reseau automatique: detecter IP, switch/direct, DHCP, PXE, SMB et proposer `Reparer`.
