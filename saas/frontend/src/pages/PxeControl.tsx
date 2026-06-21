@@ -1779,6 +1779,37 @@ function AuditReturnPanel({
 
       {selected ? (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_430px]">
+          <div className="xl:col-span-2 rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.045] p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">Machine selectionnee</div>
+                <div className="mt-1 truncate text-lg font-semibold text-white">{machineName(selected)}</div>
+                <div className="mt-1 truncate font-mono text-xs text-slate-400">{selected.serial_number || selected.filename}</div>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 lg:flex lg:flex-wrap lg:justify-end">
+                <button type="button" onClick={() => setLabelEditorOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-300/10 px-3 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300/15">
+                  <Printer className="h-4 w-4" />
+                  Etiquette
+                </button>
+                <button type="button" onClick={() => printAuditReport(selected)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-sky-300/20 bg-sky-300/10 px-3 py-2.5 text-sm font-semibold text-sky-100 transition hover:bg-sky-300/15">
+                  <FileText className="h-4 w-4" />
+                  PDF audit
+                </button>
+                <button type="button" onClick={() => onPrepareDrivers(selected.id)} disabled={isPreparingDrivers || !selected.brand || !selected.model} className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-3 py-2.5 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-300/15 disabled:cursor-not-allowed disabled:opacity-60">
+                  <HardDrive className="h-4 w-4" />
+                  Drivers
+                </button>
+                <button type="button" onClick={copyLabel} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.045] px-3 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-white/[0.07]">
+                  <Copy className="h-4 w-4" />
+                  Copier
+                </button>
+                <button type="button" onClick={deleteSelectedAudit} className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-300/20 bg-rose-300/10 px-3 py-2.5 text-sm font-semibold text-rose-100 transition hover:bg-rose-300/15">
+                  <Trash2 className="h-4 w-4" />
+                  Supprimer
+                </button>
+              </div>
+            </div>
+          </div>
           <div className="grid content-start gap-3 md:grid-cols-2 2xl:grid-cols-3">
             {pagedAudits.map((audit) => {
               const active = audit.id === selected.id
@@ -2140,7 +2171,7 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
     ip: cleanLabelField(audit.ip || ''),
     grade: audit.grade_proposed || 'A',
     price: '',
-    note: 'AOS DEPLOY V5',
+    note: 'ATELIEROS',
   }), [audit])
   const [label, setLabel] = useState(initial)
   const [formatId, setFormatId] = useState(labelFormats[0].id)
@@ -2254,7 +2285,7 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
       disk: compactDiskLabel(current.disk, diskLimit),
       battery: compactBatteryLabel(current.battery, batteryLimit),
       serial: compactLabelText(current.serial, pageHeight <= 35 ? 16 : pageHeight <= 40 ? 20 : 28),
-      note: compactLabelText(current.note || 'AOS DEPLOY V5', 28),
+      note: compactLabelText(current.note || 'ATELIEROS', 28),
     }))
   }
 
