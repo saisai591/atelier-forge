@@ -3129,7 +3129,7 @@ function ImagesModule({
   onSetDefaultDeploymentProfile: (profileId: string) => Promise<void>
   onDeleteDeploymentProfile: (profileId: string) => Promise<void>
 }) {
-  const [activeTool, setActiveTool] = useState<'assets' | 'images' | 'browse' | 'wim' | 'unattend' | 'profiles' | null>(null)
+  const [activeTool, setActiveTool] = useState<'assets' | 'images' | 'browse' | 'wim' | 'unattend' | 'profiles' | null>('browse')
   const defaultImage = images.find((image) => image.is_default)
   const readyImages = images.filter((image) => image.status === 'ready').length
   const defaultImageReady = Boolean(defaultImage && defaultImage.status === 'ready')
@@ -3157,25 +3157,19 @@ function ImagesModule({
   const workspaceRef = useRef<HTMLElement | null>(null)
   const openTool = (tool: NonNullable<typeof activeTool>) => {
     setActiveTool(tool)
-    window.setTimeout(() => workspaceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 40)
   }
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Images WIM" description="Assistant image Windows : importer, preparer le WIM, le placer sur le serveur, puis deployer." icon={Database} />
+      <PageTitle title="Images WIM" description="Parcours court : ISO/WIM vers image Windows prete pour PXE." icon={Database} />
 
-      <section className="grid gap-4 xl:grid-cols-4">
-        <MetricCard metric={{ id: 'wim-images', label: 'Images pretes', value: `${readyImages}/${images.length}`, detail: defaultImage?.name ?? 'Aucune image par defaut', trend: defaultImageReady ? 'prête' : 'image manquante', tone: readyImages ? 'emerald' : 'amber' }} />
-        <MetricCard metric={{ id: 'deploy-profiles', label: 'Profils complets', value: String(deploymentProfiles.length), detail: defaultDeploymentProfile?.name ?? 'image + unattend + drivers', trend: defaultDeploymentProfile ? 'défaut actif' : 'à créer', tone: defaultDeploymentProfile ? 'emerald' : 'amber' }} />
-        <MetricCard metric={{ id: 'unattend', label: 'Unattend', value: String(unattendProfiles.length), detail: 'installations automatisées', trend: unattendProfiles.some((profile) => profile.is_default) ? 'défaut actif' : 'à configurer', tone: unattendProfiles.length ? 'emerald' : 'amber' }} />
-        <MetricCard metric={{ id: 'assets', label: 'Assets PXE', value: `${readyAssets}/${Math.max(assets.length, 1)}`, detail: `${missingAssets} ressource(s) à préparer`, trend: missingAssets ? 'attention' : 'prêt', tone: missingAssets ? 'amber' : 'emerald' }} />
-      </section>
-
-      <section className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 sm:p-5 shadow-xl shadow-black/20">
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+      <section className="rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.045] p-4 shadow-xl shadow-black/20">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-white">Parcours WIM (3 minutes max)</h2>
-            <p className="mt-1 max-w-3xl text-sm text-slate-400">Flux conseillé pour un démarrage propre : importer, préparer, définir l’image par défaut, puis lancer le déploiement PXE.</p>
+            <h2 className="text-lg font-semibold text-white">Assistant rapide</h2>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
+              Le technicien suit une seule ligne : envoyer l'ISO ou le WIM, preparer l'image, choisir le profil, puis deploiement PXE.
+            </p>
           </div>
           <button
             type="button"
@@ -3193,11 +3187,48 @@ function ImagesModule({
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
-        <div className="grid gap-3 md:grid-cols-4">
-          <WorkflowStepCard index={1} title="Importer ISO / WIM / ESD" detail="Dépose directe sur le stockage serveur." action={images.length ? 'OK' : 'A faire'} tone="cyan" active onClick={() => openTool('browse')} />
-            <WorkflowStepCard index={2} title="Préparer WIM" detail="Lance la generation directe depuis ISO/WIM vers WIM exploitable PXE." action={builds.length ? 'Préparé' : 'A faire'} tone="emerald" active={builds.length > 0} onClick={() => openTool('wim')} />
-          <WorkflowStepCard index={3} title="Choisir image PXE par défaut" detail="Définir l’image prête pour les postes." action={defaultImageReady ? 'OK' : 'A faire'} tone="amber" active={defaultImageReady} onClick={() => openTool('images')} />
-          <WorkflowStepCard index={4} title="Profil complet" detail="Assemble image, Unattend et drivers." action={defaultDeploymentProfile ? 'OK' : 'A faire'} tone="cyan" active={Boolean(defaultDeploymentProfile)} onClick={() => openTool('profiles')} />
+        <div className="mt-4 grid gap-2 md:grid-cols-5">
+          {[
+            { id: 'browse' as const, label: '1. Importer', detail: 'ISO, WIM ou ESD', tone: 'cyan' },
+            { id: 'wim' as const, label: '2. Creer WIM', detail: 'Preparation DISM', tone: 'emerald' },
+            { id: 'images' as const, label: '3. Image PXE', detail: 'Defaut serveur', tone: 'amber' },
+            { id: 'unattend' as const, label: '4. Unattend', detail: 'Standard ou marketplace', tone: 'cyan' },
+            { id: 'profiles' as const, label: '5. Profil pret', detail: 'Image + drivers', tone: 'emerald' },
+          ].map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => openTool(item.id)}
+              className={cn(
+                'rounded-xl border p-3 text-left transition',
+                activeTool === item.id
+                  ? 'border-cyan-300/35 bg-cyan-300/12 shadow-lg shadow-cyan-500/10'
+                  : 'border-white/10 bg-black/20 hover:border-cyan-300/25 hover:bg-white/[0.05]',
+              )}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-sm font-semibold text-white">{item.label}</div>
+                {activeTool === item.id ? <CheckCircle2 className="h-4 w-4 text-emerald-300" /> : null}
+              </div>
+              <div className="mt-1 text-xs text-slate-400">{item.detail}</div>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-4">
+        <MetricCard metric={{ id: 'wim-images', label: 'Images pretes', value: `${readyImages}/${images.length}`, detail: defaultImage?.name ?? 'Aucune image par defaut', trend: defaultImageReady ? 'prête' : 'image manquante', tone: readyImages ? 'emerald' : 'amber' }} />
+        <MetricCard metric={{ id: 'deploy-profiles', label: 'Profils complets', value: String(deploymentProfiles.length), detail: defaultDeploymentProfile?.name ?? 'image + unattend + drivers', trend: defaultDeploymentProfile ? 'défaut actif' : 'à créer', tone: defaultDeploymentProfile ? 'emerald' : 'amber' }} />
+        <MetricCard metric={{ id: 'unattend', label: 'Unattend', value: String(unattendProfiles.length), detail: 'installations automatisées', trend: unattendProfiles.some((profile) => profile.is_default) ? 'défaut actif' : 'à configurer', tone: unattendProfiles.length ? 'emerald' : 'amber' }} />
+        <MetricCard metric={{ id: 'assets', label: 'Assets PXE', value: `${readyAssets}/${Math.max(assets.length, 1)}`, detail: `${missingAssets} ressource(s) à préparer`, trend: missingAssets ? 'attention' : 'prêt', tone: missingAssets ? 'amber' : 'emerald' }} />
+      </section>
+
+      <section className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 sm:p-5 shadow-xl shadow-black/20">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Validation avant PXE</h2>
+            <p className="mt-1 max-w-3xl text-sm text-slate-400">Lecture rapide avant de booter une machine : image, Unattend, profil et assets doivent etre verts.</p>
+          </div>
         </div>
         <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -3375,52 +3406,6 @@ function ImagesModule({
         </section>
       )}
     </div>
-  )
-}
-
-function WorkflowStepCard({
-  index,
-  title,
-  detail,
-  action,
-  tone,
-  active,
-  onClick,
-}: {
-  index: number
-  title: string
-  detail: string
-  action: string
-  tone: 'cyan' | 'emerald' | 'amber'
-  active: boolean
-  onClick: () => void
-}) {
-  const toneClass = {
-    cyan: 'border-cyan-300/20 bg-cyan-300/10 text-cyan-100',
-    emerald: 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100',
-    amber: 'border-amber-300/20 bg-amber-300/10 text-amber-100',
-  }[tone]
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'group min-h-[150px] rounded-xl border p-4 text-left transition',
-        active ? 'border-white/10 bg-black/20 hover:border-cyan-300/25 hover:bg-cyan-300/[0.07]' : 'border-white/10 bg-white/[0.025] opacity-75 hover:bg-white/[0.04]',
-      )}
-    >
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <span className={cn('grid h-9 w-9 place-items-center rounded-xl border font-mono text-sm font-bold', toneClass)}>
-          {String(index).padStart(2, '0')}
-        </span>
-        <span className={cn('rounded-full border px-2.5 py-1 text-xs font-semibold', active ? toneClass : 'border-white/10 bg-white/[0.035] text-slate-500')}>
-          {action}
-        </span>
-      </div>
-      <div className="text-base font-semibold text-white">{title}</div>
-      <div className="mt-2 text-sm leading-6 text-slate-400">{detail}</div>
-    </button>
   )
 }
 
