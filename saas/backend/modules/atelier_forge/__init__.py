@@ -707,7 +707,7 @@ def _run_wim_build_job(
                         "$ErrorActionPreference = 'Stop'",
                         "$WorkDir = Join-Path $env:TEMP 'aos-wim-build'",
                         "New-Item -ItemType Directory -Force -Path $WorkDir | Out-Null",
-                        "Write-Host 'AOS Deploy - conversion WIM manuelle'"
+                        "Write-Host 'AtelierOS - conversion WIM manuelle'"
                     ]),
                     encoding="utf-8",
                 )
@@ -755,7 +755,7 @@ def _start_wim_build_job(
         f"$OutputImage = '{output_wim}'",
         "$WorkDir = Join-Path $env:TEMP 'aos-wim-build'",
         "New-Item -ItemType Directory -Force -Path $WorkDir | Out-Null",
-        "Write-Host 'AOS Deploy - creation WIM'",
+        "Write-Host 'AtelierOS - creation WIM'",
         "if (-Not (Test-Path $SourceImage)) { throw \"Source introuvable: $SourceImage\" }",
         "if (-Not (Test-Path (Split-Path -Parent $OutputImage))) { New-Item -ItemType Directory -Force -Path (Split-Path -Parent $OutputImage) | Out-Null }",
         "Copy-Item -Path $SourceImage -Destination $OutputImage -Force",
@@ -1000,7 +1000,7 @@ def _download_manufacturer_drivers(
     (local_dir / "driverpack-manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     (local_dir / "README.txt").write_text(
         "\n".join([
-            "AOS Deploy driver pack",
+            "AtelierOS driver pack",
             f"Machine: {audit.brand} {audit.model}",
             f"Serial source: {audit.serial_number or '-'}",
             f"Audit source: {audit.filename}",
@@ -1058,7 +1058,7 @@ def _generate_unattend_xml(profile: ForgeUnattendProfile) -> str:
             <FirstLogonCommands>
                 <SynchronousCommand wcm:action="add">
                     <Order>1</Order>
-                    <Description>AOS Deploy first logon command</Description>
+                    <Description>AtelierOS first logon command</Description>
                     <CommandLine>{_xml_escape(profile.run_first_logon_command)}</CommandLine>
                 </SynchronousCommand>
             </FirstLogonCommands>"""
@@ -1161,7 +1161,7 @@ def _generate_wim_script(recipe: ForgeWimRecipe) -> str:
         if recipe.cleanup_image
         else 'Write-Host "Nettoyage image desactive pour ce profil."\n'
     )
-    return f'''# AOS Deploy V5 - Createur WIM
+    return f'''# AtelierOS - Createur WIM
 # Profil: {recipe.name}
 # Genere le: {recipe.created_at.isoformat()}
 # Prerequis: Windows ADK + privileges administrateur.
@@ -1956,7 +1956,7 @@ async def prepare_audit_drivers(
     if not readme.exists():
         readme.write_text(
             "\n".join([
-                "AOS Deploy driver pack",
+                "AtelierOS driver pack",
                 f"Machine: {audit.brand} {audit.model}",
                 f"Serial source: {audit.serial_number or '-'}",
                 f"Audit source: {audit.filename}",
@@ -2097,7 +2097,7 @@ async def get_pxe_system_report(
         audits_total_visible=len(_read_pxe_audits(500)),
         backups_total=len(backups),
         recommendations=recommendations,
-        message="Rapport systeme AOS Deploy genere.",
+        message="Rapport systeme AtelierOS genere.",
     )
 
 
@@ -2179,7 +2179,7 @@ async def get_wim_recipe_script(
 async def list_wim_images(
     current_user: User = Depends(get_current_user),
 ):
-    """Liste les images Windows declarees dans AOS Deploy."""
+    """Liste les images Windows declarees dans AtelierOS."""
     _ = current_user
     return _with_wim_file_status(_read_wim_images())
 
@@ -2471,7 +2471,7 @@ async def list_appliance_backups(
 async def create_appliance_backup(
     current_user: User = Depends(get_current_user),
 ):
-    """Cree une archive de sauvegarde portable pour l'appliance AOS Deploy."""
+    """Cree une archive de sauvegarde portable pour l'appliance AtelierOS."""
     _ = current_user
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
@@ -2705,7 +2705,7 @@ async def delete_wim_image(
 async def list_driver_packs(
     current_user: User = Depends(get_current_user),
 ):
-    """Liste les packs pilotes connus par AOS Deploy."""
+    """Liste les packs pilotes connus par AtelierOS."""
     _ = current_user
     return _dedupe_driver_packs(_read_driver_packs())
 

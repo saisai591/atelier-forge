@@ -294,7 +294,7 @@ class ForgeUnattendProfileCreate(BaseModel):
     computer_name: str = "AOS-%SERIAL%"
     admin_username: str = "Admin"
     admin_password: str = "ChangeMe123!"
-    organization: str = "AOS Deploy"
+    organization: str = "AtelierOS"
     product_key: str | None = None
     deployment_mode: str = "standard"
     accept_eula: bool = True
