@@ -1,10 +1,10 @@
-# AOS Deploy V5 - guide installation client
+# AtelierOS - guide installation client
 
 Ce guide est la base du parcours client qui sera integre dans le logiciel.
 
 ## 1. Objectif
 
-AOS Deploy V5 transforme un serveur ou une VM en appliance atelier pour:
+AtelierOS transforme un serveur ou une VM en appliance atelier pour:
 
 - demarrer des PC en PXE;
 - auditer rapidement les machines;
@@ -42,22 +42,32 @@ AOS Deploy V5 transforme un serveur ou une VM en appliance atelier pour:
 http://IP_DU_SERVEUR/
 ```
 
-3. Aller dans l'onglet `Guide`.
-4. Verifier que les services sont verts:
+3. Aller dans l'onglet `Parametres`.
+4. Verifier le bloc `Premier demarrage client`:
+
+- score de preparation;
+- etat `Pret client`, `A verifier` ou `Bloque`;
+- IP serveur;
+- partage atelier;
+- services reseau;
+- WinPE/assets.
+
+5. Aller dans l'onglet `Guide`.
+6. Verifier que les services sont verts:
 
 - API
 - HTTP PXE
 - SMB
 - WinPE/assets
 
-5. Aller dans `Parametres` puis verifier le bloc `Diagnostic lecture seule`:
+7. Dans `Parametres`, verifier aussi le bloc `Diagnostic lecture seule`:
 
 - IP configuree = IP detectee;
 - services API, SMB et HTTP PXE en ligne;
 - dossiers `deploy` presents;
 - recommandation sans action destructive.
 
-6. Ouvrir le partage reseau:
+8. Ouvrir le partage reseau:
 
 ```text
 \\IP_DU_SERVEUR\deploy
@@ -97,7 +107,7 @@ Utilisation:
    - HP: souvent `F9`
    - Lenovo: souvent `F12`
 3. Choisir `UEFI PXE` ou la carte reseau.
-4. Le menu AOS Deploy doit apparaitre.
+4. Le menu AtelierOS doit apparaitre.
 5. Lancer `Audit rapide`.
 6. Verifier le retour dans l'onglet `Audit`.
 

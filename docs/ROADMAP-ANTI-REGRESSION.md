@@ -1,4 +1,4 @@
-# AOS Deploy V5 - roadmap anti-regression
+# AtelierOS - roadmap anti-regression
 
 Objectif: garder une trace claire de ce qui est stable, de ce qui est pret localement, et de ce qui doit etre teste avant chaque redeploiement.
 
@@ -14,6 +14,16 @@ Objectif: garder une trace claire de ce qui est stable, de ce qui est pret local
 8. Chaque changement doit passer au minimum:
    - `npm run -s build`
    - `python -m py_compile` pour les fichiers backend modifies.
+
+## Dernier etat verifie
+
+- Dashboard web accessible sur `http://192.168.1.57/`.
+- API backend accessible sur `http://192.168.1.57:8000/api/health`.
+- Services VM actifs: `aos-dashboard`, `aos-backend`, `forge-nginx-pxe`.
+- APK mobile installe et lance sur le terminal Android connecte.
+- Bloc `Parametres > Premier demarrage client` ajoute avec score de preparation, copie des acces et export checklist.
+- Deploiement backend synchronise maintenant les assets Ventoy/AOS DISK depuis le poste atelier vers `/app/assets/ventoy`.
+- Kit USB de test genere dans le conteneur: `aos-usb-kit-complete-20260621-181505.zip`, avec `ventoy/AOS DISK.exe` inclus.
 
 ## Pret localement, a deployer apres transfert
 
@@ -54,7 +64,7 @@ Objectif: garder une trace claire de ce qui est stable, de ce qui est pret local
 
 ### Guide client
 
-- Centre client AOS Deploy.
+- Centre client AtelierOS.
 - Avancement installation.
 - Score diagnostic appliance.
 - Voyants services dans Diagnostic.
@@ -83,6 +93,11 @@ Objectif: garder une trace claire de ce qui est stable, de ce qui est pret local
   - services API/SMB/PXE HTTP;
   - dossiers deploy;
   - recommandation de correction.
+- Bloc `Premier demarrage client` dans Parametres:
+  - score de preparation;
+  - etat `Pret client`, `A verifier` ou `Bloque`;
+  - copie rapide des acces;
+  - export checklist livraison.
 
 ### Sauvegarde appliance
 
@@ -196,6 +211,7 @@ Objectif: garder une trace claire de ce qui est stable, de ce qui est pret local
 - Test kit autonome realise: `aos-usb-kit-20260621-033542.zip` avec `ventoy/AOS DISK.exe` inclus.
 - Test script securise realise: `aos-usb-kit-20260621-033936.zip` avec detection cle, confirmation OUI et log.
 - Test profils realise: `complete`, `audit`, `deployment`, tous avec `ventoy/AOS DISK.exe`.
+- Deploiement automatise des assets USB via `scripts/deploy-aos-vm.ps1 -Backend` quand le dossier local Ventoy/AOS DISK existe.
 
 ## Sequence apres fin upload ISO
 
@@ -216,9 +232,9 @@ Objectif: garder une trace claire de ce qui est stable, de ce qui est pret local
 ### Priorite 1 - Vente client et stabilite atelier
 
 1. Assistant reseau automatique: detecter IP, switch/direct, DHCP, PXE, SMB et proposer `Reparer`.
-2. Assistant premier demarrage client: 5 etapes simples apres installation de l'appliance.
-3. Mode Debutant / Expert vraiment separe.
-4. Dashboard operationnel: `Pret`, `Bloque`, `Action a faire`.
+2. Assistant premier demarrage client: enrichir avec actions de correction automatique.
+3. Mode Debutant / Expert: continuer a masquer les fonctions avancees en mode debutant.
+4. Dashboard operationnel: continuer a reduire le bruit selon retours atelier.
 5. Logs PXE lisibles en francais avec causes probables.
 6. Sauvegarde/restauration complete appliance.
 7. Export PDF audit machine.
