@@ -4473,7 +4473,7 @@ function AssistantBot({
                 <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border border-[#07111d] bg-emerald-300 shadow-[0_0_14px_rgba(110,231,183,.9)]" />
               </div>
               <div>
-                <div className="text-sm font-black text-white">AOS Assistant</div>
+                <div className="text-sm font-black text-white">AtelierOS Assistant</div>
                 <div className="text-xs text-cyan-200">{advice.status}</div>
               </div>
             </div>
@@ -4504,7 +4504,7 @@ function AssistantBot({
         type="button"
         onClick={() => setOpen((value) => !value)}
         className="group relative grid h-14 w-14 place-items-center rounded-2xl border border-cyan-300/30 bg-cyan-300/15 text-cyan-100 shadow-2xl shadow-cyan-950/40 backdrop-blur-xl transition hover:scale-105 hover:bg-cyan-300/20"
-        aria-label="Ouvrir assistant AOS"
+        aria-label="Ouvrir assistant AtelierOS"
       >
         <span className="absolute inset-0 rounded-2xl bg-cyan-300/10 opacity-0 blur-xl transition group-hover:opacity-100" />
         <Bot className="relative h-7 w-7 animate-[bounce_2.8s_ease-in-out_infinite]" />
@@ -4522,7 +4522,7 @@ function assistantAdvice(
     return {
       status: 'Action requise',
       primary: "L'API ne repond pas correctement. Avant de deployer ou imprimer, verifie les services et relance la synchronisation.",
-      actions: ['Ouvre Logs pour lire la derniere erreur.', 'Va dans Guide pour verifier les adresses serveur.', 'Controle aos-backend sur la VM si le probleme persiste.'],
+      actions: ['Ouvre Logs pour lire la derniere erreur.', 'Va dans Guide pour verifier les adresses serveur.', 'Controle le service API AtelierOS si le probleme persiste.'],
     }
   }
   if (context.offlineServices > 0) {
@@ -4581,8 +4581,8 @@ function assistantAdvice(
     },
     settings: {
       status: 'Parametres',
-      primary: 'Avant la vente, il faudra remplacer les IP fixes, secrets et mots de passe par un assistant de configuration.',
-      actions: ['Configure IP serveur.', 'Verifie SMB et PXE.', 'Prepare sauvegarde/restauration.'],
+      primary: 'Apres un changement de switch, routeur ou IP, utilise la regeneration reseau puis verifie les voyants avant de relancer un PC client.',
+      actions: ['Lis le diagnostic reseau.', 'Clique Regenerer reseau si IP changee.', 'Cree une sauvegarde apres configuration stable.'],
     },
   }
   return sectionAdvice[section]
@@ -5135,7 +5135,7 @@ function AssistantSettingsPanel({ enabled, onChange }: { enabled: boolean; onCha
             <Bot className="h-5 w-5" />
           </div>
           <div>
-            <h3 className="font-semibold text-white">Assistant AOS</h3>
+            <h3 className="font-semibold text-white">Assistant AtelierOS</h3>
             <p className="mt-1 text-sm leading-6 text-slate-400">Petit robot de conseil contextuel pour guider les techniciens dans chaque onglet.</p>
           </div>
         </div>
