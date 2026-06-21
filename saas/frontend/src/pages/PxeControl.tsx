@@ -1111,6 +1111,9 @@ function DashboardModule({
   successRate,
   deployments,
   logs,
+  isNetworkResyncing,
+  networkMessage,
+  onResyncNetwork,
   onNavigate,
 }: {
   mode: InterfaceMode
@@ -1120,19 +1123,28 @@ function DashboardModule({
   lastSync: string
   deployments: ActiveDeployment[]
   logs: LogEntry[]
+  isNetworkResyncing: boolean
+  networkMessage: string | null
+  onResyncNetwork: () => Promise<void>
   onNavigate: (sectionId: NavigationSection) => void
 }) {
   const beginnerMode = mode === 'beginner'
   const activeDeployments = deployments.filter((item) => !['success', 'failed'].includes(item.status)).length
   const failedDeployments = deployments.filter((item) => item.status === 'failed').length
   const warningLogs = logs.filter((log) => ['warn', 'error'].includes(log.level)).slice(0, 3)
-  const globalLabel = failedDeployments ? 'Attention requise' : activeDeployments ? 'Deploiements actifs' : 'Plateforme prete'
   const offlineServices = status?.services.filter((service) => service.status !== 'online') ?? []
   const winpeAsset = status?.assets.find((asset) => asset.key === 'winpe')
   const readyAssets = status?.assets.filter((asset) => asset.status === 'ready').length ?? 0
   const totalAssets = status?.assets.length ?? 0
   const lanEndpoint = status?.server_url || (status?.server_ip ? `http://${status.server_ip}/` : 'Non synchronise')
   const pxeEndpoint = status?.smb_share || '\\\\192.168.50.2\\deploy'
+  const networkBlocked = !status?.server_ip || offlineServices.length > 0
+  const winpeBlocked = Boolean(winpeAsset && winpeAsset.status !== 'ready')
+  const globalState = networkBlocked || failedDeployments || winpeBlocked
+    ? { label: 'Bloque', detail: 'Une action est necessaire avant production.', tone: 'amber' as const }
+    : activeDeployments
+      ? { label: 'En cours', detail: 'Des machines travaillent deja.', tone: 'cyan' as const }
+      : { label: 'Pret atelier', detail: 'Serveur pret pour audit ou deploiement.', tone: 'emerald' as const }
   const nextAction = (() => {
     if (!status) return { title: 'Synchroniser le serveur', detail: 'Le dashboard attend les informations de la VM AOS.', target: 'settings' as NavigationSection, tone: 'amber' as const }
     if (offlineServices.length) return { title: 'Corriger les services', detail: `${offlineServices[0].label} est a verifier avant un test PXE fiable.`, target: 'settings' as NavigationSection, tone: 'amber' as const }
@@ -1146,6 +1158,12 @@ function DashboardModule({
     { label: 'Assets PXE', value: `${readyAssets}/${totalAssets || 0}`, ok: totalAssets > 0 && readyAssets >= Math.max(1, totalAssets - 1) },
     { label: 'WinPE', value: winpeAsset?.status === 'ready' ? 'Pret' : 'A faire', ok: winpeAsset?.status === 'ready' },
     { label: 'Reseau', value: status?.server_ip || 'Non detecte', ok: Boolean(status?.server_ip) },
+  ]
+  const compactChecks = [
+    { label: 'Reseau', detail: status?.server_ip ? `IP ${status.server_ip}` : 'IP non detectee', ok: Boolean(status?.server_ip), action: 'Reparer reseau' },
+    { label: 'PXE/SMB', detail: offlineServices.length ? `${offlineServices.length} service(s) a verifier` : 'Services verts', ok: offlineServices.length === 0 && Boolean(status?.services.length), action: 'Voir services' },
+    { label: 'WinPE', detail: winpeAsset?.status === 'ready' ? 'Pret pour boot' : 'A preparer', ok: winpeAsset?.status === 'ready', action: 'Ouvrir Images' },
+    { label: 'Retours', detail: warningLogs.length ? `${warningLogs.length} alerte(s) log` : 'Logs stables', ok: warningLogs.length === 0, action: 'Voir logs' },
   ]
   const primaryActions = [
     {
@@ -1216,17 +1234,18 @@ function DashboardModule({
 
   return (
     <div className="space-y-5">
-      <PageTitle title="Dashboard" description="Vue atelier simplifiee : etat, actions, machines, services." icon={Gauge} />
+      <PageTitle title="Dashboard" description="Decision rapide pour technicien : pret, bloque, action a faire." icon={Gauge} />
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-5 shadow-xl shadow-black/20">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <div className={cn('mb-3 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold', failedDeployments || offlineServices.length ? 'border-amber-300/25 bg-amber-300/10 text-amber-200' : 'border-emerald-300/25 bg-emerald-300/10 text-emerald-200')}>
-                <span className={cn('h-2 w-2 rounded-full shadow-[0_0_12px_currentColor]', failedDeployments || offlineServices.length ? 'bg-amber-300 text-amber-300' : 'bg-emerald-300 text-emerald-300')} />
-                {globalLabel}
+              <div className={cn('mb-3 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold', globalState.tone === 'amber' ? 'border-amber-300/25 bg-amber-300/10 text-amber-200' : globalState.tone === 'cyan' ? 'border-cyan-300/25 bg-cyan-300/10 text-cyan-200' : 'border-emerald-300/25 bg-emerald-300/10 text-emerald-200')}>
+                <span className={cn('h-2 w-2 rounded-full shadow-[0_0_12px_currentColor]', globalState.tone === 'amber' ? 'bg-amber-300 text-amber-300' : globalState.tone === 'cyan' ? 'bg-cyan-300 text-cyan-300' : 'bg-emerald-300 text-emerald-300')} />
+                {globalState.label}
               </div>
-              <h1 className="text-2xl font-semibold tracking-tight text-white">AOS Deploy V5</h1>
+              <h1 className="text-2xl font-semibold tracking-tight text-white">AtelierOS</h1>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">{globalState.detail}</p>
               <div className="mt-2 grid gap-2 text-sm text-slate-400 md:grid-cols-2">
                 <span className="truncate">LAN: <span className="font-mono text-cyan-100">{lanEndpoint}</span></span>
                 <span className="truncate">Depot: <span className="font-mono text-emerald-100">{pxeEndpoint}</span></span>
@@ -1253,7 +1272,38 @@ function DashboardModule({
                 <DashboardCounter label="Erreurs" value={failedDeployments + offlineServices.length} tone={failedDeployments || offlineServices.length ? 'amber' : 'emerald'} />
                 <DashboardCounter label="Succes" value={`${successRate}%`} tone="emerald" />
               </div>
+              <button
+                type="button"
+                onClick={() => void onResyncNetwork()}
+                disabled={isNetworkResyncing}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300/15 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <RefreshCw className={cn('h-4 w-4', isNetworkResyncing && 'animate-spin')} />
+                {isNetworkResyncing ? 'Resynchronisation...' : 'Reparer / resynchroniser reseau'}
+              </button>
             </div>
+          </div>
+          {networkMessage ? (
+            <div className="mt-4 rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-sm text-emerald-100">
+              {networkMessage}
+            </div>
+          ) : null}
+          <div className="mt-4 grid gap-2 md:grid-cols-4">
+            {compactChecks.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => item.label === 'Reseau' ? void onResyncNetwork() : onNavigate(item.label === 'WinPE' ? 'images' : item.label === 'Retours' ? 'logs' : 'settings')}
+                className="rounded-xl border border-white/10 bg-white/[0.035] p-3 text-left transition hover:border-cyan-300/25 hover:bg-white/[0.06]"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-white">{item.label}</span>
+                  <span className={cn('h-2.5 w-2.5 rounded-full shadow-[0_0_12px_currentColor]', item.ok ? 'bg-emerald-300 text-emerald-300' : 'bg-amber-300 text-amber-300')} />
+                </div>
+                <div className="mt-1 truncate text-xs text-slate-400">{item.detail}</div>
+                <div className="mt-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-cyan-200">{item.action}</div>
+              </button>
+            ))}
           </div>
           <div className="mt-4 grid gap-2 md:grid-cols-4">
             {readiness.map((item) => (
@@ -7645,6 +7695,9 @@ export default function PxeControl({
         lastSync={lastSync}
         deployments={effectiveDeployments}
         logs={effectiveLogs}
+        isNetworkResyncing={savingConfig}
+        networkMessage={networkMessage}
+        onResyncNetwork={resyncNetwork}
         onNavigate={navigateSection}
       />
     ),
