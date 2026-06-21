@@ -5848,11 +5848,12 @@ function MediaUploadPanel({
           <div className="rounded-lg border border-white/10 bg-black/20 p-3 text-sm text-slate-400">Aucun media detecte pour l'instant. Le fichier apparaitra ici apres synchronisation.</div>
         ) : (
           <div className="max-h-72 overflow-auto rounded-lg border border-white/10">
-            <table className="w-full min-w-[720px] text-left text-sm">
+            <table className="w-full min-w-[820px] text-left text-sm">
               <thead className="bg-white/[0.035] text-xs uppercase tracking-[0.14em] text-slate-500">
                 <tr>
                   <th className="px-3 py-2">Fichier</th>
                   <th className="px-3 py-2">Type</th>
+                  <th className="px-3 py-2">Etat</th>
                   <th className="px-3 py-2">Taille</th>
                   <th className="px-3 py-2">Modifie</th>
                   <th className="px-3 py-2">Chemin</th>
@@ -5862,6 +5863,8 @@ function MediaUploadPanel({
               <tbody className="divide-y divide-white/10">
                 {serverMediaFiles.map((item) => {
                   const declared = item.kind === 'image' && declaredImagePaths.has(item.smb_path.trim().toLowerCase())
+                  const stateLabel = declared ? 'Pret PXE' : item.kind === 'iso' ? 'A convertir' : 'A declarer'
+                  const stateTone = declared ? 'emerald' : item.kind === 'iso' ? 'amber' : 'cyan'
                   return (
                   <tr key={`${item.folder}-${item.filename}`} className="bg-black/10">
                     <td className="px-3 py-2">
@@ -5871,6 +5874,19 @@ function MediaUploadPanel({
                     <td className="px-3 py-2">
                       <span className={cn('rounded-full border px-2.5 py-1 text-xs font-semibold', item.kind === 'iso' ? 'border-cyan-300/20 bg-cyan-300/10 text-cyan-100' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100')}>
                         {item.kind === 'iso' ? 'ISO' : 'WIM/ESD'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      <span className={cn(
+                        'inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-semibold',
+                        stateTone === 'emerald'
+                          ? 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100'
+                          : stateTone === 'amber'
+                            ? 'border-amber-300/20 bg-amber-300/10 text-amber-100'
+                            : 'border-cyan-300/20 bg-cyan-300/10 text-cyan-100',
+                      )}>
+                        <span className="h-2 w-2 rounded-full bg-current shadow-[0_0_10px_currentColor]" />
+                        {stateLabel}
                       </span>
                     </td>
                     <td className="px-3 py-2 font-mono text-xs text-slate-300">{item.size_gb ? `${item.size_gb} GB` : `${Math.round(item.size / (1024 ** 2))} MB`}</td>
