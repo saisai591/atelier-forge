@@ -24,6 +24,10 @@ Objectif: garder une trace claire de ce qui est stable, de ce qui est pret local
 - Bloc `Parametres > Premier demarrage client` ajoute avec score de preparation, copie des acces et export checklist.
 - Deploiement backend synchronise maintenant les assets Ventoy/AOS DISK depuis le poste atelier vers `/app/assets/ventoy`.
 - Kit USB de test genere dans le conteneur: `aos-usb-kit-complete-20260621-181505.zip`, avec `ventoy/AOS DISK.exe` inclus.
+- Images WIM protege contre les doublons: declarer deux fois le meme chemin met a jour l'image existante.
+- Images WIM indique maintenant les fichiers serveur deja declares et evite le bouton `Declarer` inutile.
+- Images WIM fait defiler automatiquement vers l'espace de travail quand on ouvre une etape.
+- Logs PXE enrichis avec diagnostics francais pour SMB, HTTP PXE, API, assets manquants et client sans IP.
 
 ## Pret localement, a deployer apres transfert
 
@@ -39,6 +43,9 @@ Objectif: garder une trace claire de ce qui est stable, de ce qui est pret local
 - Suppression limitee a `deploy/iso`, `deploy/images`, `deploy/incoming`.
 - Bouton `Declarer` pour WIM/ESD.
 - Anti-doublon sur declaration WIM/ESD.
+- Anti-doublon backend par chemin WIM/ESD: mise a jour de l'entree existante au lieu d'un doublon.
+- Badge `Deja declare dans Image PXE` sur les fichiers serveur deja inventories.
+- Defilement automatique vers l'espace de travail quand le technicien clique une etape.
 - Bouton `Preparer WIM` pour ISO.
 - Creation automatique d'un profil WIM depuis ISO.
 - Anti-doublon sur profil WIM depuis ISO.
@@ -235,7 +242,7 @@ Objectif: garder une trace claire de ce qui est stable, de ce qui est pret local
 2. Assistant premier demarrage client: enrichir avec actions de correction automatique.
 3. Mode Debutant / Expert: continuer a masquer les fonctions avancees en mode debutant.
 4. Dashboard operationnel: continuer a reduire le bruit selon retours atelier.
-5. Logs PXE lisibles en francais avec causes probables.
+5. Logs PXE lisibles en francais avec causes probables: enrichir ensuite avec les vrais logs dnsmasq/nginx si besoin.
 6. Sauvegarde/restauration complete appliance.
 7. Export PDF audit machine.
 8. Historique machine par numero de serie.
