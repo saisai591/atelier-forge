@@ -3382,6 +3382,7 @@ function ImagesModule({
           )}
           {activeTool === 'browse' && (
             <MediaUploadPanel
+              images={images}
               isSaving={isCreating}
               onUploadMedia={onUploadMedia}
               onCheckMedia={onCheckMedia}
@@ -5536,6 +5537,7 @@ function WimCreatorPanel({
 }
 
 function MediaUploadPanel({
+  images,
   isSaving,
   onUploadMedia,
   onCheckMedia,
@@ -5548,6 +5550,7 @@ function MediaUploadPanel({
   uploadMessage,
   onClearMessages,
 }: {
+  images: ForgeWimImage[]
   isSaving: boolean
   onUploadMedia: (
     file: File,
@@ -5587,6 +5590,7 @@ function MediaUploadPanel({
   const formattedDate = mediaStatus?.modified_at ? new Date(mediaStatus.modified_at).toLocaleString() : ''
   const isoCount = serverMediaFiles.filter((item) => item.kind === 'iso').length
   const imageCount = serverMediaFiles.filter((item) => item.kind === 'image').length
+  const declaredImagePaths = new Set(images.map((image) => image.path.trim().toLowerCase()))
 
   useEffect(() => {
     let cancelled = false
@@ -5756,16 +5760,34 @@ function MediaUploadPanel({
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/10">
-                {serverMediaFiles.map((item) => (
+                {serverMediaFiles.map((item) => {
+                  const declared = item.kind === 'image' && declaredImagePaths.has(item.smb_path.trim().toLowerCase())
+                  return (
                   <tr key={`${item.folder}-${item.filename}`} className="bg-black/10">
-                    <td className="px-3 py-2 font-semibold text-white">{item.filename}</td>
-                    <td className="px-3 py-2 text-slate-300">{item.kind}</td>
+                    <td className="px-3 py-2">
+                      <div className="font-semibold text-white">{item.filename}</div>
+                      {declared ? <div className="mt-1 text-xs font-semibold text-emerald-200">Deja declare dans Image PXE</div> : null}
+                    </td>
+                    <td className="px-3 py-2">
+                      <span className={cn('rounded-full border px-2.5 py-1 text-xs font-semibold', item.kind === 'iso' ? 'border-cyan-300/20 bg-cyan-300/10 text-cyan-100' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100')}>
+                        {item.kind === 'iso' ? 'ISO' : 'WIM/ESD'}
+                      </span>
+                    </td>
                     <td className="px-3 py-2 font-mono text-xs text-slate-300">{item.size_gb ? `${item.size_gb} GB` : `${Math.round(item.size / (1024 ** 2))} MB`}</td>
                     <td className="px-3 py-2 text-xs text-slate-400">{new Date(item.modified_at).toLocaleString('fr-FR')}</td>
                     <td className="max-w-[260px] truncate px-3 py-2 font-mono text-xs text-cyan-200">{item.smb_path}</td>
                     <td className="px-3 py-2 text-right">
                       <div className="flex justify-end gap-2">
-                        {item.kind === 'image' ? (
+                        {declared ? (
+                          <button
+                            type="button"
+                            disabled
+                            className="inline-flex items-center gap-1 rounded-lg border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1.5 text-xs font-semibold text-emerald-100 opacity-70"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Declare
+                          </button>
+                        ) : item.kind === 'image' ? (
                           <button
                             type="button"
                             onClick={() => void onCreateImageFromMedia(item)}
@@ -5799,7 +5821,8 @@ function MediaUploadPanel({
                       </div>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>

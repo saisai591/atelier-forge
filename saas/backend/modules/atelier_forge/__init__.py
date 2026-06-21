@@ -2221,6 +2221,15 @@ async def create_wim_image(
     if not payload.path.strip().lower().endswith((".wim", ".esd")):
         raise HTTPException(status_code=400, detail="Chemin image .wim ou .esd requis")
     images = _read_wim_images()
+    duplicate = next((image for image in images if image.path.strip().lower() == payload.path.strip().lower()), None)
+    if duplicate:
+        updated = duplicate.model_copy(update={
+            **payload.model_dump(),
+            "status": "registered",
+            "is_default": duplicate.is_default or not any(image.is_default for image in images),
+        })
+        _write_wim_images([updated if image.id == duplicate.id else image for image in images])
+        return updated
     image = ForgeWimImage(
         **payload.model_dump(),
         id=datetime.now(timezone.utc).strftime("img-%Y%m%d%H%M%S"),
