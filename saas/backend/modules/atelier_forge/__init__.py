@@ -55,6 +55,8 @@ from .schemas import (
     ForgeServerMediaDeleteResponse,
     ForgeServerMediaChecksumResponse,
     ForgeServerMediaListResponse,
+    ForgeExternalMediaSource,
+    ForgeExternalMediaSourceListResponse,
     ForgeUnattendProfile,
     ForgeUnattendProfileCreate,
     ForgeWimImage,
@@ -96,6 +98,7 @@ WIM_IMAGES_PATH = Path(os.getenv("FORGE_WIM_IMAGES_PATH", "/app/data/wim-images.
 DRIVER_PACKS_PATH = Path(os.getenv("FORGE_DRIVER_PACKS_PATH", "/app/data/driver-packs.json"))
 UNATTEND_PROFILES_PATH = Path(os.getenv("FORGE_UNATTEND_PROFILES_PATH", "/app/data/unattend-profiles.json"))
 DEPLOYMENT_PROFILES_PATH = Path(os.getenv("FORGE_DEPLOYMENT_PROFILES_PATH", "/app/data/deployment-profiles.json"))
+EXTERNAL_MEDIA_SOURCES_PATH = Path(os.getenv("FORGE_EXTERNAL_MEDIA_SOURCES_PATH", "/app/data/external-media-sources.json"))
 PXE_AUDIT_DIR = Path(os.getenv("FORGE_PXE_AUDIT_DIR", "/app/audit"))
 DRIVER_STORE_DIR = Path(os.getenv("FORGE_DRIVER_STORE_DIR", "/app/data/drivers"))
 DRIVER_SHARE_DIR = Path(os.getenv("FORGE_DRIVER_SHARE_DIR", ""))
@@ -678,6 +681,58 @@ def _list_server_media_files(config: ForgePxeConfig) -> list[ForgeServerMediaFil
                 )
             )
     return files
+
+
+def _read_external_media_sources() -> list[ForgeExternalMediaSource]:
+    configured: list[dict] = []
+    if EXTERNAL_MEDIA_SOURCES_PATH.exists():
+      try:
+          raw = json.loads(EXTERNAL_MEDIA_SOURCES_PATH.read_text(encoding="utf-8"))
+          configured = raw if isinstance(raw, list) else raw.get("sources", [])
+      except (OSError, json.JSONDecodeError, AttributeError):
+          configured = []
+    if not configured:
+        configured = [
+            {
+                "id": "proxmox-win11-25h2",
+                "label": "ISO Windows 11 detectee sur Proxmox",
+                "source_type": "proxmox",
+                "host": "192.168.1.56",
+                "path": "/var/lib/vz/template/iso/Win11_25H2_French_x64_v2.iso",
+                "filename": "Win11_25H2_French_x64_v2.iso",
+                "size": 8473616384,
+                "size_gb": 7.89,
+                "modified_at": "2026-03-19T16:09:00+00:00",
+            }
+        ]
+    sources: list[ForgeExternalMediaSource] = []
+    for index, item in enumerate(configured):
+        path = str(item.get("path") or "").strip()
+        filename = str(item.get("filename") or Path(path).name or "media.iso")
+        host = item.get("host")
+        source_type = str(item.get("source_type") or "proxmox")
+        if not path:
+            continue
+        if source_type == "proxmox" and host:
+            copy_hint = f"scp root@{host}:{path} /tmp/{filename}"
+            message = "Source externe Proxmox. Copier vers le partage deploy/iso avant preparation WIM."
+        else:
+            copy_hint = f"cp {path} {DEPLOY_SHARE_DIR / 'iso' / filename}"
+            message = "Source externe. Copier vers deploy/iso ou deploy/images avant declaration."
+        sources.append(ForgeExternalMediaSource(
+            id=str(item.get("id") or f"external-{index + 1}"),
+            label=str(item.get("label") or filename),
+            source_type=source_type,
+            host=str(host) if host else None,
+            path=path,
+            filename=filename,
+            size=item.get("size"),
+            size_gb=item.get("size_gb"),
+            modified_at=item.get("modified_at"),
+            copy_hint=str(item.get("copy_hint") or copy_hint),
+            message=str(item.get("message") or message),
+        ))
+    return sources
 
 
 def _resolve_server_media_file(folder: str, filename: str) -> tuple[str, str, Path]:
@@ -2809,6 +2864,20 @@ async def list_pxe_media_files(
         files=files,
         total=len(files),
         message=f"{len(files)} media(s) detecte(s) sur le serveur.",
+    )
+
+
+@router.get("/pxe/media/external-sources", response_model=ForgeExternalMediaSourceListResponse)
+async def list_external_media_sources(
+    current_user: User = Depends(get_current_user),
+):
+    """Sources externes connues: Proxmox, NAS ou depot ISO hors appliance."""
+    _ = current_user
+    sources = _read_external_media_sources()
+    return ForgeExternalMediaSourceListResponse(
+        sources=sources,
+        total=len(sources),
+        message=f"{len(sources)} source(s) externe(s) configuree(s).",
     )
 
 

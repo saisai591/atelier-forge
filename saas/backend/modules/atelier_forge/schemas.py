@@ -418,6 +418,26 @@ class ForgeServerMediaListResponse(BaseModel):
     message: str
 
 
+class ForgeExternalMediaSource(BaseModel):
+    id: str
+    label: str
+    source_type: str = "proxmox"
+    host: str | None = None
+    path: str
+    filename: str | None = None
+    size: int | None = None
+    size_gb: float | None = None
+    modified_at: str | None = None
+    copy_hint: str
+    message: str
+
+
+class ForgeExternalMediaSourceListResponse(BaseModel):
+    sources: list[ForgeExternalMediaSource]
+    total: int
+    message: str
+
+
 class ForgeServerMediaDeleteResponse(BaseModel):
     deleted: bool
     filename: str

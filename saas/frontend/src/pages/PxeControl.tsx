@@ -333,6 +333,26 @@ interface ForgeServerMediaListResponse {
   message: string
 }
 
+interface ForgeExternalMediaSource {
+  id: string
+  label: string
+  source_type: string
+  host: string | null
+  path: string
+  filename: string | null
+  size: number | null
+  size_gb: number | null
+  modified_at: string | null
+  copy_hint: string
+  message: string
+}
+
+interface ForgeExternalMediaSourceListResponse {
+  sources: ForgeExternalMediaSource[]
+  total: number
+  message: string
+}
+
 interface ForgeServerMediaDeleteResponse {
   deleted: boolean
   filename: string
@@ -3309,6 +3329,7 @@ function ImagesModule({
   onUploadMedia,
   onCheckMedia,
   serverMediaFiles,
+  externalMediaSources,
   onRefreshMediaFiles,
   onDeleteMediaFile,
   onChecksumMediaFile,
@@ -3353,6 +3374,7 @@ function ImagesModule({
   ) => Promise<void>
   onCheckMedia: (file: File, kind: 'iso' | 'image') => Promise<ForgeMediaStatusResponse | null>
   serverMediaFiles: ForgeServerMediaFile[]
+  externalMediaSources: ForgeExternalMediaSource[]
   onRefreshMediaFiles: () => Promise<void>
   onDeleteMediaFile: (file: ForgeServerMediaFile) => Promise<void>
   onChecksumMediaFile: (file: ForgeServerMediaFile) => Promise<ForgeServerMediaChecksumResponse | null>
@@ -3595,6 +3617,7 @@ function ImagesModule({
               onUploadMedia={onUploadMedia}
               onCheckMedia={onCheckMedia}
               serverMediaFiles={serverMediaFiles}
+              externalMediaSources={externalMediaSources}
               onRefreshMediaFiles={onRefreshMediaFiles}
               onDeleteMediaFile={onDeleteMediaFile}
               onChecksumMediaFile={onChecksumMediaFile}
@@ -5824,6 +5847,7 @@ function MediaUploadPanel({
   onUploadMedia,
   onCheckMedia,
   serverMediaFiles,
+  externalMediaSources,
   onRefreshMediaFiles,
   onDeleteMediaFile,
   onChecksumMediaFile,
@@ -5847,6 +5871,7 @@ function MediaUploadPanel({
   ) => Promise<void>
   onCheckMedia: (file: File, kind: 'iso' | 'image') => Promise<ForgeMediaStatusResponse | null>
   serverMediaFiles: ForgeServerMediaFile[]
+  externalMediaSources: ForgeExternalMediaSource[]
   onRefreshMediaFiles: () => Promise<void>
   onDeleteMediaFile: (file: ForgeServerMediaFile) => Promise<void>
   onChecksumMediaFile: (file: ForgeServerMediaFile) => Promise<ForgeServerMediaChecksumResponse | null>
@@ -5890,9 +5915,6 @@ function MediaUploadPanel({
     : '192.168.1.57'
   const isoDropPath = `\\\\${smbHost}\\deploy\\iso`
   const imageDropPath = `\\\\${smbHost}\\deploy\\images`
-  const proxmoxIsoPath = '/var/lib/vz/template/iso/Win11_25H2_French_x64_v2.iso'
-  const proxmoxIsoName = 'Win11_25H2_French_x64_v2.iso'
-  const proxmoxCopyCommand = `scp root@192.168.1.56:${proxmoxIsoPath} /tmp/${proxmoxIsoName}`
   const declaredImagePaths = new Set(images.map((image) => image.path.trim().toLowerCase()))
   const mediaKey = (item: ForgeServerMediaFile) => `${item.folder}/${item.filename}`
   const openIndexes = async (item: ForgeServerMediaFile, mode: 'view' | 'prepare') => {
@@ -6001,29 +6023,37 @@ function MediaUploadPanel({
                 </button>
               </div>
             </div>
-            <div className="rounded-xl border border-amber-300/15 bg-black/20 p-4">
-              <div className="text-sm font-semibold text-white">Source Proxmox detectee</div>
-              <div className="mt-2 text-sm leading-6 text-slate-400">
-                ISO trouvee sur le noeud Proxmox. Tant que ce stockage n'est pas monte dans l'appliance, il faut la copier vers `deploy/iso`.
+            {externalMediaSources.slice(0, 2).map((source) => (
+              <div key={source.id} className="rounded-xl border border-amber-300/15 bg-black/20 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-sm font-semibold text-white">{source.label}</div>
+                  <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-2.5 py-1 text-[11px] font-semibold text-amber-100">{source.source_type}</span>
+                </div>
+                <div className="mt-2 text-sm leading-6 text-slate-400">{source.message}</div>
+                <div className="mt-2 text-xs text-slate-500">
+                  {source.size_gb ? `${source.size_gb} GB` : 'taille inconnue'}{source.modified_at ? ` - ${new Date(source.modified_at).toLocaleString('fr-FR')}` : ''}
+                </div>
+                <div className="mt-3 space-y-2">
+                  <code className="block break-all rounded-lg border border-white/10 bg-black/30 px-3 py-2 font-mono text-xs text-amber-100">{source.path}</code>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void navigator.clipboard?.writeText(source.path)}
+                      className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-300/15"
+                    >
+                      Copier chemin
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void navigator.clipboard?.writeText(source.copy_hint)}
+                      className="rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/10"
+                    >
+                      Copier commande
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div className="mt-3 space-y-2">
-                <code className="block break-all rounded-lg border border-white/10 bg-black/30 px-3 py-2 font-mono text-xs text-amber-100">{proxmoxIsoPath}</code>
-                <button
-                  type="button"
-                  onClick={() => void navigator.clipboard?.writeText(proxmoxIsoPath)}
-                  className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-300/15"
-                >
-                  Copier chemin Proxmox
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void navigator.clipboard?.writeText(proxmoxCopyCommand)}
-                  className="ml-2 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/10"
-                >
-                  Copier commande SCP
-                </button>
-              </div>
-            </div>
+            ))}
           </div>
         ) : null}
       </div>
@@ -7577,6 +7607,7 @@ export default function PxeControl({
   const [wimImages, setWimImages] = useState<ForgeWimImage[]>([])
   const [wimBuilds, setWimBuilds] = useState<ForgeWimBuildSummary[]>([])
   const [serverMediaFiles, setServerMediaFiles] = useState<ForgeServerMediaFile[]>([])
+  const [externalMediaSources, setExternalMediaSources] = useState<ForgeExternalMediaSource[]>([])
   const [driverPacks, setDriverPacks] = useState<ForgeDriverPack[]>([])
   const [unattendProfiles, setUnattendProfiles] = useState<ForgeUnattendProfile[]>([])
   const [deploymentProfiles, setDeploymentProfiles] = useState<ForgeDeploymentProfile[]>([])
@@ -7771,13 +7802,14 @@ export default function PxeControl({
       setPxeAudits(auditsData)
 
       const token = await getDemoToken()
-      const [pxeData, configData, recipesData, imagesData, buildsData, mediaData, backupData, driversData, unattendData, deploymentProfilesData, networkData, reportData] = await Promise.all([
+      const [pxeData, configData, recipesData, imagesData, buildsData, mediaData, externalMediaData, backupData, driversData, unattendData, deploymentProfilesData, networkData, reportData] = await Promise.all([
         requestJson<ForgePxeStatus>('/forge/pxe/status', token),
         requestJson<ForgePxeConfig>('/forge/pxe/config', token),
         requestJson<ForgeWimRecipe[]>('/forge/pxe/wim-recipes', token),
         requestJson<ForgeWimImage[]>('/forge/pxe/wim-images', token),
         requestJson<ForgeWimBuildListResponse>('/forge/pxe/wim-builds', token),
         requestJson<ForgeServerMediaListResponse>('/forge/pxe/media/files', token),
+        requestJson<ForgeExternalMediaSourceListResponse>('/forge/pxe/media/external-sources', token),
         requestJson<ForgeApplianceBackupListResponse>('/forge/pxe/backups', token),
         requestJson<ForgeDriverPack[]>('/forge/pxe/driver-packs', token),
         requestJson<ForgeUnattendProfile[]>('/forge/pxe/unattend-profiles', token),
@@ -7791,6 +7823,7 @@ export default function PxeControl({
       setWimImages(imagesData)
       setWimBuilds(buildsData.builds)
       setServerMediaFiles(mediaData.files)
+      setExternalMediaSources(externalMediaData.sources)
       setApplianceBackups(backupData.backups)
       setDriverPacks(driversData)
       setUnattendProfiles(unattendData)
@@ -8673,6 +8706,7 @@ export default function PxeControl({
         images={wimImages}
         builds={wimBuilds}
         serverMediaFiles={serverMediaFiles}
+        externalMediaSources={externalMediaSources}
         recipes={wimRecipes}
         unattendProfiles={unattendProfiles}
         deploymentProfiles={deploymentProfiles}
