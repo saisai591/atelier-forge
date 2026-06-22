@@ -61,6 +61,8 @@ Voir aussi `docs/APPLICATIONS-INVENTAIRE.md`.
 
 - Cahier des charges complet: `docs/CAHIER-DES-CHARGES-COMPLET.md`
 - Guide complet des modules et outils: `docs/GUIDE-MODULES-OUTILS.md`
+- Installation appliance moderne: `docs/INSTALLATION-APPLIANCE-MODERNE.md`
+- Verification bonne interface: `docs/VERIFIER-BONNE-INTERFACE.md`
 - Roadmap anti-regression: `docs/ROADMAP-ANTI-REGRESSION.md`
 - Guide installation client: `docs/CLIENT_INSTALL_GUIDE.md`
 
@@ -83,6 +85,20 @@ Verification rapide:
 ```powershell
 Invoke-WebRequest -UseBasicParsing -Uri http://192.168.1.57/
 Invoke-WebRequest -UseBasicParsing -Uri http://192.168.1.57:8000/api/health
+```
+
+Sur un nouveau serveur Linux, utiliser le chemin moderne:
+
+```bash
+git clone https://github.com/saisai591/atelier-forge.git
+cd atelier-forge
+sudo bash scripts/install-atelieros-appliance.sh
+```
+
+Si le serveur affiche une ancienne interface ou une page basique:
+
+```bash
+sudo bash scripts/repair-dashboard-ui.sh
 ```
 
 ## Android EA520
