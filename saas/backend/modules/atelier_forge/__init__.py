@@ -185,14 +185,16 @@ def _read_pxe_config() -> ForgePxeConfig:
     if not PXE_CONFIG_PATH.exists():
         return _default_pxe_config()
     try:
-        return ForgePxeConfig.model_validate(json.loads(PXE_CONFIG_PATH.read_text(encoding="utf-8")))
+        config = ForgePxeConfig.model_validate(json.loads(PXE_CONFIG_PATH.read_text(encoding="utf-8")))
+        return config.model_copy(update={"mode": _normalize_dhcp_mode(config.mode)})
     except (OSError, ValueError):
         return _default_pxe_config()
 
 
 def _write_pxe_config(config: ForgePxeConfig) -> None:
     PXE_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    PXE_CONFIG_PATH.write_text(config.model_dump_json(indent=2), encoding="utf-8")
+    normalized = config.model_copy(update={"mode": _normalize_dhcp_mode(config.mode)})
+    PXE_CONFIG_PATH.write_text(normalized.model_dump_json(indent=2), encoding="utf-8")
 
 
 def _detect_lan_ip() -> str:
@@ -222,6 +224,63 @@ def _restart_services(service_names: list[str]) -> list[str]:
         except (OSError, subprocess.SubprocessError):
             continue
     return restarted
+
+
+def _normalize_dhcp_mode(mode: str | None) -> str:
+    value = (mode or "proxy DHCP").strip().lower().replace("_", " ").replace("-", " ")
+    if value in {"proxy", "proxy dhcp", "proxydhcp"}:
+        return "proxy DHCP"
+    if value in {"standalone", "standalone dhcp"}:
+        return "standalone DHCP"
+    if value in {"atelier", "atelier dhcp", "dhcp principal", "dhcp principal atelier", "principal", "main"}:
+        return "DHCP principal atelier"
+    raise ValueError("Mode DHCP invalide")
+
+
+def _dhcp_mode_to_render_value(mode: str) -> str:
+    normalized = _normalize_dhcp_mode(mode)
+    if normalized == "proxy DHCP":
+        return "proxy"
+    if normalized == "DHCP principal atelier":
+        return "atelier"
+    return "standalone"
+
+
+def _dhcp_mode_detail(mode: str) -> str:
+    normalized = _normalize_dhcp_mode(mode)
+    if normalized == "proxy DHCP":
+        return "Cohabite avec le routeur/la box. Plus sûr, mais certains Dell ignorent le bootfile proxyDHCP."
+    if normalized == "DHCP principal atelier":
+        return "AtelierOS distribue les IP et le PXE. Recommandé pour réseau atelier dédié et Dell récalcitrants."
+    return "AtelierOS distribue les IP sur un réseau isolé. Ne pas utiliser avec un autre DHCP actif."
+
+
+def _render_pxe_config_if_available(config: ForgePxeConfig) -> bool:
+    script = Path(os.getenv("FORGE_PXE_RENDER_SCRIPT", "/opt/aos-pxe-src/server/render-config.sh"))
+    env_path = script.parent / "config.env"
+    if not script.exists() or not env_path.exists():
+        return False
+    try:
+        env_text = env_path.read_text(encoding="utf-8")
+        replacements = {
+            "SERVER_IP": config.server_ip,
+            "DHCP_MODE": _dhcp_mode_to_render_value(config.mode),
+            "HTTP_PORT": str(config.http_port),
+        }
+        for key, value in replacements.items():
+            pattern = re.compile(rf'^{key}=.*$', re.MULTILINE)
+            line = f'{key}="{value}"'
+            if pattern.search(env_text):
+                env_text = pattern.sub(line, env_text)
+            else:
+                env_text += f"\n{line}\n"
+        if "DELL_SNPO_ONLY=" not in env_text:
+            env_text += '\nDELL_SNPO_ONLY="yes"\n'
+        env_path.write_text(env_text, encoding="utf-8")
+        subprocess.run(["bash", str(script)], check=True, timeout=45)
+        return True
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return False
 
 
 def _read_wim_recipes() -> list[ForgeWimRecipe]:
@@ -1539,8 +1598,11 @@ def _network_diagnostic(config: ForgePxeConfig) -> ForgeNetworkDiagnosticRespons
     }
     offline = [service.label for service in services if service.status != "online"]
     missing_dirs = [name for name, exists in deploy_dirs.items() if not exists]
+    mode = _normalize_dhcp_mode(config.mode)
     if detected_ip != config.server_ip:
         recommendation = "IP changee: lancer Regenerer reseau pour resynchroniser HTTP PXE, SMB et dashboard."
+    elif mode == "proxy DHCP":
+        recommendation = "Mode proxyDHCP actif. Si HP boote mais Dell reste bloque avant TFTP, passer en DHCP principal atelier ou configurer les options 66/67 sur le DHCP principal."
     elif offline:
         recommendation = f"Services a verifier: {', '.join(offline)}."
     elif missing_dirs:
@@ -1551,6 +1613,8 @@ def _network_diagnostic(config: ForgePxeConfig) -> ForgeNetworkDiagnosticRespons
         configured_ip=config.server_ip,
         detected_ip=detected_ip,
         ip_matches=detected_ip == config.server_ip,
+        dhcp_mode=mode,
+        dhcp_mode_detail=_dhcp_mode_detail(mode),
         server_url=config.server_url,
         smb_share=config.smb_share,
         deploy_dirs=deploy_dirs,
@@ -2256,13 +2320,16 @@ async def update_pxe_config(
         if value is not None:
             data[key] = value
     config = ForgePxeConfig.model_validate(data)
-    if config.mode not in {"proxy DHCP", "standalone DHCP"}:
+    try:
+        config = config.model_copy(update={"mode": _normalize_dhcp_mode(config.mode)})
+    except ValueError:
         raise HTTPException(status_code=400, detail="Mode DHCP invalide")
     for field in ("tftp_port", "http_port", "dhcp_proxy_port"):
         value = getattr(config, field)
         if value < 1 or value > 65535:
             raise HTTPException(status_code=400, detail=f"{field} invalide")
     _write_pxe_config(config)
+    _render_pxe_config_if_available(config)
     return config
 
 
@@ -2338,8 +2405,10 @@ async def resync_pxe_network(
         "server_ip": server_ip,
         "server_url": f"http://{server_ip}:{current.http_port}",
         "smb_share": rf"\\{server_ip}\deploy",
+        "mode": _normalize_dhcp_mode(current.mode),
     })
     _write_pxe_config(config)
+    rendered = _render_pxe_config_if_available(config)
     restarted = _restart_services([
         "forge-nginx-pxe.service",
         "forge-dnsmasq.service",
@@ -2351,7 +2420,7 @@ async def resync_pxe_network(
         server_url=config.server_url,
         smb_share=config.smb_share,
         restarted_services=restarted,
-        message=f"Reseau resynchronise sur {config.server_ip}",
+        message=f"Reseau resynchronise sur {config.server_ip}" + (" avec regeneration PXE." if rendered else "."),
     )
 
 

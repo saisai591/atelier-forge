@@ -155,6 +155,8 @@ class ForgeNetworkDiagnosticResponse(BaseModel):
     configured_ip: str
     detected_ip: str
     ip_matches: bool
+    dhcp_mode: str = "proxy DHCP"
+    dhcp_mode_detail: str = "Mode proxyDHCP: cohabite avec le routeur."
     server_url: str
     smb_share: str
     deploy_dirs: dict[str, bool]

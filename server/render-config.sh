@@ -19,6 +19,21 @@ source "${SCRIPT_DIR}/config.env"
 
 CONFIG_DIR="${DATA_ROOT}/config"
 HTTP_PORT="${HTTP_PORT:-1950}"   # défaut si config.env ancien (compat ascendante)
+DHCP_MODE_RAW="${DHCP_MODE:-proxy}"
+DHCP_MODE_NORMALIZED="$(printf '%s' "${DHCP_MODE_RAW}" | tr 'A-Z _' 'a-z--')"
+case "${DHCP_MODE_NORMALIZED}" in
+    proxy|proxydhcp|proxy-dhcp)
+        DHCP_MODE_EFFECTIVE="proxy"
+        ;;
+    standalone|standalone-dhcp|atelier|atelier-dhcp|dhcp-principal|principal|main)
+        DHCP_MODE_EFFECTIVE="standalone"
+        ;;
+    *)
+        echo "ERREUR : DHCP_MODE invalide (${DHCP_MODE_RAW}). Valeurs: proxy, standalone, atelier." >&2
+        exit 1
+        ;;
+esac
+DELL_SNPO_ONLY="${DELL_SNPO_ONLY:-yes}"
 
 echo "==> Génération des configurations dans ${CONFIG_DIR}"
 mkdir -p "${CONFIG_DIR}/dnsmasq" "${CONFIG_DIR}/nginx" "${CONFIG_DIR}/samba" "${CONFIG_DIR}/cups"
@@ -108,11 +123,12 @@ DNSMASQ_CONF="${CONFIG_DIR}/dnsmasq/forge.conf"
     echo "tftp-root=/srv/tftp"
     echo "tftp-no-fail"
     echo ""
-    if [[ "${DHCP_MODE}" == "proxy" ]]; then
+    if [[ "${DHCP_MODE_EFFECTIVE}" == "proxy" ]]; then
         echo "# --- Mode proxyDHCP : n'attribue PAS d'IP, cohabite avec la box. ---"
         echo "dhcp-range=${SUBNET},proxy"
     else
-        echo "# --- Mode standalone : ce serveur attribue les IP (réseau isolé !). ---"
+        echo "# --- Mode DHCP principal atelier : ce serveur attribue les IP. ---"
+        echo "# IMPORTANT : a utiliser si aucun autre DHCP ne distribue cette plage atelier."
         echo "dhcp-range=${DHCP_RANGE_START},${DHCP_RANGE_END},${DHCP_NETMASK},12h"
         echo "dhcp-option=option:router,${DHCP_GATEWAY}"
         echo "dhcp-option=option:dns-server,${DHCP_DNS}"
@@ -127,21 +143,34 @@ DNSMASQ_CONF="${CONFIG_DIR}/dnsmasq/forge.conf"
     echo "# Détecte si iPXE est déjà chargé (il s'annonce via l'option 175)."
     echo "dhcp-match=set:ipxe,175"
     echo ""
+    if [[ "${DELL_SNPO_ONLY}" == "yes" || "${DELL_SNPO_ONLY}" == "true" || "${DELL_SNPO_ONLY}" == "1" ]]; then
+        echo "# Dell UEFI : firmwares Dell plus fiables avec snponly.efi que ipxe.efi."
+        echo "dhcp-mac=set:dell-c8,c8:f7:50:*"
+        echo "dhcp-option-force=tag:dell-c8,66,${SERVER_IP}"
+        echo "dhcp-option-force=tag:dell-c8,67,snponly.efi"
+        echo ""
+    fi
     echo "# 1er chargement (ROM PXE) -> binaire iPXE par TFTP selon l'archi :"
-    echo "dhcp-boot=tag:bios,tag:!ipxe,undionly.kpxe"
-    echo "dhcp-boot=tag:efi32,tag:!ipxe,ipxe32.efi"
-    echo "dhcp-boot=tag:efix64,tag:!ipxe,ipxe.efi"
+    if [[ "${DELL_SNPO_ONLY}" == "yes" || "${DELL_SNPO_ONLY}" == "true" || "${DELL_SNPO_ONLY}" == "1" ]]; then
+        echo "dhcp-boot=tag:dell-c8,tag:!ipxe,snponly.efi,${SERVER_IP},${SERVER_IP}"
+    fi
+    echo "dhcp-boot=tag:bios,tag:!ipxe,undionly.kpxe,${SERVER_IP},${SERVER_IP}"
+    echo "dhcp-boot=tag:efi32,tag:!ipxe,ipxe32.efi,${SERVER_IP},${SERVER_IP}"
+    echo "dhcp-boot=tag:efix64,tag:!dell-c8,tag:!ipxe,ipxe.efi,${SERVER_IP},${SERVER_IP}"
     echo "dhcp-option=66,${SERVER_IP}"
     echo ""
     echo "# 2e chargement (iPXE en cours) -> menu via HTTP (rapide & fiable) :"
     echo "dhcp-boot=tag:ipxe,http://${SERVER_IP}:${HTTP_PORT}/boot/menu.ipxe"
     echo ""
+    if [[ "${DELL_SNPO_ONLY}" == "yes" || "${DELL_SNPO_ONLY}" == "true" || "${DELL_SNPO_ONLY}" == "1" ]]; then
+        echo "pxe-service=tag:dell-c8,X86-64_EFI,AtelierOS Dell UEFI,snponly.efi"
+    fi
     echo "pxe-service=tag:bios,x86PC,AtelierOS BIOS,undionly.kpxe"
     echo "pxe-service=tag:efi32,IA32_EFI,AtelierOS UEFI 32,ipxe32.efi"
-    echo "pxe-service=tag:efix64,X86-64_EFI,AtelierOS UEFI 64,ipxe.efi"
-    echo 'pxe-prompt="AtelierOS Deploy - Reconditionnement",1'
+    echo "pxe-service=tag:efix64,tag:!dell-c8,X86-64_EFI,AtelierOS UEFI 64,ipxe.efi"
+    echo 'pxe-prompt="AtelierOS Deploy - Reconditionnement",0'
 } > "${DNSMASQ_CONF}"
-echo "    - dnsmasq : ${DNSMASQ_CONF} (mode ${DHCP_MODE})"
+echo "    - dnsmasq : ${DNSMASQ_CONF} (mode ${DHCP_MODE_EFFECTIVE})"
 
 # --- nginx -----------------------------------------------------------------
 cat > "${CONFIG_DIR}/nginx/forge.conf" <<'NGINX'

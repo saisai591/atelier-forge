@@ -132,7 +132,7 @@ interface ForgePxeConfig {
   server_ip: string
   server_url: string
   smb_share: string
-  mode: 'proxy DHCP' | 'standalone DHCP'
+  mode: 'proxy DHCP' | 'standalone DHCP' | 'DHCP principal atelier'
   tftp_port: number
   http_port: number
   dhcp_proxy_port: number
@@ -450,6 +450,8 @@ interface ForgeNetworkDiagnosticResponse {
   configured_ip: string
   detected_ip: string
   ip_matches: boolean
+  dhcp_mode: string
+  dhcp_mode_detail: string
   server_url: string
   smb_share: string
   deploy_dirs: Record<string, boolean>
@@ -4922,6 +4924,10 @@ function NetworkResyncPanel({
           <div className="grid gap-2 sm:grid-cols-2">
             <InfoRow label="IP configuree" value={diagnostic?.configured_ip ?? serverIp} mono />
             <InfoRow label="IP detectee" value={diagnostic?.detected_ip ?? 'non detectee'} mono />
+            <InfoRow label="Mode DHCP" value={diagnostic?.dhcp_mode ?? config?.mode ?? 'proxy DHCP'} />
+          </div>
+          <div className="mt-3 rounded-lg border border-cyan-300/10 bg-cyan-300/[0.06] px-3 py-2 text-xs leading-5 text-cyan-100">
+            {diagnostic?.dhcp_mode_detail ?? 'Mode reseau en attente de diagnostic.'}
           </div>
           <div className={cn('mt-3 rounded-lg border px-3 py-2 text-sm', ipMatches ? 'border-emerald-300/15 bg-emerald-300/10 text-emerald-100' : 'border-amber-300/20 bg-amber-300/10 text-amber-100')}>
             {diagnostic?.recommendation ?? 'Diagnostic en attente de synchronisation.'}
@@ -7060,10 +7066,15 @@ function SettingsPanel({
           </FieldLabel>
           <FieldLabel label="Mode DHCP">
             <select className={inputClass} value={form.mode} onChange={(event) => updateForm('mode', event.target.value as ForgePxeConfig['mode'])}>
-              <option value="proxy DHCP">proxy DHCP</option>
-              <option value="standalone DHCP">standalone DHCP</option>
+              <option value="proxy DHCP">Proxy DHCP - cohabite avec box/routeur</option>
+              <option value="DHCP principal atelier">DHCP principal atelier - recommande Dell</option>
+              <option value="standalone DHCP">Standalone DHCP - reseau isole</option>
             </select>
           </FieldLabel>
+        </div>
+        <div className="rounded-xl border border-amber-300/15 bg-amber-300/[0.06] px-4 py-3 text-sm leading-6 text-amber-100">
+          Si un HP boote mais qu'un Dell reste bloque avant TFTP, choisir <b>DHCP principal atelier</b> sur un reseau atelier dedie,
+          ou configurer les options 66/67 dans le DHCP principal existant.
         </div>
         <div className="grid gap-4 md:grid-cols-3">
           <FieldLabel label="Port TFTP">

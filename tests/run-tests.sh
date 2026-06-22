@@ -88,6 +88,9 @@ fi
 [[ -s "${DATA}/config/nginx/forge.conf" ]] && ok "nginx généré" || ko "nginx absent"
 [[ -s "${DATA}/config/samba/smb.conf" ]] && ok "samba généré" || ko "samba absent"
 grep -q 'proxy' "${DATA}/config/dnsmasq/forge.conf" && ok "dnsmasq en mode proxy" || ko "mode proxy manquant"
+grep -q 'dhcp-mac=set:dell-c8,c8:f7:50:\*' "${DATA}/config/dnsmasq/forge.conf" && ok "fallback Dell UEFI present" || ko "fallback Dell UEFI absent"
+grep -q 'dhcp-boot=tag:dell-c8,tag:!ipxe,snponly.efi' "${DATA}/config/dnsmasq/forge.conf" && ok "Dell force sur snponly.efi" || ko "Dell snponly.efi absent"
+grep -q 'dhcp-boot=tag:efix64,tag:!dell-c8,tag:!ipxe,ipxe.efi' "${DATA}/config/dnsmasq/forge.conf" && ok "UEFI non-Dell conserve ipxe.efi" || ko "UEFI non-Dell casse"
 grep -q 'item wipe' "${DATA}/http/boot/menu.ipxe" && ok "entrée effacement dans le menu" || ko "entrée wipe manquante"
 [[ -s "${DATA}/http/tests/index.html" ]] && ok "console de test web déployée" || ko "console de test web absente"
 
