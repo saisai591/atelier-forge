@@ -1193,6 +1193,7 @@ function DashboardNotice({
 function DashboardModule({
   mode,
   status,
+  systemReport,
   successRate,
   deployments,
   logs,
@@ -1203,6 +1204,7 @@ function DashboardModule({
 }: {
   mode: InterfaceMode
   status: ForgePxeStatus | null
+  systemReport: ForgeSystemReportResponse | null
   metrics: DashboardMetric[]
   successRate: number
   lastSync: string
@@ -1218,6 +1220,8 @@ function DashboardModule({
   const failedDeployments = deployments.filter((item) => item.status === 'failed').length
   const warningLogs = logs.filter((log) => ['warn', 'error'].includes(log.level)).slice(0, 3)
   const offlineServices = status?.services.filter((service) => service.status !== 'online') ?? []
+  const offlineReportChecks = systemReport?.checks.filter((check) => check.status !== 'online') ?? []
+  const defaultImageMissing = offlineReportChecks.some((check) => check.key === 'default-image')
   const winpeAsset = status?.assets.find((asset) => asset.key === 'winpe')
   const readyAssets = status?.assets.filter((asset) => asset.status === 'ready').length ?? 0
   const totalAssets = status?.assets.length ?? 0
@@ -1225,7 +1229,7 @@ function DashboardModule({
   const pxeEndpoint = status?.smb_share || '\\\\192.168.50.2\\deploy'
   const networkBlocked = !status?.server_ip || offlineServices.length > 0
   const winpeBlocked = Boolean(winpeAsset && winpeAsset.status !== 'ready')
-  const globalState = networkBlocked || failedDeployments || winpeBlocked
+  const globalState = networkBlocked || failedDeployments || winpeBlocked || defaultImageMissing
     ? { label: 'Bloque', detail: 'Une action est necessaire avant production.', tone: 'amber' as const }
     : activeDeployments
       ? { label: 'En cours', detail: 'Des machines travaillent deja.', tone: 'cyan' as const }
@@ -1233,6 +1237,7 @@ function DashboardModule({
   const nextAction = (() => {
     if (!status) return { title: 'Synchroniser le serveur', detail: 'Le dashboard attend les informations de la VM AOS.', target: 'settings' as NavigationSection, tone: 'amber' as const }
     if (offlineServices.length) return { title: 'Corriger les services', detail: `${offlineServices[0].label} est a verifier avant un test PXE fiable.`, target: 'settings' as NavigationSection, tone: 'amber' as const }
+    if (defaultImageMissing) return { title: 'Importer Windows', detail: 'Aucune image Windows par defaut. Depose une ISO/WIM puis declare-la dans Images WIM.', target: 'images' as NavigationSection, tone: 'amber' as const }
     if (winpeAsset && winpeAsset.status !== 'ready') return { title: 'Preparer WinPE', detail: 'WinPE manque ou n est pas pret pour les tests et deploiements.', target: 'images' as NavigationSection, tone: 'amber' as const }
     if (failedDeployments) return { title: 'Traiter les erreurs', detail: 'Ouvre les deploiements pour relancer ou diagnostiquer les machines en echec.', target: 'deployments' as NavigationSection, tone: 'rose' as const }
     if (activeDeployments) return { title: 'Suivre les deploiements', detail: 'Des machines travaillent deja. Surveille la progression avant de relancer.', target: 'deployments' as NavigationSection, tone: 'cyan' as const }
@@ -1242,12 +1247,13 @@ function DashboardModule({
     { label: 'Services', value: `${Math.max(0, (status?.services.length ?? 0) - offlineServices.length)}/${status?.services.length ?? 0}`, ok: Boolean(status?.services.length) && offlineServices.length === 0 },
     { label: 'Assets PXE', value: `${readyAssets}/${totalAssets || 0}`, ok: totalAssets > 0 && readyAssets >= Math.max(1, totalAssets - 1) },
     { label: 'WinPE', value: winpeAsset?.status === 'ready' ? 'Pret' : 'A faire', ok: winpeAsset?.status === 'ready' },
+    { label: 'Image', value: defaultImageMissing ? 'A importer' : 'OK', ok: !defaultImageMissing },
     { label: 'Reseau', value: status?.server_ip || 'Non detecte', ok: Boolean(status?.server_ip) },
   ]
   const compactChecks = [
     { label: 'Reseau', detail: status?.server_ip ? `IP ${status.server_ip}` : 'IP non detectee', ok: Boolean(status?.server_ip), action: 'Reparer reseau' },
     { label: 'PXE/SMB', detail: offlineServices.length ? `${offlineServices.length} service(s) a verifier` : 'Services verts', ok: offlineServices.length === 0 && Boolean(status?.services.length), action: 'Voir services' },
-    { label: 'WinPE', detail: winpeAsset?.status === 'ready' ? 'Pret pour boot' : 'A preparer', ok: winpeAsset?.status === 'ready', action: 'Ouvrir Images' },
+    { label: 'Image', detail: defaultImageMissing ? 'Importer ISO/WIM' : 'Image par defaut OK', ok: !defaultImageMissing, action: 'Ouvrir Images' },
     { label: 'Retours', detail: warningLogs.length ? `${warningLogs.length} alerte(s) log` : 'Logs stables', ok: warningLogs.length === 0, action: 'Voir logs' },
   ]
   const primaryActions = [
@@ -1388,7 +1394,7 @@ function DashboardModule({
               <button
                 key={item.label}
                 type="button"
-                onClick={() => item.label === 'Reseau' ? void onResyncNetwork() : onNavigate(item.label === 'WinPE' ? 'images' : item.label === 'Retours' ? 'logs' : 'settings')}
+                onClick={() => item.label === 'Reseau' ? void onResyncNetwork() : onNavigate(item.label === 'Image' ? 'images' : item.label === 'Retours' ? 'logs' : 'settings')}
                 className="rounded-xl border border-white/10 bg-white/[0.035] p-3 text-left transition hover:border-cyan-300/25 hover:bg-white/[0.06]"
               >
                 <div className="flex items-center justify-between gap-2">
@@ -1400,7 +1406,7 @@ function DashboardModule({
               </button>
             ))}
           </div>
-          <div className="mt-4 grid gap-2 md:grid-cols-4">
+          <div className="mt-4 grid gap-2 md:grid-cols-5">
             {readiness.map((item) => (
               <div key={item.label} className="flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2">
                 <div className="min-w-0">
@@ -1423,6 +1429,9 @@ function DashboardModule({
           <div className="space-y-2">
             {offlineServices.slice(0, 2).map((service) => (
               <DashboardNotice key={service.key} title={service.label} detail={service.detail} tone="amber" />
+            ))}
+            {offlineReportChecks.slice(0, 2).map((check) => (
+              <DashboardNotice key={check.key} title={check.label} detail={check.detail} tone="amber" />
             ))}
             {warningLogs.slice(0, 2).map((log) => (
               <DashboardNotice key={log.id} title={log.source} detail={log.message} tone={log.level === 'error' ? 'rose' : 'amber'} />
@@ -7695,7 +7704,7 @@ export default function PxeControl({
       setPxeAudits(auditsData)
 
       const token = await getDemoToken()
-      const [pxeData, configData, recipesData, imagesData, buildsData, mediaData, backupData, driversData, unattendData, deploymentProfilesData, networkData] = await Promise.all([
+      const [pxeData, configData, recipesData, imagesData, buildsData, mediaData, backupData, driversData, unattendData, deploymentProfilesData, networkData, reportData] = await Promise.all([
         requestJson<ForgePxeStatus>('/forge/pxe/status', token),
         requestJson<ForgePxeConfig>('/forge/pxe/config', token),
         requestJson<ForgeWimRecipe[]>('/forge/pxe/wim-recipes', token),
@@ -7707,6 +7716,7 @@ export default function PxeControl({
         requestJson<ForgeUnattendProfile[]>('/forge/pxe/unattend-profiles', token),
         requestJson<ForgeDeploymentProfile[]>('/forge/pxe/deployment-profiles', token),
         requestJson<ForgeNetworkDiagnosticResponse>('/forge/pxe/network/diagnostic', token),
+        requestJson<ForgeSystemReportResponse>('/forge/pxe/system-report', token),
       ])
       setPxeStatus(pxeData)
       setPxeConfig(configData)
@@ -7719,6 +7729,7 @@ export default function PxeControl({
       setUnattendProfiles(unattendData)
       setDeploymentProfiles(deploymentProfilesData)
       setNetworkDiagnostic(networkData)
+      setSystemReport(reportData)
       setLastSync(new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
       setApiError(null)
     } catch (error) {
@@ -8561,6 +8572,7 @@ export default function PxeControl({
       <DashboardModule
         mode={interfaceMode}
         status={pxeStatus}
+        systemReport={systemReport}
         metrics={effectiveMetrics}
         successRate={successRate}
         lastSync={lastSync}
