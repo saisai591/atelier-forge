@@ -57,6 +57,13 @@ Encore a finaliser:
 
 Voir aussi `docs/APPLICATIONS-INVENTAIRE.md`.
 
+## Documentation produit
+
+- Cahier des charges complet: `docs/CAHIER-DES-CHARGES-COMPLET.md`
+- Guide complet des modules et outils: `docs/GUIDE-MODULES-OUTILS.md`
+- Roadmap anti-regression: `docs/ROADMAP-ANTI-REGRESSION.md`
+- Guide installation client: `docs/CLIENT_INSTALL_GUIDE.md`
+
 ## Deploiement appliance actuelle
 
 Depuis le poste de developpement:
