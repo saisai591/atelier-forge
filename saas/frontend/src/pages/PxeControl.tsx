@@ -553,12 +553,16 @@ const DEMO_CREDENTIALS = {
 
 function resolveApiBase() {
   if (typeof window === 'undefined') return '/api'
+  const viteApiUrl = import.meta.env.VITE_API_URL?.replace(/\/$/, '')
+  if (viteApiUrl) return `${viteApiUrl}/api`
   if (window.location.port !== '5173') return '/api'
   return `http://${window.location.hostname}:8000/api`
 }
 
 function resolveUploadApiBase() {
   if (typeof window === 'undefined') return '/api'
+  const viteApiUrl = import.meta.env.VITE_API_URL?.replace(/\/$/, '')
+  if (viteApiUrl) return `${viteApiUrl}/api`
   return `http://${window.location.hostname}:8000/api`
 }
 
@@ -1021,6 +1025,8 @@ function ApiErrorBanner({
   onRetry: () => void
 }) {
   const apiBase = resolveApiBase()
+  const isLocalDev = typeof window !== 'undefined' && window.location.port === '5173'
+  const isLocalApi = isLocalDev && apiBase.includes('localhost:8000')
   return (
     <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 px-5 py-4 text-sm text-amber-100">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -1028,6 +1034,13 @@ function ApiErrorBanner({
           <div className="font-semibold text-amber-50">API momentanement indisponible ou session invalide</div>
           <div className="mt-1 text-amber-100/85">{message}. Les donnees affichees peuvent etre incompletes.</div>
           <div className="mt-2 font-mono text-xs text-amber-100/75">{apiBase}</div>
+          {isLocalApi ? (
+            <div className="mt-3 rounded-xl border border-amber-200/20 bg-black/20 p-3 text-xs leading-5 text-amber-50/90">
+              <div className="font-semibold">Mode local detecte: le frontend cherche une API sur ce PC.</div>
+              <div>Si l'appliance Proxmox repond sur 192.168.1.57, relancer Vite avec:</div>
+              <div className="mt-1 font-mono text-amber-100">$env:VITE_API_URL='http://192.168.1.57:8000'; npm run dev -- --host 0.0.0.0</div>
+            </div>
+          ) : null}
         </div>
         <button
           type="button"

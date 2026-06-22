@@ -72,9 +72,16 @@ http://192.168.1.57:8000/api/health
 Commande correcte pour lancer le frontend local en utilisant l'API Proxmox:
 
 ```powershell
+cd C:\Users\Admin\Desktop\atelier-forge-backup-20260619-223536
+powershell -ExecutionPolicy Bypass -File .\scripts\start-local-frontend-proxmox.ps1
+```
+
+La commande manuelle equivalente reste:
+
+```powershell
 cd C:\Users\Admin\Desktop\atelier-forge-backup-20260619-223536\saas\frontend
 $env:VITE_API_URL='http://192.168.1.57:8000'
-npm run dev -- --host 0.0.0.0
+npm run dev -- --host 0.0.0.0 --port 5173
 ```
 
 Controle rapide:
