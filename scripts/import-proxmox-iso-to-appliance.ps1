@@ -32,7 +32,8 @@ $sizeBytes = [int64]$parts[1]
 $sizeGb = [math]::Round($sizeBytes / 1GB, 2)
 Write-Host "Taille source: $sizeGb GB" -ForegroundColor Yellow
 
-ssh -i $ApplianceKey -o StrictHostKeyChecking=no "aos@$ApplianceHost" "sudo mkdir -p '$(dirname "$DestinationPath")' && sudo chown -R aos:aos '$(dirname "$DestinationPath")'"
+$destinationDir = $DestinationPath.Substring(0, $DestinationPath.LastIndexOf("/"))
+ssh -i $ApplianceKey -o StrictHostKeyChecking=no "aos@$ApplianceHost" "sudo mkdir -p '$destinationDir' && sudo chown -R aos:aos '$destinationDir'"
 
 Write-Host "Copie en cours. Ne ferme pas cette fenetre." -ForegroundColor Yellow
 ssh -i $ProxmoxKey -o StrictHostKeyChecking=no "root@$ProxmoxHost" "cat '$SourcePath'" |
