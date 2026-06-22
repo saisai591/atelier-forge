@@ -100,6 +100,7 @@ PXE_AUDIT_DIR = Path(os.getenv("FORGE_PXE_AUDIT_DIR", "/app/audit"))
 DRIVER_STORE_DIR = Path(os.getenv("FORGE_DRIVER_STORE_DIR", "/app/data/drivers"))
 DRIVER_SHARE_DIR = Path(os.getenv("FORGE_DRIVER_SHARE_DIR", ""))
 DEPLOY_SHARE_DIR = Path(os.getenv("FORGE_DEPLOY_SHARE_DIR", "/app/deploy"))
+PXE_MENU_DIR = Path(os.getenv("FORGE_PXE_MENU_DIR", "/app/pxe"))
 HP_DRIVERPACK_MATRIX_URL = "https://ftp.hp.com/pub/caps-softpaq/cmit/HP_Driverpack_Matrix_x64.html"
 BACKUP_DIR = DEPLOY_SHARE_DIR / "exports" / "aos-backups"
 USB_KIT_DIR = DEPLOY_SHARE_DIR / "exports" / "aos-usb-kits"
@@ -1624,6 +1625,26 @@ def _network_diagnostic(config: ForgePxeConfig) -> ForgeNetworkDiagnosticRespons
     )
 
 
+def _support_check(key: str, label: str, ok: bool, detail: str, endpoint: str = "") -> ForgePxeServiceCheck:
+    return ForgePxeServiceCheck(
+        key=key,
+        label=label,
+        status="online" if ok else "offline",
+        detail=detail,
+        endpoint=endpoint,
+    )
+
+
+def _readiness_from_score(score: int, blocking: bool) -> str:
+    if blocking:
+        return "bloque"
+    if score >= 90:
+        return "pret atelier"
+    if score >= 70:
+        return "a verifier"
+    return "incomplet"
+
+
 def _windows_url_file(url: str) -> str:
     return "\n".join([
         "[InternetShortcut]",
@@ -2355,21 +2376,83 @@ async def get_pxe_system_report(
     storage_total_gb = round(usage.total / (1024 ** 3), 1)
     storage_free_gb = round(usage.free / (1024 ** 3), 1)
     storage_used_percent = round(((usage.total - usage.free) / max(usage.total, 1)) * 100, 1)
+    wim_images = _read_wim_images()
+    wim_recipes = _read_wim_recipes()
+    wim_builds = _read_wim_builds()
+    driver_packs = _read_driver_packs()
+    unattend_profiles = _read_unattend_profiles()
+    audits = _read_pxe_audits(500)
     backups = [
         path
         for path in BACKUP_DIR.glob("aos-backup-*.zip")
         if path.is_file()
     ] if BACKUP_DIR.exists() else []
+    dashboard_ok = _http_url_ok(f"http://{config.server_ip}/", timeout=1.5)
+    pxe_menu_ok = _http_url_ok(f"{config.server_url}/boot/menu.ipxe", timeout=1.5)
+    known_pxe_files = [
+        PXE_MENU_DIR / "boot" / "menu.ipxe",
+        DEPLOY_SHARE_DIR / "boot" / "menu.ipxe",
+        Path("/srv/forge/pxe/boot/menu.ipxe"),
+    ]
+    pxe_file_ok = any(path.exists() for path in known_pxe_files)
+    critical_ok = dashboard_ok and pxe_menu_ok
+    default_image_ok = any(image.is_default for image in wim_images)
+    storage_ok = storage_free_gb >= 20 and storage_used_percent < 90
+    services_ok = network.services and all(service.status == "online" for service in network.services)
+    backup_ok = bool(backups)
+    checks = [
+        *network.services,
+        _support_check(
+            "critical-files",
+            "Fichiers critiques",
+            critical_ok,
+            "Dashboard moderne et menu PXE joignables en HTTP." if critical_ok else "Verifier le dashboard HTTP et le menu PXE publie.",
+            f"dashboard=http://{config.server_ip}/ menu={config.server_url}/boot/menu.ipxe fichier-menu={'present' if pxe_file_ok else 'non visible conteneur'}",
+        ),
+        _support_check(
+            "storage",
+            "Espace disque",
+            storage_ok,
+            f"{storage_free_gb} GB libres, {storage_used_percent}% utilise.",
+            str(DEPLOY_SHARE_DIR),
+        ),
+        _support_check(
+            "default-image",
+            "Image Windows par defaut",
+            default_image_ok,
+            "Image WIM/ESD par defaut declaree." if default_image_ok else "Definir une image par defaut avant deploiement.",
+            "Images WIM",
+        ),
+        _support_check(
+            "unattend",
+            "Profil Unattend",
+            bool(unattend_profiles),
+            "Profil Unattend disponible." if unattend_profiles else "Creer un profil Unattend pour deploiement repetable.",
+            "Images WIM > Unattend",
+        ),
+        _support_check(
+            "backup",
+            "Sauvegarde appliance",
+            backup_ok,
+            "Sauvegarde disponible." if backup_ok else "Creer une sauvegarde appliance initiale.",
+            str(BACKUP_DIR),
+        ),
+    ]
+    reliability_score = round((sum(1 for check in checks if check.status == "online") / max(len(checks), 1)) * 100)
+    readiness_level = _readiness_from_score(
+        reliability_score,
+        blocking=not services_ok or not critical_ok or not storage_ok,
+    )
     recommendations: list[str] = [network.recommendation]
     if storage_free_gb < 20:
         recommendations.append("Espace disque critique: liberer des anciens ISO/WIM/kits USB/sauvegardes.")
     elif storage_free_gb < 50:
         recommendations.append("Espace disque a surveiller avant import ISO ou creation WIM.")
-    if not _read_wim_images():
+    if not wim_images:
         recommendations.append("Declarer une image WIM/ESD ou importer une ISO Windows.")
-    if not any(image.is_default for image in _read_wim_images()):
+    if not default_image_ok:
         recommendations.append("Definir une image Windows par defaut avant deploiement.")
-    if not _read_unattend_profiles():
+    if not unattend_profiles:
         recommendations.append("Creer au moins un profil Unattend.")
     if not backups:
         recommendations.append("Creer une sauvegarde appliance initiale.")
@@ -2377,16 +2460,19 @@ async def get_pxe_system_report(
         generated_at=datetime.now(timezone.utc).isoformat(),
         pxe_config=config,
         network=network,
+        reliability_score=reliability_score,
+        readiness_level=readiness_level,
+        checks=checks,
         storage_total_gb=storage_total_gb,
         storage_free_gb=storage_free_gb,
         storage_used_percent=storage_used_percent,
         media_total=len(media),
-        wim_images_total=len(_read_wim_images()),
-        wim_recipes_total=len(_read_wim_recipes()),
-        wim_builds_total=len(_read_wim_builds()),
-        driver_packs_total=len(_read_driver_packs()),
-        unattend_profiles_total=len(_read_unattend_profiles()),
-        audits_total_visible=len(_read_pxe_audits(500)),
+        wim_images_total=len(wim_images),
+        wim_recipes_total=len(wim_recipes),
+        wim_builds_total=len(wim_builds),
+        driver_packs_total=len(driver_packs),
+        unattend_profiles_total=len(unattend_profiles),
+        audits_total_visible=len(audits),
         backups_total=len(backups),
         recommendations=recommendations,
         message="Rapport systeme AtelierOS genere.",

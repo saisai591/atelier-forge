@@ -25,6 +25,7 @@ Objectif: garder une trace claire de ce qui est stable, de ce qui est pret local
 - API backend accessible sur `http://192.168.1.57:8000/api/health`.
 - Frontend local Windows accessible sur `http://localhost:5173/` uniquement si besoin de developpement; il doit proxyfier `/api` vers `http://192.168.1.57:8000`.
 - Services VM actifs: `aos-dashboard`, `aos-backend`, `forge-nginx-pxe`.
+- Rapport support `GET /forge/pxe/system-report` enrichi avec score fiabilite, niveau readiness et controles detailles: services, fichiers critiques HTTP, stockage, image par defaut, Unattend, sauvegarde.
 - APK mobile installe et lance sur le terminal Android connecte.
 - Bloc `Parametres > Premier demarrage client` ajoute avec score de preparation, copie des acces et export checklist.
 - Deploiement backend synchronise maintenant les assets Ventoy/AOS DISK depuis le poste atelier vers `/app/assets/ventoy`.

@@ -464,6 +464,9 @@ interface ForgeSystemReportResponse {
   generated_at: string
   pxe_config: ForgePxeConfig
   network: ForgeNetworkDiagnosticResponse
+  reliability_score: number
+  readiness_level: string
+  checks: ForgePxeServiceCheck[]
   storage_total_gb: number
   storage_free_gb: number
   storage_used_percent: number
@@ -818,8 +821,12 @@ function systemReportSupportText(report: ForgeSystemReportResponse) {
   const services = report.network.services
     .map((service) => `${service.label}: ${service.status}`)
     .join(', ')
+  const checks = report.checks
+    .map((check) => `${check.label}: ${check.status} - ${check.detail}`)
+    .join('\n')
   return [
     `AtelierOS - rapport support (${generatedAt})`,
+    `Score fiabilite: ${report.reliability_score}% (${report.readiness_level})`,
     `Mode PXE: ${report.pxe_config.mode}`,
     `IP configuree: ${report.network.configured_ip || 'non definie'}`,
     `IP detectee: ${report.network.detected_ip || 'non detectee'}`,
@@ -828,6 +835,9 @@ function systemReportSupportText(report: ForgeSystemReportResponse) {
     `Medias: ${report.media_total} | Images: ${report.wim_images_total} | WIM procedures: ${report.wim_builds_total}`,
     `Pilotes: ${report.driver_packs_total} | Audits visibles: ${report.audits_total_visible} | Sauvegardes: ${report.backups_total}`,
     `Recommandations: ${report.recommendations.join(' / ') || 'aucune'}`,
+    '',
+    'Controles detailles:',
+    checks || 'aucun controle detaille',
   ].join('\n')
 }
 
@@ -4407,6 +4417,32 @@ function GuideClientPanel({
                   <InfoRow label="IP configuree" value={systemReport.network.configured_ip || 'Non definie'} mono />
                   <InfoRow label="IP detectee" value={systemReport.network.detected_ip || 'Non detectee'} mono />
                   <InfoRow label="Mode PXE" value={systemReport.pxe_config.mode} />
+                </div>
+                <div className="rounded-xl border border-cyan-300/15 bg-cyan-300/[0.06] p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-white">Fiabilite appliance</div>
+                      <div className="mt-1 text-xs text-slate-400">Score calcule par le backend: services, fichiers critiques, stockage, image par defaut, Unattend et sauvegarde.</div>
+                    </div>
+                    <span className={cn(
+                      'rounded-full border px-3 py-1 text-sm font-black',
+                      systemReport.reliability_score >= 90 ? 'border-emerald-300/25 bg-emerald-300/10 text-emerald-100' : systemReport.reliability_score >= 70 ? 'border-amber-300/25 bg-amber-300/10 text-amber-100' : 'border-rose-300/25 bg-rose-300/10 text-rose-100',
+                    )}>
+                      {systemReport.reliability_score}% - {systemReport.readiness_level}
+                    </span>
+                  </div>
+                  <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                    {systemReport.checks.map((check) => (
+                      <div key={check.key} className="rounded-lg border border-white/10 bg-black/20 p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="truncate text-sm font-semibold text-white">{check.label}</div>
+                          <span className={cn('h-2.5 w-2.5 rounded-full', check.status === 'online' ? 'bg-emerald-300 shadow-[0_0_10px_rgba(110,231,183,.8)]' : 'bg-amber-300 shadow-[0_0_10px_rgba(252,211,77,.8)]')} />
+                        </div>
+                        <div className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">{check.detail}</div>
+                        {check.endpoint ? <div className="mt-1 truncate font-mono text-[11px] text-slate-600">{check.endpoint}</div> : null}
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
                   {[

@@ -169,6 +169,9 @@ class ForgeSystemReportResponse(BaseModel):
     generated_at: str
     pxe_config: ForgePxeConfig
     network: ForgeNetworkDiagnosticResponse
+    reliability_score: int = 0
+    readiness_level: str = "incomplet"
+    checks: list[ForgePxeServiceCheck] = Field(default_factory=list)
     storage_total_gb: float
     storage_free_gb: float
     storage_used_percent: float
