@@ -60,3 +60,28 @@ Correction:
 ```bash
 sudo bash scripts/repair-dashboard-ui.sh
 ```
+
+## Developpement local Windows avec API appliance
+
+Quand l'interface est lancee sur le PC atelier avec Vite (`http://localhost:5173`), `localhost` designe le PC Windows, pas la VM Proxmox. L'API de reference reste l'appliance:
+
+```text
+http://192.168.1.57:8000/api/health
+```
+
+Commande correcte pour lancer le frontend local en utilisant l'API Proxmox:
+
+```powershell
+cd C:\Users\Admin\Desktop\atelier-forge-backup-20260619-223536\saas\frontend
+$env:VITE_API_URL='http://192.168.1.57:8000'
+npm run dev -- --host 0.0.0.0
+```
+
+Controle rapide:
+
+```powershell
+Invoke-WebRequest -UseBasicParsing -Uri http://localhost:5173/api/health
+Invoke-WebRequest -UseBasicParsing -Uri http://192.168.1.57:8000/api/health
+```
+
+Si `192.168.1.57:8000/api/health` repond mais `localhost:5173/api/health` ne repond pas, l'API appliance fonctionne. Le probleme vient du proxy Vite local lance sans `VITE_API_URL`.

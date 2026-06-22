@@ -14,11 +14,16 @@ Objectif: garder une trace claire de ce qui est stable, de ce qui est pret local
 8. Chaque changement doit passer au minimum:
    - `npm run -s build`
    - `python -m py_compile` pour les fichiers backend modifies.
+9. En developpement local sur Windows, ne pas confondre frontend local et API appliance:
+   - `http://localhost:5173` est seulement le serveur Vite local;
+   - l'API de reference reste `http://192.168.1.57:8000`;
+   - si `localhost:5173/api/health` ne repond pas mais `192.168.1.57:8000/api/health` repond, redemarrer Vite avec `VITE_API_URL=http://192.168.1.57:8000`.
 
 ## Dernier etat verifie
 
 - Dashboard web accessible sur `http://192.168.1.57/`.
 - API backend accessible sur `http://192.168.1.57:8000/api/health`.
+- Frontend local Windows accessible sur `http://localhost:5173/` uniquement si besoin de developpement; il doit proxyfier `/api` vers `http://192.168.1.57:8000`.
 - Services VM actifs: `aos-dashboard`, `aos-backend`, `forge-nginx-pxe`.
 - APK mobile installe et lance sur le terminal Android connecte.
 - Bloc `Parametres > Premier demarrage client` ajoute avec score de preparation, copie des acces et export checklist.
