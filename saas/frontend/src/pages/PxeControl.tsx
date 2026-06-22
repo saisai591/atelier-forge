@@ -5885,6 +5885,14 @@ function MediaUploadPanel({
   const formattedDate = mediaStatus?.modified_at ? new Date(mediaStatus.modified_at).toLocaleString() : ''
   const isoCount = serverMediaFiles.filter((item) => item.kind === 'iso').length
   const imageCount = serverMediaFiles.filter((item) => item.kind === 'image').length
+  const smbHost = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+    ? window.location.hostname
+    : '192.168.1.57'
+  const isoDropPath = `\\\\${smbHost}\\deploy\\iso`
+  const imageDropPath = `\\\\${smbHost}\\deploy\\images`
+  const proxmoxIsoPath = '/var/lib/vz/template/iso/Win11_25H2_French_x64_v2.iso'
+  const proxmoxIsoName = 'Win11_25H2_French_x64_v2.iso'
+  const proxmoxCopyCommand = `scp root@192.168.1.56:${proxmoxIsoPath} /tmp/${proxmoxIsoName}`
   const declaredImagePaths = new Set(images.map((image) => image.path.trim().toLowerCase()))
   const mediaKey = (item: ForgeServerMediaFile) => `${item.folder}/${item.filename}`
   const openIndexes = async (item: ForgeServerMediaFile, mode: 'view' | 'prepare') => {
@@ -5959,6 +5967,65 @@ function MediaUploadPanel({
             <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs font-semibold text-emerald-100">{imageCount} WIM/ESD</span>
           </div>
         </div>
+        {!serverMediaFiles.length ? (
+          <div className="mt-4 grid gap-3 xl:grid-cols-3">
+            <div className="rounded-xl border border-cyan-300/15 bg-black/20 p-4">
+              <div className="text-sm font-semibold text-white">Option simple: copier depuis Windows</div>
+              <div className="mt-2 text-sm leading-6 text-slate-400">
+                Ouvre le partage reseau, depose l'ISO Windows dans le dossier `iso`, puis clique Rafraichir.
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <code className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 font-mono text-xs text-cyan-100">{isoDropPath}</code>
+                <button
+                  type="button"
+                  onClick={() => void navigator.clipboard?.writeText(isoDropPath)}
+                  className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/15"
+                >
+                  Copier chemin ISO
+                </button>
+              </div>
+            </div>
+            <div className="rounded-xl border border-emerald-300/15 bg-black/20 p-4">
+              <div className="text-sm font-semibold text-white">Option directe: WIM/ESD deja pret</div>
+              <div className="mt-2 text-sm leading-6 text-slate-400">
+                Si tu as deja un `install.wim` ou `install.esd`, depose-le dans `images`, puis declare-le comme image PXE.
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <code className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 font-mono text-xs text-emerald-100">{imageDropPath}</code>
+                <button
+                  type="button"
+                  onClick={() => void navigator.clipboard?.writeText(imageDropPath)}
+                  className="rounded-lg border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-300/15"
+                >
+                  Copier chemin WIM
+                </button>
+              </div>
+            </div>
+            <div className="rounded-xl border border-amber-300/15 bg-black/20 p-4">
+              <div className="text-sm font-semibold text-white">Source Proxmox detectee</div>
+              <div className="mt-2 text-sm leading-6 text-slate-400">
+                ISO trouvee sur le noeud Proxmox. Tant que ce stockage n'est pas monte dans l'appliance, il faut la copier vers `deploy/iso`.
+              </div>
+              <div className="mt-3 space-y-2">
+                <code className="block break-all rounded-lg border border-white/10 bg-black/30 px-3 py-2 font-mono text-xs text-amber-100">{proxmoxIsoPath}</code>
+                <button
+                  type="button"
+                  onClick={() => void navigator.clipboard?.writeText(proxmoxIsoPath)}
+                  className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-300/15"
+                >
+                  Copier chemin Proxmox
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void navigator.clipboard?.writeText(proxmoxCopyCommand)}
+                  className="ml-2 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/10"
+                >
+                  Copier commande SCP
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <form
