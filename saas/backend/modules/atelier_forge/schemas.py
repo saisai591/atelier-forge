@@ -438,6 +438,15 @@ class ForgeExternalMediaSourceListResponse(BaseModel):
     message: str
 
 
+class ForgeExternalMediaImportResponse(BaseModel):
+    imported: bool
+    source: ForgeExternalMediaSource
+    destination: str | None = None
+    smb_path: str | None = None
+    command: str | None = None
+    message: str
+
+
 class ForgeServerMediaDeleteResponse(BaseModel):
     deleted: bool
     filename: str

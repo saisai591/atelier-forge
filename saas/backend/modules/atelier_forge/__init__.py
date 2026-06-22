@@ -57,6 +57,7 @@ from .schemas import (
     ForgeServerMediaListResponse,
     ForgeExternalMediaSource,
     ForgeExternalMediaSourceListResponse,
+    ForgeExternalMediaImportResponse,
     ForgeUnattendProfile,
     ForgeUnattendProfileCreate,
     ForgeWimImage,
@@ -733,6 +734,43 @@ def _read_external_media_sources() -> list[ForgeExternalMediaSource]:
             message=str(item.get("message") or message),
         ))
     return sources
+
+
+def _find_external_media_source(source_id: str) -> ForgeExternalMediaSource:
+    source = next((item for item in _read_external_media_sources() if item.id == source_id), None)
+    if not source:
+        raise HTTPException(status_code=404, detail="Source externe introuvable")
+    return source
+
+
+def _import_external_media_source(source_id: str, config: ForgePxeConfig) -> ForgeExternalMediaImportResponse:
+    source = _find_external_media_source(source_id)
+    filename = _safe_filename(source.filename or Path(source.path).name)
+    kind, destination = _media_destination(filename, "iso" if filename.lower().endswith(".iso") else "image")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    source_path = Path(source.path)
+    if not source_path.exists():
+        command = source.copy_hint
+        if source.source_type == "proxmox" and source.host:
+            command = f"ssh root@{source.host} \"cat '{source.path}'\" | ssh aos@{config.server_ip} \"cat > '{destination}'\""
+        return ForgeExternalMediaImportResponse(
+            imported=False,
+            source=source,
+            command=command,
+            message="Source non montee dans l'appliance. Copie manuelle ou montage Proxmox requis avant import automatique.",
+        )
+    tmp_path = destination.with_suffix(destination.suffix + ".import")
+    shutil.copyfile(source_path, tmp_path)
+    tmp_path.replace(destination)
+    smb_base = config.smb_share.rstrip("\\/")
+    folder = "iso" if kind == "iso" else "images"
+    return ForgeExternalMediaImportResponse(
+        imported=True,
+        source=source,
+        destination=str(destination),
+        smb_path=rf"{smb_base}\{folder}\{destination.name}",
+        message=f"{destination.name} importe dans le stockage AtelierOS.",
+    )
 
 
 def _resolve_server_media_file(folder: str, filename: str) -> tuple[str, str, Path]:
@@ -2879,6 +2917,16 @@ async def list_external_media_sources(
         total=len(sources),
         message=f"{len(sources)} source(s) externe(s) configuree(s).",
     )
+
+
+@router.post("/pxe/media/external-sources/{source_id}/import", response_model=ForgeExternalMediaImportResponse)
+async def import_external_media_source(
+    source_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Importe une source externe si elle est visible depuis l'appliance, sinon renvoie la commande de copie."""
+    _ = current_user
+    return _import_external_media_source(source_id, _read_pxe_config())
 
 
 @router.post("/pxe/media/files/{folder}/{filename}/checksum", response_model=ForgeServerMediaChecksumResponse)

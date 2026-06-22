@@ -353,6 +353,15 @@ interface ForgeExternalMediaSourceListResponse {
   message: string
 }
 
+interface ForgeExternalMediaImportResponse {
+  imported: boolean
+  source: ForgeExternalMediaSource
+  destination: string | null
+  smb_path: string | null
+  command: string | null
+  message: string
+}
+
 interface ForgeServerMediaDeleteResponse {
   deleted: boolean
   filename: string
@@ -3331,6 +3340,7 @@ function ImagesModule({
   serverMediaFiles,
   externalMediaSources,
   onRefreshMediaFiles,
+  onImportExternalMediaSource,
   onDeleteMediaFile,
   onChecksumMediaFile,
   onCreateImageFromMedia,
@@ -3376,6 +3386,7 @@ function ImagesModule({
   serverMediaFiles: ForgeServerMediaFile[]
   externalMediaSources: ForgeExternalMediaSource[]
   onRefreshMediaFiles: () => Promise<void>
+  onImportExternalMediaSource: (source: ForgeExternalMediaSource) => Promise<ForgeExternalMediaImportResponse | null>
   onDeleteMediaFile: (file: ForgeServerMediaFile) => Promise<void>
   onChecksumMediaFile: (file: ForgeServerMediaFile) => Promise<ForgeServerMediaChecksumResponse | null>
   onCreateImageFromMedia: (file: ForgeServerMediaFile) => Promise<void>
@@ -3619,6 +3630,7 @@ function ImagesModule({
               serverMediaFiles={serverMediaFiles}
               externalMediaSources={externalMediaSources}
               onRefreshMediaFiles={onRefreshMediaFiles}
+              onImportExternalMediaSource={onImportExternalMediaSource}
               onDeleteMediaFile={onDeleteMediaFile}
               onChecksumMediaFile={onChecksumMediaFile}
               onCreateImageFromMedia={onCreateImageFromMedia}
@@ -5849,6 +5861,7 @@ function MediaUploadPanel({
   serverMediaFiles,
   externalMediaSources,
   onRefreshMediaFiles,
+  onImportExternalMediaSource,
   onDeleteMediaFile,
   onChecksumMediaFile,
   onCreateImageFromMedia,
@@ -5873,6 +5886,7 @@ function MediaUploadPanel({
   serverMediaFiles: ForgeServerMediaFile[]
   externalMediaSources: ForgeExternalMediaSource[]
   onRefreshMediaFiles: () => Promise<void>
+  onImportExternalMediaSource: (source: ForgeExternalMediaSource) => Promise<ForgeExternalMediaImportResponse | null>
   onDeleteMediaFile: (file: ForgeServerMediaFile) => Promise<void>
   onChecksumMediaFile: (file: ForgeServerMediaFile) => Promise<ForgeServerMediaChecksumResponse | null>
   onCreateImageFromMedia: (file: ForgeServerMediaFile) => Promise<void>
@@ -5892,6 +5906,8 @@ function MediaUploadPanel({
   const [progress, setProgress] = useState<number | null>(null)
   const [checksums, setChecksums] = useState<Record<string, string>>({})
   const [checksumLoadingKey, setChecksumLoadingKey] = useState<string | null>(null)
+  const [externalImportingId, setExternalImportingId] = useState<string | null>(null)
+  const [externalImportMessage, setExternalImportMessage] = useState<string | null>(null)
   const [indexChooser, setIndexChooser] = useState<{
     file: ForgeServerMediaFile
     indexes: ForgeWimIndex[]
@@ -5948,6 +5964,21 @@ function MediaUploadPanel({
       }
     } finally {
       setChecksumLoadingKey(null)
+    }
+  }
+  const importExternalSource = async (source: ForgeExternalMediaSource) => {
+    setExternalImportingId(source.id)
+    setExternalImportMessage(null)
+    try {
+      const result = await onImportExternalMediaSource(source)
+      if (result?.command && !result.imported) {
+        setExternalImportMessage(`${result.message} Commande: ${result.command}`)
+        void navigator.clipboard?.writeText(result.command)
+      } else if (result) {
+        setExternalImportMessage(result.message)
+      }
+    } finally {
+      setExternalImportingId(null)
     }
   }
 
@@ -6038,6 +6069,14 @@ function MediaUploadPanel({
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
+                      onClick={() => void importExternalSource(source)}
+                      disabled={externalImportingId === source.id}
+                      className="rounded-lg border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-300/15 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {externalImportingId === source.id ? 'Import...' : 'Importer source'}
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => void navigator.clipboard?.writeText(source.path)}
                       className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-300/15"
                     >
@@ -6054,6 +6093,11 @@ function MediaUploadPanel({
                 </div>
               </div>
             ))}
+          </div>
+        ) : null}
+        {externalImportMessage ? (
+          <div className="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/10 p-3 text-xs leading-5 text-amber-100">
+            {externalImportMessage}
           </div>
         ) : null}
       </div>
@@ -7873,6 +7917,25 @@ export default function PxeControl({
     }
   }
 
+  const importExternalMediaSource = async (source: ForgeExternalMediaSource): Promise<ForgeExternalMediaImportResponse | null> => {
+    setApiError(null)
+    try {
+      const token = await getDemoToken()
+      const result = await requestJson<ForgeExternalMediaImportResponse>(`/forge/pxe/media/external-sources/${encodeURIComponent(source.id)}/import`, token, {
+        method: 'POST',
+      })
+      setSaveMessage(result.message)
+      if (result.imported) {
+        const media = await requestJson<ForgeServerMediaListResponse>('/forge/pxe/media/files', token)
+        setServerMediaFiles(media.files)
+      }
+      return result
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : 'Erreur import source externe')
+      return null
+    }
+  }
+
   const deleteMediaFile = async (file: ForgeServerMediaFile) => {
     setApiError(null)
     try {
@@ -8719,6 +8782,7 @@ export default function PxeControl({
         onUploadMedia={uploadPxeMedia}
         onCheckMedia={checkMediaOnServer}
         onRefreshMediaFiles={refreshMediaFiles}
+        onImportExternalMediaSource={importExternalMediaSource}
         onDeleteMediaFile={deleteMediaFile}
         onChecksumMediaFile={checksumMediaFile}
         onCreateImageFromMedia={createImageFromMediaFile}
