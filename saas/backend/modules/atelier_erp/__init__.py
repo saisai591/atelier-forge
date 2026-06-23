@@ -13,6 +13,7 @@ from core.database import get_db
 from core.dependencies import get_current_user
 from core.models import User
 from modules.registry import ModuleManifest, ModuleRegistry, NavItem
+from modules.stock.models import StockItem
 
 from .models import (
     AtelierClient,
@@ -45,6 +46,7 @@ from .schemas import (
     AtelierScanSessionCreate,
     AtelierScanSessionOut,
     AtelierScanSessionUpdate,
+    AtelierMachineLookupResult,
     AtelierShipmentCreate,
     AtelierShipmentOut,
     AtelierShipmentUpdate,
@@ -303,6 +305,62 @@ async def overview(
         shipments_open=shipments_open or 0,
         documents_ready=documents_ready or 0,
     )
+
+
+@router.get("/machine-lookup/{code}", response_model=AtelierMachineLookupResult)
+async def machine_lookup(
+    code: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    normalized = code.strip()
+    if not normalized:
+        raise HTTPException(status_code=400, detail="Code vide")
+
+    stock_result = await db.execute(
+        select(StockItem).where(
+            StockItem.tenant_id == current_user.tenant_id,
+            StockItem.serial_number == normalized,
+        )
+    )
+    stock_item = stock_result.scalar_one_or_none()
+    if stock_item:
+        return AtelierMachineLookupResult(
+            code=normalized,
+            found=True,
+            source="stock",
+            stock_item_id=stock_item.id,
+            serial_number=stock_item.serial_number,
+            brand=stock_item.brand,
+            model=stock_item.model,
+            grade=stock_item.grade,
+            status=stock_item.status.value,
+            summary=stock_item.audit_data or {},
+        )
+
+    try:
+        from modules.atelier_forge import _read_pxe_audits
+    except Exception:
+        _read_pxe_audits = None
+
+    if _read_pxe_audits:
+        for audit in _read_pxe_audits(100):
+            candidates = {audit.id, audit.serial_number, audit.mac, audit.filename}
+            if normalized in {item for item in candidates if item}:
+                return AtelierMachineLookupResult(
+                    code=normalized,
+                    found=True,
+                    source="pxe_audit",
+                    audit_id=audit.id,
+                    serial_number=audit.serial_number,
+                    brand=audit.brand,
+                    model=audit.model,
+                    grade=audit.grade_proposed,
+                    status="audit_recu",
+                    summary=audit.raw or {},
+                )
+
+    return AtelierMachineLookupResult(code=normalized, found=False, source="none")
 
 
 @router.post("/supplier-import/preview", response_model=SupplierImportPreview)

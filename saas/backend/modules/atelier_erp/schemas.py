@@ -231,3 +231,17 @@ class AtelierScanEventOut(AtelierScanEventCreate):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class AtelierMachineLookupResult(BaseModel):
+    code: str
+    found: bool
+    source: str
+    stock_item_id: uuid.UUID | None = None
+    audit_id: str | None = None
+    serial_number: str | None = None
+    brand: str | None = None
+    model: str | None = None
+    grade: str | None = None
+    status: str | None = None
+    summary: dict = Field(default_factory=dict)
