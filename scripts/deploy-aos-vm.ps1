@@ -129,4 +129,7 @@ sudo systemctl --no-pager --plain is-active aos-backend
   ssh -i $KeyPath -o StrictHostKeyChecking=no $SshTarget $DeployBackend
 }
 
+Write-Host "[AOS] Verification appliance..."
+& (Join-Path $PSScriptRoot "verify-appliance.ps1") -HostName $HostName -SshUser $User -KeyPath $KeyPath
+
 Write-Host "[AOS] Deploiement termine."
