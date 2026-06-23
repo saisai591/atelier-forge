@@ -880,7 +880,7 @@ export default function Erp() {
               </div>
             </Panel>}
 
-            <Panel className={panelClass}>
+            {workspace === 'receptions' && <Panel className={panelClass}>
               <ModuleHeader title="Import intelligent" subtitle="Dernieres correspondances detectees par fichier fournisseur." icon={FileSpreadsheet} isDark={isDark} />
               <div className="space-y-3 p-5 pt-0">
                 {lastImportPreview && (
@@ -907,9 +907,9 @@ export default function Erp() {
                   </div>
                 ))}
               </div>
-            </Panel>
+            </Panel>}
 
-            <Panel className={panelClass}>
+            {workspace === 'scan' && <Panel className={panelClass}>
               <ModuleHeader title="Terminaux atelier" subtitle="PDA, tablettes et scanners prevus pour les techniciens." icon={Smartphone} isDark={isDark} />
               <div className="space-y-3 p-5 pt-0">
                 {terminals.map((terminal) => (
@@ -927,7 +927,7 @@ export default function Erp() {
                   </div>
                 ))}
               </div>
-            </Panel>
+            </Panel>}
 
             <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-5">
               <div className="flex gap-3">
