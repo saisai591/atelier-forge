@@ -5,10 +5,12 @@ export default function ThemeToggle({
   theme,
   onToggle,
   compact = false,
+  className = '',
 }: {
   theme: ThemeMode
   onToggle: () => void
   compact?: boolean
+  className?: string
 }) {
   const isDark = theme === 'dark'
 
@@ -20,7 +22,7 @@ export default function ThemeToggle({
         isDark
           ? 'border-white/10 bg-white/[0.055] text-slate-100 hover:bg-white/[0.08]'
           : 'border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50'
-      } ${compact ? 'h-10 px-3 text-xs' : 'px-4 py-3 text-sm'}`}
+      } ${compact ? 'h-10 px-3 text-xs' : 'px-4 py-3 text-sm'} ${className}`}
       aria-label={isDark ? 'Activer le mode clair' : 'Activer le mode sombre'}
     >
       {isDark ? <Sun size={16} /> : <Moon size={16} />}

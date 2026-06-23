@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import { Package, TrendingUp, Wallet, AlertCircle, Users, CheckCircle, Clock } from 'lucide-react'
+import { AlertCircle, CheckCircle, Clock, Package, TrendingUp, Users, Wallet } from 'lucide-react'
+import type { ReactNode } from 'react'
 import api from '../api/client'
 import { useAuthStore } from '../store/auth'
+import { useThemeMode } from '../hooks/useThemeMode'
 
 interface Overview {
   stock: {
@@ -17,136 +19,204 @@ interface Overview {
 }
 
 const GRADE_COLORS: Record<string, string> = {
-  A: 'bg-green-100 text-green-700',
-  B: 'bg-blue-100 text-blue-700',
-  C: 'bg-yellow-100 text-yellow-700',
-  D: 'bg-red-100 text-red-700',
+  A: 'border-emerald-300/30 bg-emerald-300/10 text-emerald-300',
+  B: 'border-cyan-300/30 bg-cyan-300/10 text-cyan-300',
+  C: 'border-amber-300/30 bg-amber-300/10 text-amber-300',
+  D: 'border-rose-300/30 bg-rose-300/10 text-rose-300',
 }
 
 export default function Dashboard() {
   const user = useAuthStore((s) => s.user)
+  const { isDark } = useThemeMode()
 
-  const { data, isLoading } = useQuery<Overview>({
+  const { data, isLoading, isError } = useQuery<Overview>({
     queryKey: ['analytics-overview'],
     queryFn: () => api.get('/analytics/overview').then((r) => r.data),
   })
 
+  const titleClass = isDark ? 'text-white' : 'text-slate-950'
+  const mutedClass = isDark ? 'text-slate-400' : 'text-slate-600'
+  const panelClass = isDark
+    ? 'border-white/10 bg-white/[0.035] shadow-black/30'
+    : 'border-slate-200 bg-white shadow-slate-200/80'
+  const readyCount = data?.stock.by_status.ready ?? 0
+  const blockedCount = (data?.stock.by_status.in_diagnosis ?? 0) + (data?.accounting.unpaid_ht ? 1 : 0)
+
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">
-        Bonjour, {user?.full_name?.split(' ')[0]}
-      </h1>
+    <div className="space-y-6">
+      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-300">Back-office AtelierOS</p>
+          <h1 className={`mt-2 text-3xl font-black tracking-tight ${titleClass}`}>
+            Bonjour, {user?.full_name?.split(' ')[0] ?? 'atelier'}
+          </h1>
+          <p className={`mt-2 max-w-3xl text-sm ${mutedClass}`}>
+            Vue simple pour savoir quoi faire maintenant : stock pret, points bloques, factures et clients.
+          </p>
+        </div>
+        <div className={`rounded-2xl border px-4 py-3 text-sm font-bold ${panelClass}`}>
+          <span className="text-cyan-300">Etat global : </span>
+          {isError ? 'API a verifier' : isLoading ? 'Chargement' : blockedCount > 0 ? 'Actions a traiter' : 'Pret'}
+        </div>
+      </header>
 
       {isLoading || !data ? (
-        <p className="text-gray-400 text-sm">Chargement des indicateurs…</p>
+        <div className={`rounded-2xl border p-6 text-sm ${panelClass} ${mutedClass}`}>
+          Chargement des indicateurs...
+        </div>
       ) : (
         <>
-          {/* KPIs principaux */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <StatCard icon={<Wallet size={20} />} color="blue"
-              label="Valeur du stock" value={`${data.stock.available_value.toFixed(0)} €`} />
-            <StatCard icon={<TrendingUp size={20} />} color="green"
-              label="Marge réalisée" value={`${data.stock.realized_margin.toFixed(0)} €`} />
-            <StatCard icon={<AlertCircle size={20} />} color="red"
-              label="Impayé (HT)" value={`${data.accounting.unpaid_ht.toFixed(0)} €`} />
-            <StatCard icon={<Users size={20} />} color="purple"
-              label="Clients" value={data.clients.total} />
-          </div>
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <StatCard isDark={isDark} icon={<Wallet size={20} />} tone="cyan" label="Valeur stock" value={`${data.stock.available_value.toFixed(0)} EUR`} />
+            <StatCard isDark={isDark} icon={<TrendingUp size={20} />} tone="emerald" label="Marge realisee" value={`${data.stock.realized_margin.toFixed(0)} EUR`} />
+            <StatCard isDark={isDark} icon={<AlertCircle size={20} />} tone="rose" label="Impayes HT" value={`${data.accounting.unpaid_ht.toFixed(0)} EUR`} />
+            <StatCard isDark={isDark} icon={<Users size={20} />} tone="violet" label="Clients" value={data.clients.total} />
+          </section>
 
-          <div className="grid lg:grid-cols-2 gap-6">
-            {/* Stock */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                <Package size={18} /> Stock ({data.stock.total})
-              </h2>
-              <div className="space-y-2 mb-4">
-                <StatusBar label="Prêtes" icon={<CheckCircle size={14} className="text-green-500" />}
-                  count={data.stock.by_status['ready'] ?? 0} total={data.stock.total} color="bg-green-500" />
-                <StatusBar label="En diagnostic" icon={<Clock size={14} className="text-yellow-500" />}
-                  count={data.stock.by_status['in_diagnosis'] ?? 0} total={data.stock.total} color="bg-yellow-500" />
-                <StatusBar label="Vendues" icon={<TrendingUp size={14} className="text-purple-500" />}
-                  count={data.stock.by_status['sold'] ?? 0} total={data.stock.total} color="bg-purple-500" />
+          <section className="grid gap-4 lg:grid-cols-3">
+            <ActionTile isDark={isDark} tone="emerald" title="Pret" value={readyCount} detail="Machines disponibles ou livrables" />
+            <ActionTile isDark={isDark} tone="amber" title="A traiter" value={data.stock.by_status.in_diagnosis ?? 0} detail="Diagnostics ou controles en cours" />
+            <ActionTile isDark={isDark} tone="rose" title="Bloque" value={data.accounting.unpaid_ht > 0 ? 1 : 0} detail="Facturation ou paiement a surveiller" />
+          </section>
+
+          <section className="grid gap-6 xl:grid-cols-2">
+            <Panel isDark={isDark} title={`Stock (${data.stock.total})`} icon={<Package size={18} />}>
+              <div className="space-y-3">
+                <StatusBar isDark={isDark} label="Pretes" icon={<CheckCircle size={14} className="text-emerald-400" />} count={readyCount} total={data.stock.total} color="bg-emerald-400" />
+                <StatusBar isDark={isDark} label="En diagnostic" icon={<Clock size={14} className="text-amber-400" />} count={data.stock.by_status.in_diagnosis ?? 0} total={data.stock.total} color="bg-amber-400" />
+                <StatusBar isDark={isDark} label="Vendues" icon={<TrendingUp size={14} className="text-violet-400" />} count={data.stock.by_status.sold ?? 0} total={data.stock.total} color="bg-violet-400" />
               </div>
               {Object.keys(data.stock.by_grade).length > 0 && (
-                <div className="flex gap-2 pt-3 border-t border-gray-100">
-                  <span className="text-xs text-gray-400 self-center">Grades :</span>
+                <div className={`mt-5 flex flex-wrap gap-2 border-t pt-4 ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+                  <span className={`self-center text-xs font-bold ${mutedClass}`}>Grades</span>
                   {Object.entries(data.stock.by_grade).sort().map(([g, n]) => (
-                    <span key={g} className={`px-2 py-0.5 rounded text-xs font-medium ${GRADE_COLORS[g] ?? 'bg-gray-100 text-gray-600'}`}>
+                    <span key={g} className={`rounded-lg border px-2 py-1 text-xs font-black ${GRADE_COLORS[g] ?? (isDark ? 'border-white/10 bg-white/5 text-slate-300' : 'border-slate-200 bg-slate-50 text-slate-700')}`}>
                       {g} · {n}
                     </span>
                   ))}
                 </div>
               )}
-            </div>
+            </Panel>
 
-            {/* Comptabilité */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                <Wallet size={18} /> Facturation (HT)
-              </h2>
+            <Panel isDark={isDark} title="Facturation HT" icon={<Wallet size={18} />}>
               <div className="space-y-3">
-                <Row label="Facturé" value={data.accounting.invoiced_ht} color="text-gray-900" />
-                <Row label="Encaissé" value={data.accounting.paid_ht} color="text-green-600" />
-                <Row label="En attente de paiement" value={data.accounting.unpaid_ht} color="text-red-600" />
+                <Row isDark={isDark} label="Facture" value={data.accounting.invoiced_ht} tone="slate" />
+                <Row isDark={isDark} label="Encaisse" value={data.accounting.paid_ht} tone="emerald" />
+                <Row isDark={isDark} label="En attente de paiement" value={data.accounting.unpaid_ht} tone="rose" />
               </div>
               {data.accounting.invoiced_ht > 0 && (
-                <div className="mt-4 pt-3 border-t border-gray-100">
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-green-500"
-                      style={{ width: `${(data.accounting.paid_ht / data.accounting.invoiced_ht) * 100}%` }} />
+                <div className={`mt-5 border-t pt-4 ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+                  <div className={`h-2 overflow-hidden rounded-full ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}>
+                    <div className="h-full bg-emerald-400" style={{ width: `${(data.accounting.paid_ht / data.accounting.invoiced_ht) * 100}%` }} />
                   </div>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {((data.accounting.paid_ht / data.accounting.invoiced_ht) * 100).toFixed(0)}% encaissé
+                  <p className={`mt-2 text-xs font-bold ${mutedClass}`}>
+                    {((data.accounting.paid_ht / data.accounting.invoiced_ht) * 100).toFixed(0)}% encaisse
                   </p>
                 </div>
               )}
-            </div>
-          </div>
+            </Panel>
+          </section>
         </>
       )}
     </div>
   )
 }
 
-function StatCard({ icon, label, value, color }: {
-  icon: React.ReactNode; label: string; value: string | number
-  color: 'blue' | 'green' | 'red' | 'purple'
+function StatCard({ icon, label, value, tone, isDark }: {
+  icon: ReactNode
+  label: string
+  value: string | number
+  tone: 'cyan' | 'emerald' | 'rose' | 'violet'
+  isDark: boolean
 }) {
-  const colors = {
-    blue: 'bg-blue-50 text-blue-600', green: 'bg-green-50 text-green-600',
-    red: 'bg-red-50 text-red-600', purple: 'bg-purple-50 text-purple-600',
-  }
+  const toneClass = {
+    cyan: 'border-cyan-300/25 bg-cyan-300/10 text-cyan-300',
+    emerald: 'border-emerald-300/25 bg-emerald-300/10 text-emerald-300',
+    rose: 'border-rose-300/25 bg-rose-300/10 text-rose-300',
+    violet: 'border-violet-300/25 bg-violet-300/10 text-violet-300',
+  }[tone]
+
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4">
-      <div className={`inline-flex p-2 rounded-lg ${colors[color]} mb-3`}>{icon}</div>
-      <div className="text-2xl font-bold text-gray-900">{value}</div>
-      <div className="text-sm text-gray-500">{label}</div>
+    <div className={`rounded-2xl border p-5 shadow-xl ${isDark ? 'border-white/10 bg-white/[0.035] shadow-black/25' : 'border-slate-200 bg-white shadow-slate-200/80'}`}>
+      <div className={`mb-4 inline-flex rounded-xl border p-2 ${toneClass}`}>{icon}</div>
+      <div className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-950'}`}>{value}</div>
+      <div className={`mt-1 text-sm font-semibold ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{label}</div>
     </div>
   )
 }
 
-function StatusBar({ label, icon, count, total, color }: {
-  label: string; icon: React.ReactNode; count: number; total: number; color: string
+function ActionTile({ title, value, detail, tone, isDark }: {
+  title: string
+  value: number
+  detail: string
+  tone: 'emerald' | 'amber' | 'rose'
+  isDark: boolean
+}) {
+  const toneClass = {
+    emerald: 'text-emerald-300',
+    amber: 'text-amber-300',
+    rose: 'text-rose-300',
+  }[tone]
+
+  return (
+    <div className={`rounded-2xl border p-5 ${isDark ? 'border-white/10 bg-black/20' : 'border-slate-200 bg-white'}`}>
+      <div className={`text-4xl font-black ${toneClass}`}>{value}</div>
+      <div className={`mt-2 text-lg font-black ${isDark ? 'text-white' : 'text-slate-950'}`}>{title}</div>
+      <div className={`mt-1 text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{detail}</div>
+    </div>
+  )
+}
+
+function Panel({ title, icon, children, isDark }: {
+  title: string
+  icon: ReactNode
+  children: ReactNode
+  isDark: boolean
+}) {
+  return (
+    <div className={`rounded-2xl border p-6 shadow-2xl ${isDark ? 'border-white/10 bg-white/[0.035] shadow-black/30' : 'border-slate-200 bg-white shadow-slate-200/80'}`}>
+      <h2 className={`mb-5 flex items-center gap-2 text-lg font-black ${isDark ? 'text-white' : 'text-slate-950'}`}>
+        {icon}
+        {title}
+      </h2>
+      {children}
+    </div>
+  )
+}
+
+function StatusBar({ label, icon, count, total, color, isDark }: {
+  label: string
+  icon: ReactNode
+  count: number
+  total: number
+  color: string
+  isDark: boolean
 }) {
   const pct = total > 0 ? (count / total) * 100 : 0
   return (
     <div>
-      <div className="flex justify-between text-sm mb-1">
-        <span className="flex items-center gap-1.5 text-gray-600">{icon} {label}</span>
-        <span className="font-medium text-gray-900">{count}</span>
+      <div className="mb-1 flex justify-between text-sm">
+        <span className={`flex items-center gap-1.5 font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{icon} {label}</span>
+        <span className={`font-black ${isDark ? 'text-white' : 'text-slate-950'}`}>{count}</span>
       </div>
-      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+      <div className={`h-2 overflow-hidden rounded-full ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}>
         <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
     </div>
   )
 }
 
-function Row({ label, value, color }: { label: string; value: number; color: string }) {
+function Row({ label, value, tone, isDark }: {
+  label: string
+  value: number
+  tone: 'slate' | 'emerald' | 'rose'
+  isDark: boolean
+}) {
+  const color = tone === 'emerald' ? 'text-emerald-400' : tone === 'rose' ? 'text-rose-400' : isDark ? 'text-white' : 'text-slate-950'
   return (
-    <div className="flex justify-between items-center">
-      <span className="text-sm text-gray-600">{label}</span>
-      <span className={`font-semibold ${color}`}>{value.toFixed(2)} €</span>
+    <div className="flex items-center justify-between gap-4">
+      <span className={`text-sm font-semibold ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{label}</span>
+      <span className={`font-black ${color}`}>{value.toFixed(2)} EUR</span>
     </div>
   )
 }

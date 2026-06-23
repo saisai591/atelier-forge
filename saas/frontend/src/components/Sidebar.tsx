@@ -1,99 +1,145 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Users, Package, ShoppingCart, FileText, MessageCircle, Settings, LogOut, Wrench, MonitorCog, BriefcaseBusiness } from 'lucide-react'
+import {
+  BriefcaseBusiness,
+  FileText,
+  Home,
+  LayoutDashboard,
+  LogOut,
+  MessageCircle,
+  MonitorCog,
+  Package,
+  Settings,
+  ShoppingCart,
+  Users,
+  Wrench,
+} from 'lucide-react'
 import { useAuthStore } from '../store/auth'
 import api from '../api/client'
+import ThemeToggle from './ThemeToggle'
+import type { ThemeMode } from '../hooks/useThemeMode'
 
 const NAV: { path: string; icon: typeof LayoutDashboard; label: string; end?: boolean }[] = [
-  { path: '/',        icon: LayoutDashboard, label: 'Dashboard', end: true },
-  { path: '/stock',   icon: Package,          label: 'Stock' },
-  { path: '/orders',   icon: ShoppingCart,    label: 'Commandes' },
-  { path: '/invoices', icon: FileText,        label: 'Factures' },
-  { path: '/whatsapp', icon: MessageCircle,   label: 'WhatsApp' },
-  { path: '/pxe',      icon: MonitorCog,      label: 'Contrôle PXE' },
-  { path: '/erp',      icon: BriefcaseBusiness, label: 'ERP Atelier' },
-  { path: '/clients',  icon: Users,           label: 'Clients' },
+  { path: '/app', icon: LayoutDashboard, label: 'Dashboard', end: true },
+  { path: '/app/stock', icon: Package, label: 'Stock' },
+  { path: '/app/orders', icon: ShoppingCart, label: 'Commandes' },
+  { path: '/app/invoices', icon: FileText, label: 'Factures' },
+  { path: '/app/whatsapp', icon: MessageCircle, label: 'WhatsApp' },
+  { path: '/pxe', icon: MonitorCog, label: 'Controle PXE' },
+  { path: '/erp', icon: BriefcaseBusiness, label: 'ERP Atelier' },
+  { path: '/app/clients', icon: Users, label: 'Clients' },
 ]
 
-export default function Sidebar() {
+interface SidebarProps {
+  theme: ThemeMode
+  isDark: boolean
+  onToggleTheme: () => void
+}
+
+export default function Sidebar({ theme, isDark, onToggleTheme }: SidebarProps) {
   const { user, tenant, logout } = useAuthStore()
   const navigate = useNavigate()
 
   const handleLogout = async () => {
-    try { await api.post('/auth/logout') } catch { /* ignore */ }
+    try {
+      await api.post('/auth/logout')
+    } catch {
+      // Auth is disabled during product build; this keeps the button harmless.
+    }
     logout()
-    navigate('/login')
+    navigate('/')
   }
 
-  // Branding piloté par le tenant — le noyau reste neutre.
   const displayName = tenant?.branding?.display_name ?? tenant?.name ?? 'Forge'
   const subtitle = tenant?.business_type && tenant.business_type !== 'generic'
     ? tenant.business_type
     : 'Plateforme'
 
+  const shellClass = isDark
+    ? 'border-white/10 bg-[#0b1018]/95 text-slate-100 shadow-2xl shadow-black/30'
+    : 'border-slate-200 bg-white text-slate-950 shadow-xl shadow-slate-200/70'
+  const borderClass = isDark ? 'border-white/10' : 'border-slate-200'
+  const mutedClass = isDark ? 'text-slate-400' : 'text-slate-500'
+  const navIdleClass = isDark
+    ? 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
+    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
+  const navActiveClass = isDark
+    ? 'border-cyan-300/25 bg-cyan-300/10 text-cyan-100 shadow-lg shadow-cyan-950/20'
+    : 'border-cyan-500/25 bg-cyan-50 text-cyan-800 shadow-sm'
+
   return (
-    <aside className="w-60 bg-white border-r border-gray-200 flex flex-col shrink-0">
-      {/* Logo */}
-      <div className="p-4 border-b border-gray-100">
+    <aside className={`flex w-64 shrink-0 flex-col border-r ${shellClass}`}>
+      <div className={`border-b p-4 ${borderClass}`}>
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-forge-500 rounded-lg flex items-center justify-center">
-            <Wrench size={16} className="text-white" />
+          <div className="grid h-9 w-9 place-items-center rounded-xl border border-cyan-300/25 bg-cyan-300/10 text-cyan-200">
+            <Wrench size={17} />
           </div>
           <div className="min-w-0">
-            <div className="font-bold text-forge-700 text-sm leading-tight truncate">{displayName}</div>
-            <div className="text-xs text-gray-400 capitalize truncate">{subtitle}</div>
+            <div className="truncate text-sm font-black leading-tight">{displayName}</div>
+            <div className={`truncate text-xs capitalize ${mutedClass}`}>{subtitle}</div>
           </div>
         </div>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 p-3 space-y-0.5">
+      <nav className="flex-1 space-y-1 p-3">
         {NAV.map(({ path, icon: Icon, label, end }) => (
           <NavLink
             key={path}
             to={path}
             end={end}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isActive
-                  ? 'bg-forge-50 text-forge-700'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              `flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-bold transition ${
+                isActive ? navActiveClass : `border-transparent ${navIdleClass}`
               }`
             }
           >
             <Icon size={17} />
-            {label}
+            <span className="truncate">{label}</span>
           </NavLink>
         ))}
       </nav>
 
-      {/* User */}
-      <div className="p-3 border-t border-gray-100">
+      <div className={`space-y-2 border-t p-3 ${borderClass}`}>
+        <ThemeToggle theme={theme} onToggle={onToggleTheme} className="w-full justify-center" />
         <NavLink
-          to="/settings"
+          to="/"
+          end
           className={({ isActive }) =>
-            `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-1 ${
-              isActive ? 'bg-forge-50 text-forge-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+            `flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-bold transition ${
+              isActive ? navActiveClass : `border-transparent ${navIdleClass}`
+            }`
+          }
+        >
+          <Home size={17} />
+          <span className="truncate">Accueil modules</span>
+        </NavLink>
+        <NavLink
+          to="/app/settings"
+          className={({ isActive }) =>
+            `flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-bold transition ${
+              isActive ? navActiveClass : `border-transparent ${navIdleClass}`
             }`
           }
         >
           <Settings size={17} />
-          Réglages
+          <span className="truncate">Reglages</span>
         </NavLink>
-        <div className="flex items-center gap-3 px-3 py-2 mb-1">
-          <div className="w-7 h-7 rounded-full bg-forge-100 flex items-center justify-center text-forge-700 text-xs font-bold shrink-0">
-            {user?.full_name?.[0]?.toUpperCase() ?? '?'}
+        <div className={`flex items-center gap-3 rounded-xl border px-3 py-2 ${isDark ? 'border-white/10 bg-white/[0.035]' : 'border-slate-200 bg-slate-50'}`}>
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-300/15 text-xs font-black text-cyan-300">
+            {user?.full_name?.[0]?.toUpperCase() ?? 'A'}
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-xs font-medium text-gray-800 truncate">{user?.full_name}</div>
-            <div className="text-xs text-gray-400 capitalize">{user?.role}</div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-xs font-bold">{user?.full_name ?? 'AtelierOS'}</div>
+            <div className={`text-xs capitalize ${mutedClass}`}>{user?.role ?? 'mode atelier'}</div>
           </div>
         </div>
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+          className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition ${
+            isDark ? 'text-slate-400 hover:bg-rose-400/10 hover:text-rose-200' : 'text-slate-500 hover:bg-rose-50 hover:text-rose-700'
+          }`}
         >
           <LogOut size={15} />
-          Déconnexion
+          Sortir
         </button>
       </div>
     </aside>
