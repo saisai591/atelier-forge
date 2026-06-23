@@ -2457,24 +2457,24 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
     @page { size: ${pageWidth}mm ${pageHeight}mm; margin: 0; }
     * { box-sizing: border-box; }
     html, body { width: ${pageWidth}mm; height: ${pageHeight}mm; margin: 0; padding: 0; background: white; font-family: Arial, Helvetica, sans-serif; color: #000; }
-    .label { width: ${pageWidth}mm; height: ${pageHeight}mm; padding: ${slimLabel ? '2mm 4.2mm 1.4mm 4.2mm' : '3.4mm 4mm'}; background: white; display: grid; grid-template-rows: auto 1fr auto; gap: ${slimLabel ? '.55mm' : '1.8mm'}; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
+    .label { width: ${pageWidth}mm; height: ${pageHeight}mm; padding: ${slimLabel ? '0' : '3.4mm 4mm'}; background: white; display: ${slimLabel ? 'block' : 'grid'}; grid-template-rows: auto 1fr auto; gap: ${slimLabel ? '0' : '1.8mm'}; overflow: hidden; break-inside: avoid; page-break-inside: avoid; position: relative; }
     .label * { color: #000; font-weight: 900; letter-spacing: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .top { display: grid; grid-template-columns: minmax(0,1fr) ${qrSizeMm}mm; gap: ${slimLabel ? '1.4mm' : '2.4mm'}; align-items: start; min-width: 0; }
+    .top { display: grid; grid-template-columns: minmax(0,1fr) ${qrSizeMm}mm; gap: ${slimLabel ? '1.6mm' : '2.4mm'}; align-items: start; min-width: 0; ${slimLabel ? 'position:absolute;left:4mm;top:1.7mm;width:82mm;height:11.2mm;' : ''} }
     .brand { font-size: ${slimLabel ? '4.6pt' : '8.3pt'}; text-transform: uppercase; text-align: center; white-space: nowrap; overflow: hidden; margin-bottom: ${slimLabel ? '.35mm' : '1mm'}; }
-    .titleline { display: grid; grid-template-columns: 1fr ${slimLabel ? '6.2mm' : '11mm'}; gap: ${slimLabel ? '.8mm' : '1.5mm'}; align-items: start; min-width: 0; }
-    h1 { margin: 0; font-size: ${slimLabel ? '8.9pt' : '17pt'}; line-height: .98; white-space: nowrap; overflow: hidden; }
-    .grade { width: ${slimLabel ? '6.2mm' : '11mm'}; height: ${slimLabel ? '6.2mm' : '11mm'}; display: grid; place-items: center; border: .35mm solid #000; font-size: ${slimLabel ? '8pt' : '16pt'}; line-height: 1; }
+    .titleline { display: grid; grid-template-columns: 1fr ${slimLabel ? '0' : '11mm'}; gap: ${slimLabel ? '0' : '1.5mm'}; align-items: start; min-width: 0; }
+    h1 { margin: 0; font-size: ${slimLabel ? '8.7pt' : '17pt'}; line-height: .98; white-space: nowrap; overflow: hidden; }
+    .grade { width: ${slimLabel ? '0' : '11mm'}; height: ${slimLabel ? '0' : '11mm'}; display: ${slimLabel ? 'none' : 'grid'}; place-items: center; border: .35mm solid #000; font-size: ${slimLabel ? '0' : '16pt'}; line-height: 1; }
     .qrbox { width: ${qrSizeMm}mm; height: ${qrSizeMm}mm; padding: .6mm; background: #fff; display: grid; place-items: center; }
     .qr { width: 100%; height: 100%; border: 0; padding: 0; object-fit: contain; image-rendering: pixelated; }
-    .body { min-height: 0; overflow: hidden; display: grid; gap: ${slimLabel ? '.26mm' : '1.1mm'}; align-content: center; }
-    .line { display: grid; grid-template-columns: ${slimLabel ? '7.5mm minmax(0,1fr)' : '14mm minmax(0,1fr)'}; gap: ${slimLabel ? '.8mm' : '1.3mm'}; min-width: 0; align-items: baseline; overflow: hidden; }
-    .key { font-size: ${slimLabel ? '4.1pt' : '7pt'}; text-transform: uppercase; opacity: .68; white-space: nowrap; text-align: right; }
-    .value { font-size: ${slimLabel ? '5.25pt' : '8.6pt'}; line-height: 1.02; min-width: 0; white-space: nowrap; overflow: hidden; text-align: left; }
-    .bottom { display: grid; grid-template-columns: 1fr ${barcodeWidthMm}mm; gap: ${slimLabel ? '1.2mm' : '2.2mm'}; align-items: end; min-width: 0; }
+    .body { min-height: 0; overflow: hidden; display: grid; gap: ${slimLabel ? '.18mm' : '1.1mm'}; align-content: center; ${slimLabel ? 'position:absolute;left:4mm;top:12.6mm;width:53mm;height:9.2mm;' : ''} }
+    .line { display: grid; grid-template-columns: ${slimLabel ? '7.2mm minmax(0,1fr)' : '14mm minmax(0,1fr)'}; gap: ${slimLabel ? '.75mm' : '1.3mm'}; min-width: 0; align-items: baseline; overflow: hidden; }
+    .key { font-size: ${slimLabel ? '3.9pt' : '7pt'}; text-transform: uppercase; opacity: .68; white-space: nowrap; text-align: right; }
+    .value { font-size: ${slimLabel ? '5pt' : '8.6pt'}; line-height: 1.02; min-width: 0; white-space: nowrap; overflow: hidden; text-align: left; }
+    .bottom { display: grid; grid-template-columns: 1fr ${barcodeWidthMm}mm; gap: ${slimLabel ? '1mm' : '2.2mm'}; align-items: end; min-width: 0; ${slimLabel ? 'position:absolute;left:4mm;top:21.5mm;width:82mm;height:6.2mm;' : ''} }
     .serial { font-family: Consolas, Arial, sans-serif; font-size: ${slimLabel ? '5.2pt' : '9pt'}; white-space: nowrap; overflow: hidden; line-height: 1.02; }
     .note { margin-top: .2mm; font-size: ${slimLabel ? '3.9pt' : '7.2pt'}; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
     .barcode-zone { display: grid; align-content: end; gap: .25mm; }
-    .barcode { width: 100%; height: ${slimLabel ? '7.2mm' : '12mm'}; object-fit: fill; image-rendering: crisp-edges; }
+    .barcode { width: 100%; height: ${slimLabel ? '5.1mm' : '12mm'}; object-fit: fill; image-rendering: crisp-edges; }
     .barcode-label { font-size: ${slimLabel ? '3.2pt' : '5.2pt'}; white-space: nowrap; overflow: hidden; text-align: center; }
     @media print { html, body { background: white; } }
   </style>
@@ -2504,7 +2504,35 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
         </div>
       </div>
   </section>
-  <script>window.onload = () => { window.print(); }</script>
+  <script>
+    function fitText() {
+      const nodes = Array.from(document.querySelectorAll('.fit'));
+      for (const node of nodes) {
+        const style = window.getComputedStyle(node);
+        let size = parseFloat(style.fontSize);
+        const min = parseFloat(node.dataset.min || '4');
+        while ((node.scrollWidth > node.clientWidth || node.scrollHeight > node.clientHeight) && size > min) {
+          size -= 0.2;
+          node.style.fontSize = size + 'px';
+        }
+      }
+    }
+    function waitImages() {
+      const images = Array.from(document.images);
+      return Promise.all(images.map((img) => img.complete ? Promise.resolve() : new Promise((resolve) => {
+        img.onload = resolve;
+        img.onerror = resolve;
+      })));
+    }
+    window.onload = async () => {
+      await waitImages();
+      fitText();
+      requestAnimationFrame(() => {
+        fitText();
+        setTimeout(() => window.print(), 120);
+      });
+    };
+  </script>
 </body>
 </html>`)
     popup.document.close()
