@@ -64,9 +64,6 @@ export default function Dashboard() {
           <h1 className={`mt-2 text-3xl font-black tracking-tight ${titleClass}`}>
             Bonjour, {user?.full_name?.split(' ')[0] ?? 'atelier'}
           </h1>
-          <p className={`mt-2 max-w-3xl text-sm ${mutedClass}`}>
-            Vue simple pour savoir quoi faire maintenant : stock pret, points bloques, factures et clients.
-          </p>
         </div>
         <div className={`rounded-2xl border px-4 py-3 text-sm font-bold ${panelClass}`}>
           <span className="text-cyan-300">Etat global : </span>
@@ -88,9 +85,9 @@ export default function Dashboard() {
           </section>
 
           <section className="grid gap-4 lg:grid-cols-3">
-            <ActionTile isDark={isDark} tone="emerald" title="Pret" value={readyCount} detail="Machines disponibles ou livrables" />
-            <ActionTile isDark={isDark} tone="amber" title="A traiter" value={data.stock.by_status.in_diagnosis ?? 0} detail="Diagnostics ou controles en cours" />
-            <ActionTile isDark={isDark} tone="rose" title="Bloque" value={data.accounting.unpaid_ht > 0 ? 1 : 0} detail="Facturation ou paiement a surveiller" />
+            <ActionTile isDark={isDark} tone="emerald" title="Pret" value={readyCount} />
+            <ActionTile isDark={isDark} tone="amber" title="A traiter" value={data.stock.by_status.in_diagnosis ?? 0} />
+            <ActionTile isDark={isDark} tone="rose" title="Bloque" value={data.accounting.unpaid_ht > 0 ? 1 : 0} />
           </section>
 
           <section className="grid gap-6 xl:grid-cols-3">
@@ -174,10 +171,9 @@ function StatCard({ icon, label, value, tone, isDark }: {
   )
 }
 
-function ActionTile({ title, value, detail, tone, isDark }: {
+function ActionTile({ title, value, tone, isDark }: {
   title: string
   value: number
-  detail: string
   tone: 'emerald' | 'amber' | 'rose'
   isDark: boolean
 }) {
@@ -191,7 +187,6 @@ function ActionTile({ title, value, detail, tone, isDark }: {
     <div className={`rounded-2xl border p-5 ${isDark ? 'border-white/10 bg-black/20' : 'border-slate-200 bg-white'}`}>
       <div className={`text-4xl font-black ${toneClass}`}>{value}</div>
       <div className={`mt-2 text-lg font-black ${isDark ? 'text-white' : 'text-slate-950'}`}>{title}</div>
-      <div className={`mt-1 text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{detail}</div>
     </div>
   )
 }

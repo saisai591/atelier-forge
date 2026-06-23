@@ -1,6 +1,5 @@
 import {
   ArrowRight,
-  BookOpen,
   Boxes,
   ClipboardCheck,
   Database,
@@ -8,7 +7,6 @@ import {
   HardDrive,
   MonitorCog,
   QrCode,
-  Settings,
   Smartphone,
   Truck,
   Warehouse,
@@ -57,7 +55,6 @@ const quickLinks = [
   { label: 'Pilotes', detail: 'Packs par modele', path: '/pxe', icon: HardDrive },
   { label: 'Palettes client', detail: 'Preparation transport', path: '/erp', icon: Truck },
   { label: 'Stock atelier', detail: 'Machines et grades', path: '/app/stock', icon: Boxes },
-  { label: 'Guide', detail: 'FAQ et procedures', path: '/pxe', icon: BookOpen },
 ]
 
 const toneStyles: Record<string, string> = {
@@ -108,9 +105,6 @@ export default function HomeLauncher() {
             <h1 className={`mt-2 text-3xl font-black tracking-tight sm:text-4xl ${titleClass}`}>
               Tableau de bord applications
             </h1>
-            <p className={`mt-3 max-w-3xl text-sm leading-6 ${mutedClass}`}>
-              Point d'entree unique pour ouvrir le bon module, sur la bonne route, sans chercher le port ou l'URL.
-            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
@@ -121,7 +115,7 @@ export default function HomeLauncher() {
           </div>
         </header>
 
-        <section className="grid gap-4 py-6 lg:grid-cols-4">
+        <section className="grid gap-4 py-5 lg:grid-cols-4">
           {appCards.map((app) => {
             const Icon = app.icon
             return (
@@ -151,12 +145,11 @@ export default function HomeLauncher() {
           })}
         </section>
 
-        <section className="grid gap-5 pb-6 lg:grid-cols-[1fr_22rem]">
+        <section className="pb-6">
           <div className={`rounded-2xl border p-5 shadow-2xl ${panelClass}`}>
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className={`text-lg font-black ${titleClass}`}>Acces rapide technicien</h2>
-                <p className={`mt-1 text-sm ${softMutedClass}`}>Raccourcis stables vers les zones les plus utilisees.</p>
               </div>
               <QrCode className="h-6 w-6 text-cyan-300" />
             </div>
@@ -181,15 +174,6 @@ export default function HomeLauncher() {
               })}
             </div>
           </div>
-
-          <aside className="rounded-2xl border border-cyan-300/20 bg-cyan-300/10 p-5">
-            <Settings className="h-6 w-6 text-cyan-200" />
-            <h2 className={`mt-4 text-lg font-black ${isDark ? 'text-white' : 'text-slate-950'}`}>Conseil structure</h2>
-            <p className={`mt-2 text-sm leading-6 ${isDark ? 'text-cyan-50/80' : 'text-slate-700'}`}>
-              On garde `PXE` comme moteur technique, `ERP` comme gestion atelier, et `/` comme portail. C'est plus fiable
-              pour vendre l'appliance: le client arrive d'abord sur un choix simple.
-            </p>
-          </aside>
         </section>
       </div>
     </main>

@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertTriangle,
-  ArrowRight,
   Barcode,
   Boxes,
   ClipboardList,
@@ -18,7 +17,6 @@ import {
   Tablet,
   Truck,
   Upload,
-  Warehouse,
 } from 'lucide-react'
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import ThemeToggle from '../components/ThemeToggle'
@@ -134,14 +132,6 @@ interface AtelierDocument {
   payload: Record<string, unknown>
   created_at: string
 }
-
-const workflow = [
-  { label: 'Import fournisseur', detail: 'Excel, CSV, XML', icon: Upload },
-  { label: 'Reception palette', detail: 'Lot, quai, zone', icon: Warehouse },
-  { label: 'Scan materiel', detail: 'PDA, tablette, douchette', icon: ScanLine },
-  { label: 'Audit et controle', detail: 'PXE, etat, grade', icon: ShieldCheck },
-  { label: 'Sortie client', detail: 'Palette, BL, transport', icon: Truck },
-]
 
 const terminals = [
   { name: 'Unitech atelier', type: 'Android scanner', state: 'Connecte', icon: Smartphone },
@@ -704,14 +694,6 @@ export default function Erp() {
     { value: 'quality_report', label: 'Qualite' },
     { value: 'supplier_manifest', label: 'Fournisseur' },
   ]
-  const guidance: Record<ErpWorkspace, string[]> = {
-    receptions: ['Importer le fichier fournisseur', 'Verifier les colonnes detectees', 'Scanner les machines ou creer les palettes'],
-    shipments: ['Renseigner le client', 'Ajouter les palettes', 'Generer BL puis etiquettes palette'],
-    pallets: ['Verifier zone et quantites', 'Passer la palette en complete', 'Imprimer etiquette palette'],
-    scan: ['Ouvrir une session', 'Scanner code-barres ou numero de serie', 'Traiter les anomalies avant cloture'],
-    inventory: ['Scanner ou rechercher une machine', 'Verifier marque modele et grade', 'Exporter ou imprimer etiquette depuis la fiche'],
-    documents: ['Verifier les BL generes', 'Verifier les etiquettes palette', 'Exporter si besoin pour archive'],
-  }
   const blockedPallets = pallets.filter((pallet) => pallet.status === 'blocked').length
   const incompletePallets = pallets.filter((pallet) => pallet.status !== 'complete').length
   const scanAnomalies = activeSession?.anomaly_count ?? scanSessions.reduce((sum, session) => sum + session.anomaly_count, 0)
@@ -723,7 +705,7 @@ export default function Erp() {
 
   return (
     <main className={`min-h-screen ${pageClass}`}>
-      <div className="mx-auto w-full max-w-[1560px] space-y-6 px-4 py-5 sm:px-6 lg:px-8 2xl:px-10">
+      <div className="mx-auto w-full max-w-[1560px] space-y-4 px-4 py-4 sm:px-6 lg:px-8 2xl:px-10">
         <header className={`flex flex-col gap-4 border-b ${borderClass} pb-5 lg:flex-row lg:items-end lg:justify-between`}>
           <div>
             <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-300">Atelier ERP</p>
@@ -781,44 +763,27 @@ export default function Erp() {
           </div>
         )}
 
-        <section className={`rounded-2xl border p-4 ${actionState.className}`}>
+        <section className={`rounded-2xl border px-4 py-3 ${actionState.className}`}>
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-lg font-black">Etat atelier : {actionState.label}</div>
-            <div className="text-sm font-bold opacity-80">{actionState.detail}</div>
+            <div className="text-xl font-black">Etat atelier : {actionState.label}</div>
+            <div className="text-sm font-bold opacity-85">{actionState.detail}</div>
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard label="Receptions ouvertes" value={(overview?.receptions_open ?? receptions.length).toString()} icon={ClipboardList} tone="blue" isDark={isDark} />
           <MetricCard label="Machines attendues" value={totalExpected.toString()} icon={Boxes} tone="slate" isDark={isDark} />
           <MetricCard label="Machines scannees" value={`${totalScanned}/${totalExpected}`} icon={ScanLine} tone="emerald" isDark={isDark} />
           <MetricCard label="Sorties a preparer" value={openShipments.toString()} icon={Truck} tone="amber" isDark={isDark} />
         </section>
 
-        <section className={`rounded-2xl border p-4 shadow-2xl ${panelClass}`}>
-          <div className="grid gap-3 lg:grid-cols-5">
-            {workflow.map((step, index) => (
-              <div key={step.label} className={`flex min-h-24 items-center gap-3 rounded-xl border px-4 ${tileClass}`}>
-                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-cyan-300/20 bg-cyan-300/10 text-cyan-100">
-                  <step.icon size={20} />
-                </div>
-                <div className="min-w-0">
-                  <p className={`truncate text-sm font-black ${titleClass}`}>{step.label}</p>
-                  <p className={`truncate text-xs ${softMutedClass}`}>{step.detail}</p>
-                </div>
-                {index < workflow.length - 1 && <ArrowRight className="ml-auto hidden text-slate-600 xl:block" size={16} />}
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
           {workspaceTiles.map((tile) => (
             <button
               key={tile.key}
               type="button"
               onClick={() => setWorkspace(tile.key)}
-              className={`rounded-2xl border p-4 text-left transition ${
+              className={`rounded-2xl border p-3 text-left transition ${
                 workspace === tile.key
                   ? 'border-cyan-300/30 bg-cyan-300/10 text-cyan-100 shadow-lg shadow-cyan-950/20'
                   : `${tileClass} ${isDark ? 'hover:bg-white/[0.06]' : 'hover:bg-white'}`
@@ -826,31 +791,13 @@ export default function Erp() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className={`text-2xl font-black ${workspace === tile.key ? 'text-cyan-100' : titleClass}`}>{tile.value}</div>
+                  <div className={`text-3xl font-black ${workspace === tile.key ? 'text-cyan-100' : titleClass}`}>{tile.value}</div>
                   <div className="mt-1 text-sm font-black">{tile.label}</div>
-                  <div className={`mt-1 text-xs ${workspace === tile.key ? 'text-cyan-100/70' : softMutedClass}`}>{tile.detail}</div>
                 </div>
                 <tile.icon size={18} />
               </div>
             </button>
           ))}
-        </section>
-
-        <section className={`rounded-2xl border p-4 ${panelClass}`}>
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className={`text-sm font-black ${titleClass}`}>Guide rapide technicien</div>
-              <div className={`mt-1 text-xs ${softMutedClass}`}>Etapes conseillees pour la tuile active.</div>
-            </div>
-            <div className="grid flex-1 gap-2 md:grid-cols-3">
-              {guidance[workspace].map((step, index) => (
-                <div key={step} className={`rounded-xl border px-3 py-2 text-sm font-bold ${tileClass}`}>
-                  <span className="mr-2 text-cyan-300">{index + 1}.</span>
-                  {step}
-                </div>
-              ))}
-            </div>
-          </div>
         </section>
 
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(24rem,0.85fr)]">
@@ -1318,7 +1265,6 @@ export default function Erp() {
                   <div key={`${source}-${target}`} className={`rounded-xl border p-3 ${tileClass}`}>
                     <div className="flex items-center justify-between gap-3">
                       <span className={`truncate text-sm font-bold ${titleClass}`}>{source}</span>
-                      <ArrowRight className="shrink-0 text-slate-600" size={15} />
                       <span className={`truncate text-sm font-bold ${isDark ? 'text-cyan-100' : 'text-cyan-800'}`}>{target}</span>
                     </div>
                     <p className={`mt-2 text-xs ${softMutedClass}`}>{confidence}</p>
@@ -1406,7 +1352,6 @@ function Panel({ children, className }: { children: ReactNode; className: string
 
 function ModuleHeader({
   title,
-  subtitle,
   action,
   icon: Icon,
   isDark,
@@ -1414,7 +1359,7 @@ function ModuleHeader({
   actionBusy = false,
 }: {
   title: string
-  subtitle: string
+  subtitle?: string
   action?: string
   icon: typeof ClipboardList
   isDark: boolean
@@ -1429,7 +1374,6 @@ function ModuleHeader({
         </div>
         <div>
           <h2 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-950'}`}>{title}</h2>
-          <p className="text-sm text-slate-500">{subtitle}</p>
         </div>
       </div>
       {action && (
