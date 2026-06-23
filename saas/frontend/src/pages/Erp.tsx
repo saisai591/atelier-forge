@@ -29,6 +29,7 @@ type ReceptionStatus = 'import_pending' | 'receiving' | 'scanning' | 'quality_co
 type ShipmentStatus = 'draft' | 'picking' | 'quality_control' | 'ready_for_carrier' | 'shipped'
 type PalletStatus = 'expected' | 'in_progress' | 'complete' | 'blocked'
 type ErpWorkspace = 'receptions' | 'shipments' | 'pallets' | 'scan' | 'documents'
+type DocumentFilter = 'all' | AtelierDocument['document_type']
 
 interface AtelierOverview {
   receptions_open: number
@@ -211,6 +212,7 @@ export default function Erp() {
   const [lastLookup, setLastLookup] = useState<MachineLookup | null>(null)
   const [lastImportPreview, setLastImportPreview] = useState<SupplierImportPreview | null>(null)
   const [workspace, setWorkspace] = useState<ErpWorkspace>('receptions')
+  const [documentFilter, setDocumentFilter] = useState<DocumentFilter>('all')
   const { theme, isDark, toggleTheme } = useThemeMode()
 
   const overviewQuery = useQuery<AtelierOverview>({
@@ -243,6 +245,7 @@ export default function Erp() {
   const pallets = palletsQuery.data ?? []
   const scanSessions = scanSessionsQuery.data ?? []
   const documents = documentsQuery.data ?? []
+  const filteredDocuments = documentFilter === 'all' ? documents : documents.filter((document) => document.document_type === documentFilter)
   const activeSession = scanSessions.find((session) => session.id === activeSessionId)
     ?? scanSessions.find((session) => session.status === 'open')
     ?? null
@@ -643,6 +646,14 @@ export default function Erp() {
       })))
     }
   }
+  const documentFilters: Array<{ value: DocumentFilter; label: string }> = [
+    { value: 'all', label: 'Tous' },
+    { value: 'delivery_note', label: 'BL' },
+    { value: 'pallet_label', label: 'Etiquettes' },
+    { value: 'packing_list', label: 'Colisage' },
+    { value: 'quality_report', label: 'Qualite' },
+    { value: 'supplier_manifest', label: 'Fournisseur' },
+  ]
   const guidance: Record<ErpWorkspace, string[]> = {
     receptions: ['Importer le fichier fournisseur', 'Verifier les colonnes detectees', 'Scanner les machines ou creer les palettes'],
     shipments: ['Renseigner le client', 'Ajouter les palettes', 'Generer BL puis etiquettes palette'],
@@ -1013,13 +1024,37 @@ export default function Erp() {
 
             {workspace === 'documents' && <Panel className={panelClass}>
               <ModuleHeader title="Documents" subtitle="Historique des BL, etiquettes et rapports generes." icon={Download} isDark={isDark} />
-              <div className="space-y-2 p-5 pt-0">
-                {documents.length === 0 && <EmptyState text="Aucun document genere pour le moment." isDark={isDark} />}
-                {documents.slice(0, 8).map((document) => (
+              <div className="space-y-3 p-5 pt-0">
+                <div className="flex flex-wrap gap-2">
+                  {documentFilters.map((filter) => {
+                    const count = filter.value === 'all' ? documents.length : documents.filter((document) => document.document_type === filter.value).length
+                    return (
+                      <button
+                        key={filter.value}
+                        type="button"
+                        onClick={() => setDocumentFilter(filter.value)}
+                        className={`rounded-lg border px-3 py-2 text-xs font-black transition ${
+                          documentFilter === filter.value
+                            ? 'border-cyan-300/30 bg-cyan-300/10 text-cyan-100'
+                            : isDark ? 'border-white/10 bg-white/[0.035] text-slate-300 hover:bg-white/[0.06]' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        {filter.label} ({count})
+                      </button>
+                    )
+                  })}
+                </div>
+                {filteredDocuments.length === 0 && <EmptyState text="Aucun document pour ce filtre." isDark={isDark} />}
+                {filteredDocuments.slice(0, 10).map((document) => (
                   <div key={document.id} className={`rounded-xl border p-3 ${tileClass}`}>
-                    <div className={`text-sm font-black ${titleClass}`}>{document.title}</div>
-                    <div className={`mt-1 text-xs ${softMutedClass}`}>
-                      {document.document_type} - {new Date(document.created_at).toLocaleString()}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className={`truncate text-sm font-black ${titleClass}`}>{document.title}</div>
+                        <div className={`mt-1 text-xs ${softMutedClass}`}>
+                          {document.document_type} - {new Date(document.created_at).toLocaleString()}
+                        </div>
+                      </div>
+                      <StatusBadge label={document.document_type} className="border-cyan-300/20 bg-cyan-300/10 text-cyan-100" />
                     </div>
                   </div>
                 ))}
