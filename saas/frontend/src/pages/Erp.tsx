@@ -695,6 +695,13 @@ export default function Erp() {
                             onClick={() => deleteReception.mutate(item.id)}
                             isDark={isDark}
                           />
+                          <ActionButton
+                            icon={PackageCheck}
+                            label="Cloturer"
+                            busy={updateReception.isPending}
+                            onClick={() => updateReception.mutate({ id: item.id, payload: { status: 'closed' } })}
+                            isDark={isDark}
+                          />
                         </div>
                       </div>
                       <ProgressBlock current={item.scanned_items} total={Math.max(item.expected_items, 1)} isDark={isDark} />
@@ -780,6 +787,7 @@ export default function Erp() {
                             <ActionButton icon={Download} label="Generer BL" busy={busyAction === `bl-${item.id}`} onClick={() => void handleDownloadBl(item)} isDark={isDark} />
                             <ActionButton icon={Printer} label="Imprimer etiquette" busy={busyAction === `label-${item.id}`} onClick={() => void handlePrintLabel(item)} isDark={isDark} />
                             <ActionButton icon={PackagePlus} label="Ajouter palette" busy={createPallet.isPending} onClick={() => createPallet.mutate({ shipmentId: item.id, reference: `${item.reference}-PAL-${item.pallet_count + 1}` })} isDark={isDark} />
+                            <ActionButton icon={PackageCheck} label="Expedier" busy={updateShipment.isPending} onClick={() => updateShipment.mutate({ id: item.id, payload: { status: 'shipped' } })} isDark={isDark} />
                             <ActionButton icon={Download} label="Supprimer" busy={deleteShipment.isPending} onClick={() => deleteShipment.mutate(item.id)} isDark={isDark} />
                           </div>
                         </td>
