@@ -643,6 +643,13 @@ export default function Erp() {
       })))
     }
   }
+  const guidance: Record<ErpWorkspace, string[]> = {
+    receptions: ['Importer le fichier fournisseur', 'Verifier les colonnes detectees', 'Scanner les machines ou creer les palettes'],
+    shipments: ['Renseigner le client', 'Ajouter les palettes', 'Generer BL puis etiquettes palette'],
+    pallets: ['Verifier zone et quantites', 'Passer la palette en complete', 'Imprimer etiquette palette'],
+    scan: ['Ouvrir une session', 'Scanner code-barres ou numero de serie', 'Traiter les anomalies avant cloture'],
+    documents: ['Verifier les BL generes', 'Verifier les etiquettes palette', 'Exporter si besoin pour archive'],
+  }
 
   return (
     <main className={`min-h-screen ${pageClass}`}>
@@ -750,6 +757,23 @@ export default function Erp() {
               </div>
             </button>
           ))}
+        </section>
+
+        <section className={`rounded-2xl border p-4 ${panelClass}`}>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className={`text-sm font-black ${titleClass}`}>Guide rapide technicien</div>
+              <div className={`mt-1 text-xs ${softMutedClass}`}>Etapes conseillees pour la tuile active.</div>
+            </div>
+            <div className="grid flex-1 gap-2 md:grid-cols-3">
+              {guidance[workspace].map((step, index) => (
+                <div key={step} className={`rounded-xl border px-3 py-2 text-sm font-bold ${tileClass}`}>
+                  <span className="mr-2 text-cyan-300">{index + 1}.</span>
+                  {step}
+                </div>
+              ))}
+            </div>
+          </div>
         </section>
 
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(24rem,0.85fr)]">
