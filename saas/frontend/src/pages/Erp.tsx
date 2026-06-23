@@ -28,7 +28,7 @@ import { useThemeMode } from '../hooks/useThemeMode'
 type ReceptionStatus = 'import_pending' | 'receiving' | 'scanning' | 'quality_control' | 'closed'
 type ShipmentStatus = 'draft' | 'picking' | 'quality_control' | 'ready_for_carrier' | 'shipped'
 type PalletStatus = 'expected' | 'in_progress' | 'complete' | 'blocked'
-type ErpWorkspace = 'receptions' | 'shipments' | 'pallets' | 'scan' | 'documents'
+type ErpWorkspace = 'receptions' | 'shipments' | 'pallets' | 'scan' | 'inventory' | 'documents'
 type DocumentFilter = 'all' | AtelierDocument['document_type']
 
 interface AtelierOverview {
@@ -210,6 +210,7 @@ export default function Erp() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [scanCode, setScanCode] = useState('')
   const [lastLookup, setLastLookup] = useState<MachineLookup | null>(null)
+  const [machineLookups, setMachineLookups] = useState<MachineLookup[]>([])
   const [lastImportPreview, setLastImportPreview] = useState<SupplierImportPreview | null>(null)
   const [pendingImportFileName, setPendingImportFileName] = useState<string | null>(null)
   const [workspace, setWorkspace] = useState<ErpWorkspace>('receptions')
@@ -448,6 +449,7 @@ export default function Erp() {
     },
     onSuccess: async ({ lookup }) => {
       setLastLookup(lookup)
+      setMachineLookups((current) => [lookup, ...current.filter((item) => item.code !== lookup.code)].slice(0, 50))
       setScanCode('')
       setMessage(lookup.found ? `Machine trouvee : ${lookup.brand || ''} ${lookup.model || lookup.serial_number || lookup.code}` : `Code non reconnu : ${lookup.code}`)
       await Promise.all([
@@ -611,6 +613,7 @@ export default function Erp() {
     { key: 'shipments', label: 'Sorties', detail: 'Clients, BL, transport', value: `${openShipments}`, icon: Truck },
     { key: 'pallets', label: 'Palettes', detail: 'Etiquettes et zones', value: `${pallets.length}`, icon: PackagePlus },
     { key: 'scan', label: 'Scan', detail: 'Douchette et anomalies', value: `${activeSession?.scanned_count ?? 0}`, icon: ScanLine },
+    { key: 'inventory', label: 'Inventaire', detail: 'Machines scannees', value: `${machineLookups.length}`, icon: ShieldCheck },
     { key: 'documents', label: 'Documents', detail: 'BL, etiquettes, rapports', value: `${documents.length}`, icon: Download },
   ]
   const exportWorkspace = () => {
@@ -654,12 +657,24 @@ export default function Erp() {
         sortie_id: item.shipment_id || '',
       })))
     } else {
-      exportRows(`atelieros-scan-${date}.csv`, (scanEventsQuery.data ?? []).map((item) => ({
+      const rows = workspace === 'inventory'
+        ? machineLookups.map((item) => ({
+          code: item.code,
+          trouve: item.found ? 'oui' : 'non',
+          source: item.source,
+          serie: item.serial_number || '',
+          marque: item.brand || '',
+          modele: item.model || '',
+          grade: item.grade || '',
+          statut: item.status || '',
+        }))
+        : (scanEventsQuery.data ?? []).map((item) => ({
         code: item.code,
         type: item.event_type,
         message: item.message || '',
         cree_le: item.created_at,
-      })))
+      }))
+      exportRows(`atelieros-${workspace}-${date}.csv`, rows)
     }
   }
   const documentFilters: Array<{ value: DocumentFilter; label: string }> = [
@@ -675,6 +690,7 @@ export default function Erp() {
     shipments: ['Renseigner le client', 'Ajouter les palettes', 'Generer BL puis etiquettes palette'],
     pallets: ['Verifier zone et quantites', 'Passer la palette en complete', 'Imprimer etiquette palette'],
     scan: ['Ouvrir une session', 'Scanner code-barres ou numero de serie', 'Traiter les anomalies avant cloture'],
+    inventory: ['Scanner ou rechercher une machine', 'Verifier marque modele et grade', 'Exporter ou imprimer etiquette depuis la fiche'],
     documents: ['Verifier les BL generes', 'Verifier les etiquettes palette', 'Exporter si besoin pour archive'],
   }
   const blockedPallets = pallets.filter((pallet) => pallet.status === 'blocked').length
@@ -1170,6 +1186,59 @@ export default function Erp() {
                     </div>
                   ))}
                 </div>
+              </div>
+            </Panel>}
+
+            {workspace === 'inventory' && <Panel className={panelClass}>
+              <ModuleHeader title="Inventaire machines" subtitle="Machines vues pendant le scan et retours audit/stock." icon={ShieldCheck} isDark={isDark} />
+              <div className="space-y-3 p-5 pt-0">
+                {machineLookups.length === 0 && <EmptyState text="Aucune machine en memoire. Scannez un code pour alimenter l'inventaire." isDark={isDark} />}
+                {machineLookups.map((machine) => (
+                  <div key={machine.code} className={`rounded-xl border p-4 ${tileClass}`}>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <StatusBadge
+                            label={machine.found ? 'Trouvee' : 'Inconnue'}
+                            className={machine.found ? 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100' : 'border-amber-300/20 bg-amber-300/10 text-amber-100'}
+                          />
+                          <span className={`font-mono text-xs font-black ${softMutedClass}`}>{machine.source}</span>
+                        </div>
+                        <div className={`mt-2 text-lg font-black ${titleClass}`}>
+                          {[machine.brand, machine.model].filter(Boolean).join(' ') || machine.code}
+                        </div>
+                        <div className={`mt-1 text-sm ${mutedClass}`}>
+                          SN {machine.serial_number || machine.code} - Grade {machine.grade || '-'} - {machine.status || 'statut non defini'}
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <ActionButton
+                          icon={Printer}
+                          label="Etiquette"
+                          busy={false}
+                          onClick={() => setMessage('Etiquette machine depuis ERP : a lier au moteur etiquette audit existant.')}
+                          isDark={isDark}
+                        />
+                        <ActionButton
+                          icon={Download}
+                          label="Exporter"
+                          busy={false}
+                          onClick={() => exportRows(`atelieros-machine-${machine.code}.csv`, [{
+                            code: machine.code,
+                            trouve: machine.found ? 'oui' : 'non',
+                            source: machine.source,
+                            serie: machine.serial_number || '',
+                            marque: machine.brand || '',
+                            modele: machine.model || '',
+                            grade: machine.grade || '',
+                            statut: machine.status || '',
+                          }])}
+                          isDark={isDark}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </Panel>}
 
