@@ -1034,18 +1034,16 @@ function MetricCard({ metric }: { metric: DashboardMetric }) {
 
 function PageTitle({
   title,
-  description,
   icon: Icon,
 }: {
   title: string
-  description: string
+  description?: string
   icon: typeof Gauge
 }) {
   return (
     <div className="flex items-center justify-between gap-4">
       <div>
         <h2 className="text-2xl font-semibold tracking-tight text-white">{title}</h2>
-        <p className="mt-1 text-sm text-slate-400">{description}</p>
       </div>
       <div className="grid h-12 w-12 place-items-center rounded-2xl border border-cyan-300/20 bg-cyan-300/10 text-cyan-200 shadow-lg shadow-cyan-500/10">
         <Icon className="h-5 w-5" />
