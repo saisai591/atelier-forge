@@ -7,6 +7,7 @@ import Orders from './pages/Orders'
 import Invoices from './pages/Invoices'
 import WhatsApp from './pages/WhatsApp'
 import Settings from './pages/Settings'
+import HomeLauncher from './pages/HomeLauncher'
 import PxeControl from './pages/PxeControl'
 import MobileScanner from './pages/MobileScanner'
 import Erp from './pages/Erp'
@@ -17,7 +18,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/" element={<PxeControl />} />
+        <Route path="/" element={<HomeLauncher />} />
         <Route path="/pxe" element={<PxeControl />} />
         <Route path="/mobile" element={<MobileScanner />} />
         <Route path="/erp" element={<Erp />} />
