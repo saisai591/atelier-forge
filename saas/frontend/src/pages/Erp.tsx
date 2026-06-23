@@ -661,6 +661,14 @@ export default function Erp() {
     scan: ['Ouvrir une session', 'Scanner code-barres ou numero de serie', 'Traiter les anomalies avant cloture'],
     documents: ['Verifier les BL generes', 'Verifier les etiquettes palette', 'Exporter si besoin pour archive'],
   }
+  const blockedPallets = pallets.filter((pallet) => pallet.status === 'blocked').length
+  const incompletePallets = pallets.filter((pallet) => pallet.status !== 'complete').length
+  const scanAnomalies = activeSession?.anomaly_count ?? scanSessions.reduce((sum, session) => sum + session.anomaly_count, 0)
+  const actionState = blockedPallets > 0 || scanAnomalies > 0
+    ? { label: 'Bloque', detail: `${blockedPallets} palette(s) bloquee(s), ${scanAnomalies} anomalie(s) scan`, className: 'border-rose-300/25 bg-rose-300/10 text-rose-100' }
+    : incompletePallets > 0 || openShipments > 0
+      ? { label: 'A traiter', detail: `${incompletePallets} palette(s) a finir, ${openShipments} sortie(s) ouverte(s)`, className: 'border-amber-300/25 bg-amber-300/10 text-amber-100' }
+      : { label: 'Pret', detail: 'Aucune anomalie critique detectee', className: 'border-emerald-300/25 bg-emerald-300/10 text-emerald-100' }
 
   return (
     <main className={`min-h-screen ${pageClass}`}>
@@ -721,6 +729,13 @@ export default function Erp() {
             {message}
           </div>
         )}
+
+        <section className={`rounded-2xl border p-4 ${actionState.className}`}>
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-lg font-black">Etat atelier : {actionState.label}</div>
+            <div className="text-sm font-bold opacity-80">{actionState.detail}</div>
+          </div>
+        </section>
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard label="Receptions ouvertes" value={(overview?.receptions_open ?? receptions.length).toString()} icon={ClipboardList} tone="blue" isDark={isDark} />
