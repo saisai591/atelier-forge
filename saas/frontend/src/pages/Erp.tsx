@@ -28,6 +28,7 @@ import { useThemeMode } from '../hooks/useThemeMode'
 type ReceptionStatus = 'import_pending' | 'receiving' | 'scanning' | 'quality_control' | 'closed'
 type ShipmentStatus = 'draft' | 'picking' | 'quality_control' | 'ready_for_carrier' | 'shipped'
 type PalletStatus = 'expected' | 'in_progress' | 'complete' | 'blocked'
+type ErpWorkspace = 'receptions' | 'shipments' | 'pallets' | 'scan' | 'documents'
 
 interface AtelierOverview {
   receptions_open: number
@@ -194,6 +195,7 @@ export default function Erp() {
   const [scanCode, setScanCode] = useState('')
   const [lastLookup, setLastLookup] = useState<MachineLookup | null>(null)
   const [lastImportPreview, setLastImportPreview] = useState<SupplierImportPreview | null>(null)
+  const [workspace, setWorkspace] = useState<ErpWorkspace>('receptions')
   const { theme, isDark, toggleTheme } = useThemeMode()
 
   const overviewQuery = useQuery<AtelierOverview>({
@@ -525,6 +527,13 @@ export default function Erp() {
       ? 'border-white/10 bg-black/20 text-white placeholder:text-slate-600 focus:border-cyan-300/40'
       : 'border-slate-200 bg-white text-slate-950 placeholder:text-slate-400 focus:border-cyan-400'
   }`
+  const workspaceTiles: Array<{ key: ErpWorkspace; label: string; detail: string; value: string; icon: typeof ClipboardList }> = [
+    { key: 'receptions', label: 'Receptions', detail: 'Arrivages et imports', value: `${overview?.receptions_open ?? receptions.length}`, icon: ClipboardList },
+    { key: 'shipments', label: 'Sorties', detail: 'Clients, BL, transport', value: `${openShipments}`, icon: Truck },
+    { key: 'pallets', label: 'Palettes', detail: 'Etiquettes et zones', value: `${pallets.length}`, icon: PackagePlus },
+    { key: 'scan', label: 'Scan', detail: 'Douchette et anomalies', value: `${activeSession?.scanned_count ?? 0}`, icon: ScanLine },
+    { key: 'documents', label: 'Documents', detail: 'BL, etiquettes, rapports', value: `${documents.length}`, icon: Download },
+  ]
 
   return (
     <main className={`min-h-screen ${pageClass}`}>
@@ -602,9 +611,33 @@ export default function Erp() {
           </div>
         </section>
 
+        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          {workspaceTiles.map((tile) => (
+            <button
+              key={tile.key}
+              type="button"
+              onClick={() => setWorkspace(tile.key)}
+              className={`rounded-2xl border p-4 text-left transition ${
+                workspace === tile.key
+                  ? 'border-cyan-300/30 bg-cyan-300/10 text-cyan-100 shadow-lg shadow-cyan-950/20'
+                  : `${tileClass} ${isDark ? 'hover:bg-white/[0.06]' : 'hover:bg-white'}`
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className={`text-2xl font-black ${workspace === tile.key ? 'text-cyan-100' : titleClass}`}>{tile.value}</div>
+                  <div className="mt-1 text-sm font-black">{tile.label}</div>
+                  <div className={`mt-1 text-xs ${workspace === tile.key ? 'text-cyan-100/70' : softMutedClass}`}>{tile.detail}</div>
+                </div>
+                <tile.icon size={18} />
+              </div>
+            </button>
+          ))}
+        </section>
+
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(24rem,0.85fr)]">
           <div className="space-y-6">
-            <Panel className={panelClass}>
+            {workspace === 'receptions' && <Panel className={panelClass}>
               <ModuleHeader
                 title="Arrivages fournisseurs"
                 subtitle="Les receptions viennent maintenant de la base ERP."
@@ -669,9 +702,9 @@ export default function Erp() {
                   </article>
                 ))}
               </div>
-            </Panel>
+            </Panel>}
 
-            <Panel className={panelClass}>
+            {workspace === 'shipments' && <Panel className={panelClass}>
               <ModuleHeader
                 title="Sorties client et palettes"
                 subtitle="BL et etiquettes palette sont generes par le backend en PDF."
@@ -755,11 +788,11 @@ export default function Erp() {
                   </tbody>
                 </table>
               </div>
-            </Panel>
+            </Panel>}
           </div>
 
           <aside className="space-y-6">
-            <Panel className={panelClass}>
+            {workspace === 'pallets' && <Panel className={panelClass}>
               <ModuleHeader title="Palettes" subtitle="Controle rapide des palettes reception/sortie." icon={PackagePlus} isDark={isDark} />
               <div className="space-y-2 p-5 pt-0">
                 {pallets.length === 0 && <EmptyState text="Aucune palette creee pour le moment." isDark={isDark} />}
@@ -777,9 +810,9 @@ export default function Erp() {
                   </div>
                 ))}
               </div>
-            </Panel>
+            </Panel>}
 
-            <Panel className={panelClass}>
+            {workspace === 'documents' && <Panel className={panelClass}>
               <ModuleHeader title="Documents" subtitle="Historique des BL, etiquettes et rapports generes." icon={Download} isDark={isDark} />
               <div className="space-y-2 p-5 pt-0">
                 {documents.length === 0 && <EmptyState text="Aucun document genere pour le moment." isDark={isDark} />}
@@ -792,9 +825,9 @@ export default function Erp() {
                   </div>
                 ))}
               </div>
-            </Panel>
+            </Panel>}
 
-            <Panel className={panelClass}>
+            {workspace === 'scan' && <Panel className={panelClass}>
               <ModuleHeader title="Scan atelier" subtitle="Champ compatible douchette : scannez puis Entree." icon={ScanLine} isDark={isDark} />
               <div className="space-y-4 p-5 pt-0">
                 <div className={`rounded-xl border p-3 ${tileClass}`}>
@@ -845,7 +878,7 @@ export default function Erp() {
                   ))}
                 </div>
               </div>
-            </Panel>
+            </Panel>}
 
             <Panel className={panelClass}>
               <ModuleHeader title="Import intelligent" subtitle="Dernieres correspondances detectees par fichier fournisseur." icon={FileSpreadsheet} isDark={isDark} />
