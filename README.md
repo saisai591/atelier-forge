@@ -87,6 +87,12 @@ Invoke-WebRequest -UseBasicParsing -Uri http://192.168.1.57/
 Invoke-WebRequest -UseBasicParsing -Uri http://192.168.1.57:8000/api/health
 ```
 
+Verification anti-regression complete depuis Windows:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\verify-appliance.ps1
+```
+
 Sur un nouveau serveur Linux, utiliser le chemin moderne:
 
 ```bash
