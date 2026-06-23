@@ -87,3 +87,28 @@ jq -s '.' /var/lib/forge/deploy/audit/*.json > inventaire.json
 
 Vous pouvez ensuite les importer dans un tableur ou un logiciel de gestion de
 stock pour suivre votre parc reconditionné.
+
+## 5. Regle anti-regression imprimantes etiquettes AtelierOS
+
+Le profil de reference actuellement verrouille dans l'interface est :
+
+- `Brother 29 x 90 mm / 1.1 x 3.5 in`
+- impression en paysage ;
+- echelle Windows/Brother `100%` ;
+- option "adapter a la page" desactivee ;
+- gabarit millimetre dedie ;
+- texte, QR et code-barres ajustes automatiquement avant impression.
+
+Cette logique ne doit pas etre limitee a la Brother de l'atelier. Pour toute
+nouvelle imprimante client, ajouter un profil avec :
+
+- la largeur et la hauteur physiques exactes en millimetres ;
+- des zones physiques pour titre, QR, informations audit, numero de serie et
+  code-barres ;
+- l'auto-fit sur chaque texte important ;
+- aucune taille de police fixe qui coupe les informations ;
+- aucune troncature volontaire avec `...` sur l'etiquette imprimee.
+
+Objectif produit : si le client installe une Brother, Dymo, Zebra, Godex ou une
+autre imprimante d'etiquettes, AtelierOS conserve le meme moteur : format
+physique + zones + auto-fit. Seul le profil papier change.

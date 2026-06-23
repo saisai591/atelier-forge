@@ -2337,8 +2337,8 @@ function AuditReturnPanel({
 
 function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onClose: () => void }) {
   const labelFormats = [
-    { id: 'brother-29x90', name: 'Brother 29 x 90 mm', width: 90, height: 29, note: 'Rouleau predecoupe 29 x 90, impression paysage.' },
-    { id: 'brother-62x100', name: 'Brother 62 mm continu', width: 62, height: 100, note: 'Rouleau 62 mm, longueur 100 mm.' },
+    { id: 'brother-29x90', name: 'Brother 29 x 90 mm / 1.1 x 3.5 in', width: 90, height: 29, note: 'Profil verrouille atelier: rouleau predecoupe 29 x 90, impression paysage, zones millimetrees + auto-fit.' },
+    { id: 'brother-62x100', name: 'Brother 62 mm continu', width: 62, height: 100, note: 'Profil generique client: rouleau 62 mm, longueur 100 mm, meme logique zones physiques + auto-fit.' },
   ] as const
   const initial = useMemo(() => ({
     title: cleanLabelField(dedupeMachineTitle(audit.brand, audit.model)),
