@@ -18,7 +18,7 @@ import { useThemeMode } from '../hooks/useThemeMode'
 const appCards = [
   {
     title: 'Deploiement PXE',
-    subtitle: 'Audit, boot reseau, WinPE, WIM, drivers et logs PXE.',
+    subtitle: 'Audit, WIM, drivers, logs.',
     path: '/pxe',
     icon: MonitorCog,
     tone: 'cyan',
@@ -26,7 +26,7 @@ const appCards = [
   },
   {
     title: 'Atelier ERP',
-    subtitle: 'Receptions fournisseurs, palettes, sorties client, BL et colisage.',
+    subtitle: 'Receptions, palettes, sorties.',
     path: '/erp',
     icon: Warehouse,
     tone: 'emerald',
@@ -34,7 +34,7 @@ const appCards = [
   },
   {
     title: 'Scanner mobile',
-    subtitle: 'Interface PDA/tablette pour retrouver une machine par QR ou code-barres.',
+    subtitle: 'PDA, QR, code-barres.',
     path: '/mobile',
     icon: Smartphone,
     tone: 'blue',
@@ -42,7 +42,7 @@ const appCards = [
   },
   {
     title: 'Back-office',
-    subtitle: 'Clients, stock, commandes, factures, WhatsApp et reglages SaaS.',
+    subtitle: 'Stock, clients, factures.',
     path: '/app',
     icon: Gauge,
     tone: 'slate',
@@ -136,7 +136,7 @@ export default function HomeLauncher() {
                     </span>
                   </div>
                   <h2 className={`mt-5 text-xl font-black ${titleClass}`}>{app.title}</h2>
-                  <p className={`mt-2 text-sm leading-6 ${mutedClass}`}>{app.subtitle}</p>
+                  <p className={`mt-2 text-sm font-semibold ${mutedClass}`}>{app.subtitle}</p>
                 </div>
                 <div className="mt-5 flex items-center justify-between text-sm font-bold text-cyan-100">
                   Ouvrir

@@ -253,7 +253,6 @@ function EmptyState({ loading }: { loading: boolean }) {
       <div>
         <Search className="mx-auto h-10 w-10 text-slate-500" />
         <h2 className="mt-4 text-xl font-black text-white">{loading ? 'Synchronisation...' : 'Aucune machine'}</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-400">Scanne une etiquette ou lance un audit PXE pour retrouver la machine ici.</p>
       </div>
     </div>
   )
