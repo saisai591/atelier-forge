@@ -42,6 +42,16 @@ def create_app() -> FastAPI:
     from modules.stock.models import StockItem  # noqa: F401 — needed for create_all
     app.include_router(stock_router, prefix="/api")
 
+    from modules.atelier_erp import router as atelier_erp_router
+    from modules.atelier_erp.models import (  # noqa: F401
+        AtelierClient,
+        AtelierDocument,
+        AtelierPallet,
+        AtelierReception,
+        AtelierShipment,
+    )
+    app.include_router(atelier_erp_router, prefix="/api")
+
     from modules.atelier_forge import router as forge_router
     app.include_router(forge_router, prefix="/api")
 
