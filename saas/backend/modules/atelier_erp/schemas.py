@@ -158,3 +158,31 @@ class AtelierOverview(BaseModel):
     pallets_active: int
     shipments_open: int
     documents_ready: int
+
+
+class SupplierImportFieldGuess(BaseModel):
+    source_column: str
+    target_field: str
+    confidence: int
+
+
+class SupplierImportPreview(BaseModel):
+    filename: str
+    file_format: str
+    detected_columns: list[str]
+    row_count: int
+    sample_rows: list[dict]
+    field_guesses: list[SupplierImportFieldGuess]
+    warnings: list[str] = Field(default_factory=list)
+
+
+class SupplierImportCommit(BaseModel):
+    reference: str = Field(min_length=1, max_length=64)
+    supplier_name: str = Field(min_length=1, max_length=255)
+    source_filename: str
+    source_format: str
+    expected_items: int
+    pallet_count: int = 0
+    location: str | None = None
+    mapping_profile: dict = Field(default_factory=dict)
+    notes: str | None = None

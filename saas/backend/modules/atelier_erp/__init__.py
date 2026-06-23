@@ -1,6 +1,10 @@
 import uuid
+import csv
+import io
+import zipfile
+from xml.etree import ElementTree
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,9 +38,194 @@ from .schemas import (
     AtelierShipmentCreate,
     AtelierShipmentOut,
     AtelierShipmentUpdate,
+    SupplierImportCommit,
+    SupplierImportFieldGuess,
+    SupplierImportPreview,
 )
 
 router = APIRouter(prefix="/atelier-erp", tags=["atelier_erp"])
+
+FIELD_SYNONYMS = {
+    "serial_number": ["serial", "serialnumber", "sn", "s/n", "numero serie", "numero de serie", "service tag"],
+    "brand": ["brand", "marque", "manufacturer", "constructeur", "vendor"],
+    "model": ["model", "modele", "product", "product name", "designation", "description"],
+    "asset_tag": ["asset", "asset tag", "inventaire", "reference", "ref", "code"],
+    "grade": ["grade", "etat", "condition", "quality", "qualite"],
+    "cpu": ["cpu", "processor", "processeur"],
+    "ram": ["ram", "memory", "memoire"],
+    "disk": ["disk", "ssd", "hdd", "storage", "stockage"],
+    "battery": ["battery", "batterie", "usure", "health"],
+}
+
+
+def _normalize_header(value: str) -> str:
+    return (
+        value.strip()
+        .lower()
+        .replace("_", " ")
+        .replace("-", " ")
+        .replace(".", " ")
+        .replace("  ", " ")
+    )
+
+
+def _guess_fields(columns: list[str]) -> list[SupplierImportFieldGuess]:
+    guesses: list[SupplierImportFieldGuess] = []
+    for column in columns:
+        normalized = _normalize_header(column)
+        best_field = "extra"
+        best_score = 35
+        for target, aliases in FIELD_SYNONYMS.items():
+            for alias in aliases:
+                if normalized == alias:
+                    best_field = target
+                    best_score = 98
+                    break
+                if alias in normalized or normalized in alias:
+                    score = 82 if len(alias) > 2 else 65
+                    if score > best_score:
+                        best_field = target
+                        best_score = score
+            if best_score == 98:
+                break
+        guesses.append(
+            SupplierImportFieldGuess(source_column=column, target_field=best_field, confidence=best_score)
+        )
+    return guesses
+
+
+def _decode_text(data: bytes) -> str:
+    for encoding in ("utf-8-sig", "utf-8", "cp1252", "latin-1"):
+        try:
+            return data.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return data.decode("utf-8", errors="replace")
+
+
+def _parse_csv(data: bytes) -> tuple[list[str], list[dict], int, list[str]]:
+    text = _decode_text(data)
+    warnings: list[str] = []
+    sample = text[:4096]
+    try:
+        dialect = csv.Sniffer().sniff(sample, delimiters=",;\t|")
+    except csv.Error:
+        dialect = csv.excel
+        warnings.append("Separateur CSV non detecte automatiquement, virgule utilisee par defaut.")
+    reader = csv.DictReader(io.StringIO(text), dialect=dialect)
+    columns = [column.strip() for column in (reader.fieldnames or []) if column and column.strip()]
+    rows = []
+    total = 0
+    for row in reader:
+        total += 1
+        if len(rows) < 20:
+            rows.append({key: (value or "").strip() for key, value in row.items() if key})
+    return columns, rows, total, warnings
+
+
+def _parse_xml(data: bytes) -> tuple[list[str], list[dict], int, list[str]]:
+    warnings: list[str] = []
+    root = ElementTree.fromstring(data)
+    candidates = [node for node in root.iter() if len(list(node)) >= 2]
+    rows: list[dict] = []
+    for node in candidates:
+        row = {}
+        for child in list(node):
+            text = (child.text or "").strip()
+            if text:
+                row[child.tag.split("}")[-1]] = text
+        if row:
+            rows.append(row)
+        if len(rows) >= 20:
+            break
+    columns = sorted({key for row in rows for key in row.keys()})
+    total = len([node for node in candidates if len(list(node)) >= 2])
+    if not rows:
+        warnings.append("Aucune ligne exploitable detectee dans le XML.")
+    return columns, rows, total, warnings
+
+
+def _read_xlsx_strings(zip_file: zipfile.ZipFile) -> list[str]:
+    try:
+        xml_data = zip_file.read("xl/sharedStrings.xml")
+    except KeyError:
+        return []
+    root = ElementTree.fromstring(xml_data)
+    strings = []
+    for item in root.iter("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}si"):
+        parts = [node.text or "" for node in item.iter("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}t")]
+        strings.append("".join(parts))
+    return strings
+
+
+def _cell_value(cell, shared_strings: list[str]) -> str:
+    cell_type = cell.attrib.get("t")
+    value_node = cell.find("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v")
+    if value_node is None or value_node.text is None:
+        inline_node = cell.find(".//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}t")
+        return (inline_node.text or "").strip() if inline_node is not None else ""
+    value = value_node.text
+    if cell_type == "s":
+        try:
+            return shared_strings[int(value)].strip()
+        except (ValueError, IndexError):
+            return ""
+    return value.strip()
+
+
+def _parse_xlsx(data: bytes) -> tuple[list[str], list[dict], int, list[str]]:
+    warnings: list[str] = []
+    with zipfile.ZipFile(io.BytesIO(data)) as zip_file:
+        shared_strings = _read_xlsx_strings(zip_file)
+        sheet_names = [name for name in zip_file.namelist() if name.startswith("xl/worksheets/sheet") and name.endswith(".xml")]
+        if not sheet_names:
+            return [], [], 0, ["Aucune feuille Excel detectee."]
+        sheet_xml = zip_file.read(sorted(sheet_names)[0])
+    root = ElementTree.fromstring(sheet_xml)
+    rows_xml = root.findall(".//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row")
+    matrix: list[list[str]] = []
+    for row in rows_xml[:21]:
+        values = [_cell_value(cell, shared_strings) for cell in row.findall("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}c")]
+        if any(values):
+            matrix.append(values)
+    if not matrix:
+        return [], [], 0, ["Feuille Excel vide."]
+    columns = [value or f"Colonne {index + 1}" for index, value in enumerate(matrix[0])]
+    rows = []
+    for values in matrix[1:]:
+        rows.append({columns[index]: values[index] if index < len(values) else "" for index in range(len(columns))})
+    total = max(len(rows_xml) - 1, 0)
+    if total > len(rows):
+        warnings.append("Apercu limite aux 20 premieres lignes.")
+    return columns, rows, total, warnings
+
+
+def _parse_supplier_file(filename: str, data: bytes) -> SupplierImportPreview:
+    lower_name = filename.lower()
+    if lower_name.endswith(".csv") or lower_name.endswith(".txt"):
+        file_format = "csv"
+        columns, rows, total, warnings = _parse_csv(data)
+    elif lower_name.endswith(".xml"):
+        file_format = "xml"
+        columns, rows, total, warnings = _parse_xml(data)
+    elif lower_name.endswith(".xlsx"):
+        file_format = "xlsx"
+        columns, rows, total, warnings = _parse_xlsx(data)
+    else:
+        raise HTTPException(status_code=400, detail="Format non supporte. Utiliser CSV, XLSX ou XML.")
+
+    if not columns:
+        warnings.append("Aucune colonne detectee.")
+
+    return SupplierImportPreview(
+        filename=filename,
+        file_format=file_format,
+        detected_columns=columns,
+        row_count=total,
+        sample_rows=rows,
+        field_guesses=_guess_fields(columns),
+        warnings=warnings,
+    )
 
 
 async def _get_owned(db: AsyncSession, model, item_id: uuid.UUID, tenant_id: uuid.UUID):
@@ -93,6 +282,44 @@ async def overview(
         shipments_open=shipments_open or 0,
         documents_ready=documents_ready or 0,
     )
+
+
+@router.post("/supplier-import/preview", response_model=SupplierImportPreview)
+async def preview_supplier_import(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    _ = current_user
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Fichier vide")
+    return _parse_supplier_file(file.filename or "supplier-file", data)
+
+
+@router.post("/supplier-import/commit", response_model=AtelierReceptionOut, status_code=201)
+async def commit_supplier_import(
+    payload: SupplierImportCommit,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    reception = AtelierReception(
+        tenant_id=current_user.tenant_id,
+        reference=payload.reference,
+        supplier_name=payload.supplier_name,
+        source_filename=payload.source_filename,
+        source_format=payload.source_format,
+        expected_items=payload.expected_items,
+        scanned_items=0,
+        pallet_count=payload.pallet_count,
+        location=payload.location,
+        status=AtelierReceptionStatus.receiving,
+        mapping_profile=payload.mapping_profile,
+        notes=payload.notes,
+    )
+    db.add(reception)
+    await db.flush()
+    await db.refresh(reception)
+    return reception
 
 
 @router.get("/receptions", response_model=list[AtelierReceptionOut])
