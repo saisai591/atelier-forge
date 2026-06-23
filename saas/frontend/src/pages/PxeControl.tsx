@@ -2457,21 +2457,21 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
     @page { size: ${pageWidth}mm ${pageHeight}mm; margin: 0; }
     * { box-sizing: border-box; }
     html, body { width: ${pageWidth}mm; height: ${pageHeight}mm; margin: 0; padding: 0; background: white; font-family: Arial, Helvetica, sans-serif; color: #000; }
-    .label { width: ${pageWidth}mm; height: ${pageHeight}mm; padding: ${slimLabel ? '1.6mm 2mm 1.1mm' : '3mm'}; background: white; display: grid; grid-template-rows: auto 1fr auto; gap: ${slimLabel ? '.65mm' : '1.8mm'}; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
+    .label { width: ${pageWidth}mm; height: ${pageHeight}mm; padding: ${slimLabel ? '2mm 4.2mm 1.4mm 4.2mm' : '3.4mm 4mm'}; background: white; display: grid; grid-template-rows: auto 1fr auto; gap: ${slimLabel ? '.55mm' : '1.8mm'}; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
     .label * { color: #000; font-weight: 900; letter-spacing: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .top { display: grid; grid-template-columns: 1fr ${qrSizeMm}mm; gap: ${slimLabel ? '1mm' : '2.4mm'}; align-items: start; min-width: 0; }
+    .top { display: grid; grid-template-columns: minmax(0,1fr) ${qrSizeMm}mm; gap: ${slimLabel ? '1.4mm' : '2.4mm'}; align-items: start; min-width: 0; }
     .brand { font-size: ${slimLabel ? '4.6pt' : '8.3pt'}; text-transform: uppercase; text-align: center; white-space: nowrap; overflow: hidden; margin-bottom: ${slimLabel ? '.35mm' : '1mm'}; }
     .titleline { display: grid; grid-template-columns: 1fr ${slimLabel ? '6.2mm' : '11mm'}; gap: ${slimLabel ? '.8mm' : '1.5mm'}; align-items: start; min-width: 0; }
-    h1 { margin: 0; font-size: ${slimLabel ? '8.9pt' : '17pt'}; line-height: .98; overflow-wrap: anywhere; word-break: break-word; max-height: ${slimLabel ? '9.2mm' : '26mm'}; overflow: hidden; }
+    h1 { margin: 0; font-size: ${slimLabel ? '8.9pt' : '17pt'}; line-height: .98; white-space: nowrap; overflow: hidden; }
     .grade { width: ${slimLabel ? '6.2mm' : '11mm'}; height: ${slimLabel ? '6.2mm' : '11mm'}; display: grid; place-items: center; border: .35mm solid #000; font-size: ${slimLabel ? '8pt' : '16pt'}; line-height: 1; }
     .qrbox { width: ${qrSizeMm}mm; height: ${qrSizeMm}mm; padding: .6mm; background: #fff; display: grid; place-items: center; }
     .qr { width: 100%; height: 100%; border: 0; padding: 0; object-fit: contain; image-rendering: pixelated; }
-    .body { min-height: 0; overflow: hidden; display: grid; gap: ${slimLabel ? '.32mm' : '1.1mm'}; align-content: center; }
+    .body { min-height: 0; overflow: hidden; display: grid; gap: ${slimLabel ? '.26mm' : '1.1mm'}; align-content: center; }
     .line { display: grid; grid-template-columns: ${slimLabel ? '7.5mm minmax(0,1fr)' : '14mm minmax(0,1fr)'}; gap: ${slimLabel ? '.8mm' : '1.3mm'}; min-width: 0; align-items: baseline; overflow: hidden; }
     .key { font-size: ${slimLabel ? '4.1pt' : '7pt'}; text-transform: uppercase; opacity: .68; white-space: nowrap; text-align: right; }
-    .value { font-size: ${slimLabel ? '5.25pt' : '8.6pt'}; line-height: 1.02; min-width: 0; overflow-wrap: anywhere; word-break: break-word; text-align: left; }
+    .value { font-size: ${slimLabel ? '5.25pt' : '8.6pt'}; line-height: 1.02; min-width: 0; white-space: nowrap; overflow: hidden; text-align: left; }
     .bottom { display: grid; grid-template-columns: 1fr ${barcodeWidthMm}mm; gap: ${slimLabel ? '1.2mm' : '2.2mm'}; align-items: end; min-width: 0; }
-    .serial { font-family: Consolas, Arial, sans-serif; font-size: ${slimLabel ? '5.2pt' : '9pt'}; overflow-wrap: anywhere; word-break: break-word; line-height: 1.02; }
+    .serial { font-family: Consolas, Arial, sans-serif; font-size: ${slimLabel ? '5.2pt' : '9pt'}; white-space: nowrap; overflow: hidden; line-height: 1.02; }
     .note { margin-top: .2mm; font-size: ${slimLabel ? '3.9pt' : '7.2pt'}; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
     .barcode-zone { display: grid; align-content: end; gap: .25mm; }
     .barcode { width: 100%; height: ${slimLabel ? '7.2mm' : '12mm'}; object-fit: fill; image-rendering: crisp-edges; }
@@ -2482,24 +2482,24 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
 <body>
       <section class="label">
         <div class="top">
-          <div><div class="brand">AOS DEPLOY - CERTIFIED DEVICE</div><div class="titleline"><h1>${escapeHtml(printLabel.title)}</h1><div class="grade">${escapeHtml(label.grade)}</div></div></div>
+          <div><div class="brand fit" data-min="${slimLabel ? '3.3' : '6'}">AOS DEPLOY - CERTIFIED DEVICE</div><div class="titleline"><h1 class="fit" data-min="${slimLabel ? '5.8' : '10'}">${escapeHtml(printLabel.title)}</h1><div class="grade">${escapeHtml(label.grade)}</div></div></div>
       ${qrDataUrl ? `<div class="qrbox"><img class="qr" src="${qrDataUrl}" alt="QR" /></div>` : ''}
         </div>
         <div class="body">
-      <div class="line"><div class="key">CPU</div><div class="value">${escapeHtml(printLabel.cpu || '-')}</div></div>
-      <div class="line"><div class="key">RAM</div><div class="value">${escapeHtml(printLabel.ram || '-')}</div></div>
-      <div class="line"><div class="key">SSD</div><div class="value">${escapeHtml(printLabel.disk || '-')}</div></div>
-      <div class="line"><div class="key">BAT</div><div class="value">${escapeHtml(printLabel.battery || '-')}</div></div>
-      ${showNetworkOnLabel ? `<div class="line"><div class="key">HOST</div><div class="value">${escapeHtml(printLabel.hostname || '-')}</div></div>
-      <div class="line"><div class="key">IP</div><div class="value">${escapeHtml(printLabel.ip || '-')}</div></div>` : ''}
+      <div class="line"><div class="key">CPU</div><div class="value fit" data-min="${slimLabel ? '3.9' : '6.3'}">${escapeHtml(printLabel.cpu || '-')}</div></div>
+      <div class="line"><div class="key">RAM</div><div class="value fit" data-min="${slimLabel ? '3.9' : '6.3'}">${escapeHtml(printLabel.ram || '-')}</div></div>
+      <div class="line"><div class="key">SSD</div><div class="value fit" data-min="${slimLabel ? '3.9' : '6.3'}">${escapeHtml(printLabel.disk || '-')}</div></div>
+      <div class="line"><div class="key">BAT</div><div class="value fit" data-min="${slimLabel ? '3.9' : '6.3'}">${escapeHtml(printLabel.battery || '-')}</div></div>
+      ${showNetworkOnLabel ? `<div class="line"><div class="key">HOST</div><div class="value fit" data-min="6.3">${escapeHtml(printLabel.hostname || '-')}</div></div>
+      <div class="line"><div class="key">IP</div><div class="value fit" data-min="6.3">${escapeHtml(printLabel.ip || '-')}</div></div>` : ''}
     </div>
       <div class="bottom">
         <div>
-          <div class="serial">SN: ${escapeHtml(printLabel.serial || '-')}</div>
-          <div class="note">${escapeHtml(printLabel.note)}</div>
+          <div class="serial fit" data-min="${slimLabel ? '3.8' : '6.5'}">SN: ${escapeHtml(printLabel.serial || '-')}</div>
+          <div class="note fit" data-min="${slimLabel ? '3' : '5.2'}">${escapeHtml(printLabel.note)}</div>
         </div>
         <div class="barcode-zone">
-          <div class="barcode-label">${escapeHtml(barcodeTextForRender || '-')}</div>
+          <div class="barcode-label fit" data-min="${slimLabel ? '2.5' : '4'}">${escapeHtml(barcodeTextForRender || '-')}</div>
           ${barcodeDataUrl ? `<img class="barcode" src="${barcodeDataUrl}" alt="Code-barres" />` : '<div class="barcode-label">generation impossible</div>'}
         </div>
       </div>
@@ -2542,7 +2542,24 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
       <div class="bars"></div>
     </div>
   </section>
-  <script>window.onload = () => { window.print(); }</script>
+  <script>
+    function fitText() {
+      const nodes = Array.from(document.querySelectorAll('.fit'));
+      for (const node of nodes) {
+        const style = window.getComputedStyle(node);
+        let size = parseFloat(style.fontSize);
+        const min = parseFloat(node.dataset.min || '4');
+        while ((node.scrollWidth > node.clientWidth || node.scrollHeight > node.clientHeight) && size > min) {
+          size -= 0.25;
+          node.style.fontSize = size + 'px';
+        }
+      }
+    }
+    window.onload = () => {
+      fitText();
+      setTimeout(() => window.print(), 80);
+    };
+  </script>
 </body>
 </html>`)
     popup.document.close()
@@ -2634,7 +2651,7 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
           <div
             className={cn(
               'grid rounded-xl bg-white text-black shadow-2xl shadow-black/40 font-bold',
-              slimLabel ? 'gap-1 py-1.5 pl-5 pr-3' : 'gap-2 p-3',
+              slimLabel ? 'gap-1 px-7 py-2' : 'gap-2 px-5 py-4',
             )}
             style={{ aspectRatio: `${pageWidth} / ${pageHeight}`, gridTemplateRows: 'auto 1fr auto' }}
           >
@@ -2642,7 +2659,7 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
               <div className="min-w-0">
                 <div className={cn('text-center font-black uppercase tracking-[0.12em]', slimLabel ? 'text-[6px]' : 'mb-1 text-[9px]')}>AtelierOS - Certified Device</div>
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-1">
-                  <div className={cn('break-words text-center font-black leading-tight', slimLabel ? 'max-h-10 overflow-hidden text-[15px]' : 'text-xl')}>{printLabel.title}</div>
+                  <div className={cn('truncate text-center font-black leading-tight', slimLabel ? 'text-[14px]' : 'text-xl')}>{printLabel.title}</div>
                   <div className={cn('grid shrink-0 place-items-center border border-black font-black', slimLabel ? 'h-5 w-5 text-xs' : 'h-9 w-9 text-xl')}>{label.grade}</div>
                 </div>
               </div>
@@ -2696,7 +2713,7 @@ function LabelPreviewLine({ label, value, slim, small }: { label: string; value:
   return (
     <div className={cn('grid min-w-0 grid-cols-[30px_minmax(0,1fr)] items-center', slim ? 'h-4 gap-1' : 'h-7 gap-2')}>
       <div className={cn('truncate font-black uppercase text-black/60', slim ? 'text-[7px]' : 'text-[10px]')}>{label}</div>
-      <div className={cn('truncate font-black leading-none', slim ? 'text-[9px]' : 'text-xs', small ? 'text-[8px] font-extrabold' : '')}>{value}</div>
+      <div className={cn('truncate font-black leading-none', slim ? 'text-[8.5px]' : 'text-xs', small ? 'text-[8px] font-extrabold' : '')}>{value}</div>
     </div>
   )
 }
