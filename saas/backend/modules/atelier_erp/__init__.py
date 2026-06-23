@@ -5,7 +5,7 @@ import zipfile
 from datetime import datetime, timezone
 from xml.etree import ElementTree
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -52,6 +52,7 @@ from .schemas import (
     SupplierImportFieldGuess,
     SupplierImportPreview,
 )
+from .palette_pdf import build_pallet_label_pdf
 
 router = APIRouter(prefix="/atelier-erp", tags=["atelier_erp"])
 
@@ -415,6 +416,36 @@ async def update_pallet(
     await db.flush()
     await db.refresh(item)
     return item
+
+
+@router.get("/pallets/{pallet_id}/label.pdf")
+async def download_pallet_label(
+    pallet_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    pallet = await _get_owned(db, AtelierPallet, pallet_id, current_user.tenant_id)
+    shipment = None
+    if pallet.shipment_id:
+        shipment = await _get_owned(db, AtelierShipment, pallet.shipment_id, current_user.tenant_id)
+
+    payload = {
+        "client_name": shipment.client_name if shipment else "Stock atelier",
+        "shipment_reference": shipment.reference if shipment else "Palette interne",
+        "pallet_reference": pallet.reference,
+        "status": pallet.status.value.upper(),
+        "expected_items": pallet.expected_items,
+        "carrier": shipment.carrier if shipment else "",
+        "location": pallet.location or "",
+        "document_state": "BL / colisage" if shipment else "Reception",
+        "barcode_text": f"PALLET:{pallet.reference}",
+    }
+    pdf = build_pallet_label_pdf(payload)
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="palette-{pallet.reference}.pdf"'},
+    )
 
 
 @router.get("/clients", response_model=list[AtelierClientOut])
