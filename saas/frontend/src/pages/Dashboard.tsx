@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { AlertCircle, CheckCircle, Clock, Package, TrendingUp, Users, Wallet } from 'lucide-react'
+import { AlertCircle, CheckCircle, ClipboardList, Clock, Package, PackageCheck, ScanLine, TrendingUp, Wallet } from 'lucide-react'
 import type { ReactNode } from 'react'
 import api from '../api/client'
 import { useAuthStore } from '../store/auth'
@@ -18,6 +18,15 @@ interface Overview {
   clients: { total: number; by_type: Record<string, number> }
 }
 
+interface AtelierOverview {
+  receptions_open: number
+  items_expected: number
+  items_scanned: number
+  pallets_active: number
+  shipments_open: number
+  documents_ready: number
+}
+
 const GRADE_COLORS: Record<string, string> = {
   A: 'border-emerald-300/30 bg-emerald-300/10 text-emerald-300',
   B: 'border-cyan-300/30 bg-cyan-300/10 text-cyan-300',
@@ -33,6 +42,10 @@ export default function Dashboard() {
     queryKey: ['analytics-overview'],
     queryFn: () => api.get('/analytics/overview').then((r) => r.data),
   })
+  const { data: erpOverview, isError: erpError } = useQuery<AtelierOverview>({
+    queryKey: ['atelier-erp', 'overview'],
+    queryFn: () => api.get('/atelier-erp/overview').then((r) => r.data),
+  })
 
   const titleClass = isDark ? 'text-white' : 'text-slate-950'
   const mutedClass = isDark ? 'text-slate-400' : 'text-slate-600'
@@ -41,6 +54,7 @@ export default function Dashboard() {
     : 'border-slate-200 bg-white shadow-slate-200/80'
   const readyCount = data?.stock.by_status.ready ?? 0
   const blockedCount = (data?.stock.by_status.in_diagnosis ?? 0) + (data?.accounting.unpaid_ht ? 1 : 0)
+  const erpActionCount = (erpOverview?.receptions_open ?? 0) + (erpOverview?.shipments_open ?? 0) + (erpOverview?.pallets_active ?? 0)
 
   return (
     <div className="space-y-6">
@@ -70,7 +84,7 @@ export default function Dashboard() {
             <StatCard isDark={isDark} icon={<Wallet size={20} />} tone="cyan" label="Valeur stock" value={`${data.stock.available_value.toFixed(0)} EUR`} />
             <StatCard isDark={isDark} icon={<TrendingUp size={20} />} tone="emerald" label="Marge realisee" value={`${data.stock.realized_margin.toFixed(0)} EUR`} />
             <StatCard isDark={isDark} icon={<AlertCircle size={20} />} tone="rose" label="Impayes HT" value={`${data.accounting.unpaid_ht.toFixed(0)} EUR`} />
-            <StatCard isDark={isDark} icon={<Users size={20} />} tone="violet" label="Clients" value={data.clients.total} />
+            <StatCard isDark={isDark} icon={<ClipboardList size={20} />} tone={erpError ? 'rose' : 'violet'} label="ERP atelier" value={erpError ? 'API KO' : erpActionCount} />
           </section>
 
           <section className="grid gap-4 lg:grid-cols-3">
@@ -79,7 +93,7 @@ export default function Dashboard() {
             <ActionTile isDark={isDark} tone="rose" title="Bloque" value={data.accounting.unpaid_ht > 0 ? 1 : 0} detail="Facturation ou paiement a surveiller" />
           </section>
 
-          <section className="grid gap-6 xl:grid-cols-2">
+          <section className="grid gap-6 xl:grid-cols-3">
             <Panel isDark={isDark} title={`Stock (${data.stock.total})`} icon={<Package size={18} />}>
               <div className="space-y-3">
                 <StatusBar isDark={isDark} label="Pretes" icon={<CheckCircle size={14} className="text-emerald-400" />} count={readyCount} total={data.stock.total} color="bg-emerald-400" />
@@ -114,6 +128,21 @@ export default function Dashboard() {
                   </p>
                 </div>
               )}
+            </Panel>
+
+            <Panel isDark={isDark} title="Atelier ERP" icon={<PackageCheck size={18} />}>
+              <div className="space-y-3">
+                <StatusBar isDark={isDark} label="Receptions ouvertes" icon={<Package size={14} className="text-cyan-400" />} count={erpOverview?.receptions_open ?? 0} total={Math.max(erpOverview?.receptions_open ?? 0, 1)} color="bg-cyan-400" />
+                <StatusBar isDark={isDark} label="Palettes actives" icon={<PackageCheck size={14} className="text-emerald-400" />} count={erpOverview?.pallets_active ?? 0} total={Math.max(erpOverview?.pallets_active ?? 0, 1)} color="bg-emerald-400" />
+                <StatusBar isDark={isDark} label="Sorties client" icon={<TrendingUp size={14} className="text-violet-400" />} count={erpOverview?.shipments_open ?? 0} total={Math.max(erpOverview?.shipments_open ?? 0, 1)} color="bg-violet-400" />
+              </div>
+              <a
+                href="/erp"
+                className={`mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-black transition ${isDark ? 'border-cyan-300/20 bg-cyan-300/10 text-cyan-100 hover:bg-cyan-300/15' : 'border-cyan-200 bg-cyan-50 text-cyan-900 hover:bg-cyan-100'}`}
+              >
+                <ScanLine size={16} />
+                Ouvrir reception / scan
+              </a>
             </Panel>
           </section>
         </>

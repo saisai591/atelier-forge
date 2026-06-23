@@ -115,6 +115,7 @@ interface MachineLookup {
   found: boolean
   source: string
   stock_item_id?: string | null
+  audit_id?: string | null
   serial_number?: string | null
   brand?: string | null
   model?: string | null
@@ -1229,8 +1230,22 @@ export default function Erp() {
                         <div className={`mt-1 text-sm ${mutedClass}`}>
                           SN {machine.serial_number || machine.code} - Grade {machine.grade || '-'} - {machine.status || 'statut non defini'}
                         </div>
+                        <div className={`mt-2 flex flex-wrap gap-2 text-xs font-bold ${softMutedClass}`}>
+                          {machine.audit_id && <span>Audit PXE {machine.audit_id}</span>}
+                          {machine.stock_item_id && <span>Stock {machine.stock_item_id}</span>}
+                          <span>{machine.source === 'pxe_audit' ? 'Retour audit reseau' : 'Source atelier'}</span>
+                        </div>
                       </div>
                       <div className="flex flex-wrap gap-2">
+                        {machine.audit_id && (
+                          <ActionButton
+                            icon={ShieldCheck}
+                            label="Ouvrir PXE"
+                            busy={false}
+                            onClick={() => { window.location.href = '/pxe' }}
+                            isDark={isDark}
+                          />
+                        )}
                         <ActionButton
                           icon={Printer}
                           label="Etiquette"
@@ -1246,6 +1261,8 @@ export default function Erp() {
                             code: machine.code,
                             trouve: machine.found ? 'oui' : 'non',
                             source: machine.source,
+                            audit_id: machine.audit_id || '',
+                            stock_item_id: machine.stock_item_id || '',
                             serie: machine.serial_number || '',
                             marque: machine.brand || '',
                             modele: machine.model || '',
