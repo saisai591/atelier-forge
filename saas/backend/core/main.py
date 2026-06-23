@@ -48,6 +48,8 @@ def create_app() -> FastAPI:
         AtelierDocument,
         AtelierPallet,
         AtelierReception,
+        AtelierScanEvent,
+        AtelierScanSession,
         AtelierShipment,
     )
     app.include_router(atelier_erp_router, prefix="/api")

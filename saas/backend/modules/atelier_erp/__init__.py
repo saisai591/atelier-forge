@@ -2,6 +2,7 @@ import uuid
 import csv
 import io
 import zipfile
+from datetime import datetime, timezone
 from xml.etree import ElementTree
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
@@ -19,6 +20,10 @@ from .models import (
     AtelierPallet,
     AtelierReception,
     AtelierReceptionStatus,
+    AtelierScanEvent,
+    AtelierScanEventType,
+    AtelierScanSession,
+    AtelierScanSessionStatus,
     AtelierShipment,
     AtelierShipmentStatus,
 )
@@ -35,6 +40,11 @@ from .schemas import (
     AtelierReceptionCreate,
     AtelierReceptionOut,
     AtelierReceptionUpdate,
+    AtelierScanEventCreate,
+    AtelierScanEventOut,
+    AtelierScanSessionCreate,
+    AtelierScanSessionOut,
+    AtelierScanSessionUpdate,
     AtelierShipmentCreate,
     AtelierShipmentOut,
     AtelierShipmentUpdate,
@@ -487,6 +497,102 @@ async def update_shipment(
     await db.flush()
     await db.refresh(item)
     return item
+
+
+@router.get("/scan-sessions", response_model=list[AtelierScanSessionOut])
+async def list_scan_sessions(
+    status: AtelierScanSessionStatus | None = Query(default=None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    q = select(AtelierScanSession).where(AtelierScanSession.tenant_id == current_user.tenant_id)
+    if status:
+        q = q.where(AtelierScanSession.status == status)
+    result = await db.execute(q.order_by(AtelierScanSession.created_at.desc()))
+    return result.scalars().all()
+
+
+@router.post("/scan-sessions", response_model=AtelierScanSessionOut, status_code=201)
+async def create_scan_session(
+    payload: AtelierScanSessionCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    session = AtelierScanSession(tenant_id=current_user.tenant_id, **payload.model_dump())
+    db.add(session)
+    await db.flush()
+    await db.refresh(session)
+    return session
+
+
+@router.patch("/scan-sessions/{session_id}", response_model=AtelierScanSessionOut)
+async def update_scan_session(
+    session_id: uuid.UUID,
+    payload: AtelierScanSessionUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    session = await _get_owned(db, AtelierScanSession, session_id, current_user.tenant_id)
+    values = payload.model_dump(exclude_none=True)
+    if values.get("status") == AtelierScanSessionStatus.closed and session.closed_at is None:
+        session.closed_at = datetime.now(timezone.utc)
+    for field, value in values.items():
+        setattr(session, field, value)
+    await db.flush()
+    await db.refresh(session)
+    return session
+
+
+@router.get("/scan-sessions/{session_id}/events", response_model=list[AtelierScanEventOut])
+async def list_scan_events(
+    session_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_owned(db, AtelierScanSession, session_id, current_user.tenant_id)
+    result = await db.execute(
+        select(AtelierScanEvent)
+        .where(AtelierScanEvent.session_id == session_id, AtelierScanEvent.tenant_id == current_user.tenant_id)
+        .order_by(AtelierScanEvent.created_at.desc())
+    )
+    return result.scalars().all()
+
+
+@router.post("/scan-sessions/{session_id}/events", response_model=AtelierScanEventOut, status_code=201)
+async def create_scan_event(
+    session_id: uuid.UUID,
+    payload: AtelierScanEventCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    session = await _get_owned(db, AtelierScanSession, session_id, current_user.tenant_id)
+    duplicate_result = await db.execute(
+        select(AtelierScanEvent.id).where(
+            AtelierScanEvent.session_id == session_id,
+            AtelierScanEvent.tenant_id == current_user.tenant_id,
+            AtelierScanEvent.code == payload.code,
+        )
+    )
+    event_type = payload.event_type or AtelierScanEventType.found
+    if duplicate_result.first():
+        event_type = AtelierScanEventType.duplicate
+
+    event = AtelierScanEvent(
+        tenant_id=current_user.tenant_id,
+        session_id=session_id,
+        code=payload.code,
+        event_type=event_type,
+        message=payload.message,
+        matched_stock_item_id=payload.matched_stock_item_id,
+        payload=payload.payload,
+    )
+    session.scanned_count += 1
+    if event_type != AtelierScanEventType.found:
+        session.anomaly_count += 1
+    db.add(event)
+    await db.flush()
+    await db.refresh(event)
+    return event
 
 
 @router.get("/documents", response_model=list[AtelierDocumentOut])

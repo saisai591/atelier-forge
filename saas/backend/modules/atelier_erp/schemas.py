@@ -7,6 +7,8 @@ from .models import (
     AtelierDocumentType,
     AtelierPalletStatus,
     AtelierReceptionStatus,
+    AtelierScanEventType,
+    AtelierScanSessionStatus,
     AtelierShipmentStatus,
 )
 
@@ -186,3 +188,46 @@ class SupplierImportCommit(BaseModel):
     location: str | None = None
     mapping_profile: dict = Field(default_factory=dict)
     notes: str | None = None
+
+
+class AtelierScanSessionCreate(BaseModel):
+    reception_id: uuid.UUID | None = None
+    pallet_id: uuid.UUID | None = None
+    operator_name: str | None = None
+    device_name: str | None = None
+    device_type: str | None = None
+
+
+class AtelierScanSessionUpdate(BaseModel):
+    status: AtelierScanSessionStatus | None = None
+    operator_name: str | None = None
+    device_name: str | None = None
+    device_type: str | None = None
+
+
+class AtelierScanSessionOut(AtelierScanSessionCreate):
+    id: uuid.UUID
+    status: AtelierScanSessionStatus
+    scanned_count: int
+    anomaly_count: int
+    created_at: datetime
+    closed_at: datetime | None
+
+    model_config = {"from_attributes": True}
+
+
+class AtelierScanEventCreate(BaseModel):
+    code: str = Field(min_length=1, max_length=255)
+    event_type: AtelierScanEventType | None = None
+    message: str | None = None
+    matched_stock_item_id: uuid.UUID | None = None
+    payload: dict = Field(default_factory=dict)
+
+
+class AtelierScanEventOut(AtelierScanEventCreate):
+    id: uuid.UUID
+    session_id: uuid.UUID
+    event_type: AtelierScanEventType
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

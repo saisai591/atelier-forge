@@ -40,6 +40,20 @@ class AtelierDocumentType(str, PyEnum):
     quality_report = "quality_report"
 
 
+class AtelierScanSessionStatus(str, PyEnum):
+    open = "open"
+    paused = "paused"
+    closed = "closed"
+
+
+class AtelierScanEventType(str, PyEnum):
+    found = "found"
+    unknown = "unknown"
+    duplicate = "duplicate"
+    wrong_batch = "wrong_batch"
+    manual_note = "manual_note"
+
+
 class AtelierReception(Base):
     __tablename__ = "atelier_receptions"
 
@@ -156,6 +170,55 @@ class AtelierDocument(Base):
     document_type: Mapped[AtelierDocumentType] = mapped_column(Enum(AtelierDocumentType))
     title: Mapped[str] = mapped_column(String(255))
     file_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    payload: Mapped[dict] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class AtelierScanSession(Base):
+    __tablename__ = "atelier_scan_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), index=True
+    )
+    reception_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("atelier_receptions.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    pallet_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("atelier_pallets.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    operator_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    device_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    device_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    status: Mapped[AtelierScanSessionStatus] = mapped_column(
+        Enum(AtelierScanSessionStatus), default=AtelierScanSessionStatus.open
+    )
+    scanned_count: Mapped[int] = mapped_column(Integer, default=0)
+    anomaly_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class AtelierScanEvent(Base):
+    __tablename__ = "atelier_scan_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), index=True
+    )
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("atelier_scan_sessions.id", ondelete="CASCADE"), index=True
+    )
+    code: Mapped[str] = mapped_column(String(255), index=True)
+    event_type: Mapped[AtelierScanEventType] = mapped_column(Enum(AtelierScanEventType))
+    message: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    matched_stock_item_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("stock_items.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     payload: Mapped[dict] = mapped_column(JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
