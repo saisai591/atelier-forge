@@ -150,22 +150,6 @@ const receptionStatusStyle: Record<ReceptionStatus, string> = {
   closed: 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100',
 }
 
-const shipmentStatusLabel: Record<ShipmentStatus, string> = {
-  draft: 'Brouillon',
-  picking: 'Preparation',
-  quality_control: 'Controle final',
-  ready_for_carrier: 'Pret transport',
-  shipped: 'Expedie',
-}
-
-const shipmentStatusStyle: Record<ShipmentStatus, string> = {
-  draft: 'border-slate-300/20 bg-slate-300/10 text-slate-200',
-  picking: 'border-blue-300/20 bg-blue-300/10 text-blue-100',
-  quality_control: 'border-amber-300/20 bg-amber-300/10 text-amber-100',
-  ready_for_carrier: 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100',
-  shipped: 'border-cyan-300/20 bg-cyan-300/10 text-cyan-100',
-}
-
 function nextRef(prefix: string) {
   const now = new Date()
   const day = now.toISOString().slice(0, 10).replace(/-/g, '')
@@ -326,6 +310,24 @@ export default function Erp() {
     },
   })
 
+  const updateReception = useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: Partial<ReceptionBatch> }) =>
+      api.patch(`/atelier-erp/receptions/${id}`, payload).then((response) => response.data),
+    onSuccess: async () => {
+      setMessage('Reception mise a jour.')
+      await invalidateErp()
+    },
+  })
+
+  const updateShipment = useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: Partial<ClientShipment> }) =>
+      api.patch(`/atelier-erp/shipments/${id}`, payload).then((response) => response.data),
+    onSuccess: async () => {
+      setMessage('Sortie client mise a jour.')
+      await invalidateErp()
+    },
+  })
+
   const submitScanCode = useMutation({
     mutationFn: async (code: string) => {
       let session = activeSession
@@ -447,6 +449,11 @@ export default function Erp() {
   const tileClass = isDark ? 'border-white/10 bg-black/20' : 'border-slate-200 bg-slate-50'
   const subtleTileClass = isDark ? 'border-white/10 bg-white/[0.055]' : 'border-slate-200 bg-white'
   const isLoading = overviewQuery.isLoading || receptionsQuery.isLoading || shipmentsQuery.isLoading
+  const inputClass = `w-full rounded-lg border px-2 py-1.5 text-sm font-bold outline-none transition ${
+    isDark
+      ? 'border-white/10 bg-black/20 text-white placeholder:text-slate-600 focus:border-cyan-300/40'
+      : 'border-slate-200 bg-white text-slate-950 placeholder:text-slate-400 focus:border-cyan-400'
+  }`
 
   return (
     <main className={`min-h-screen ${pageClass}`}>
@@ -556,6 +563,19 @@ export default function Erp() {
                           <InfoPill icon={Boxes} label={`${item.pallet_count} palettes`} isDark={isDark} />
                           <InfoPill icon={PackageCheck} label={item.notes || 'Pret pour scan atelier'} isDark={isDark} />
                         </div>
+                        <div className="mt-3 max-w-xs">
+                          <select
+                            className={inputClass}
+                            value={item.status}
+                            onChange={(event) => updateReception.mutate({ id: item.id, payload: { status: event.target.value as ReceptionStatus } })}
+                          >
+                            <option value="import_pending">Import</option>
+                            <option value="receiving">Reception</option>
+                            <option value="scanning">Scan en cours</option>
+                            <option value="quality_control">Controle</option>
+                            <option value="closed">Cloturee</option>
+                          </select>
+                        </div>
                       </div>
                       <ProgressBlock current={item.scanned_items} total={Math.max(item.expected_items, 1)} isDark={isDark} />
                     </div>
@@ -598,15 +618,42 @@ export default function Erp() {
                       <tr key={item.id} className={`align-top transition ${isDark ? 'hover:bg-white/[0.035]' : 'hover:bg-slate-50'}`}>
                         <td className="px-5 py-4 font-mono font-bold text-cyan-400">{item.reference}</td>
                         <td className="px-5 py-4">
-                          <div className={`font-bold ${titleClass}`}>{item.client_name}</div>
+                          <input
+                            className={inputClass}
+                            defaultValue={item.client_name}
+                            onBlur={(event) => {
+                              const value = event.target.value.trim()
+                              if (value && value !== item.client_name) updateShipment.mutate({ id: item.id, payload: { client_name: value } })
+                            }}
+                          />
                           <div className={`text-xs ${softMutedClass}`}>{item.notes || 'Sortie atelier'}</div>
                         </td>
                         <td className={`px-5 py-4 ${mutedClass}`}>
                           {item.expected_items} machines / {item.pallet_count} palettes
                         </td>
-                        <td className={`px-5 py-4 ${mutedClass}`}>{item.carrier || 'A definir'}</td>
+                        <td className={`px-5 py-4 ${mutedClass}`}>
+                          <input
+                            className={inputClass}
+                            defaultValue={item.carrier || ''}
+                            placeholder="Transporteur"
+                            onBlur={(event) => {
+                              const value = event.target.value.trim()
+                              if (value !== (item.carrier || '')) updateShipment.mutate({ id: item.id, payload: { carrier: value || null } })
+                            }}
+                          />
+                        </td>
                         <td className="px-5 py-4">
-                          <StatusBadge label={shipmentStatusLabel[item.status]} className={shipmentStatusStyle[item.status]} />
+                          <select
+                            className={inputClass}
+                            value={item.status}
+                            onChange={(event) => updateShipment.mutate({ id: item.id, payload: { status: event.target.value as ShipmentStatus } })}
+                          >
+                            <option value="draft">Brouillon</option>
+                            <option value="picking">Preparation</option>
+                            <option value="quality_control">Controle final</option>
+                            <option value="ready_for_carrier">Pret transport</option>
+                            <option value="shipped">Expedie</option>
+                          </select>
                         </td>
                         <td className="px-5 py-4">
                           <div className="flex flex-wrap gap-2">
