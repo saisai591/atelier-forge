@@ -1,12 +1,15 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertTriangle,
   ArrowRight,
   Barcode,
   Boxes,
   ClipboardList,
+  Download,
   FileSpreadsheet,
   MapPin,
   PackageCheck,
+  Printer,
   QrCode,
   ScanLine,
   ShieldCheck,
@@ -16,108 +19,71 @@ import {
   Upload,
   Warehouse,
 } from 'lucide-react'
+import { useMemo, useRef, useState, type ReactNode } from 'react'
 import ThemeToggle from '../components/ThemeToggle'
+import api from '../api/client'
 import { useThemeMode } from '../hooks/useThemeMode'
-import type { ReactNode } from 'react'
 
-type ReceptionStatus = 'import' | 'reception' | 'scan' | 'controle' | 'pret'
-type ShipmentStatus = 'preparation' | 'controle' | 'pret_transport'
+type ReceptionStatus = 'import_pending' | 'receiving' | 'scanning' | 'quality_control' | 'closed'
+type ShipmentStatus = 'draft' | 'picking' | 'quality_control' | 'ready_for_carrier' | 'shipped'
+type PalletStatus = 'expected' | 'in_progress' | 'complete' | 'blocked'
+
+interface AtelierOverview {
+  receptions_open: number
+  items_expected: number
+  items_scanned: number
+  pallets_active: number
+  shipments_open: number
+  documents_ready: number
+}
 
 interface ReceptionBatch {
   id: string
-  supplier: string
-  file: string
-  format: string
-  expected: number
-  scanned: number
-  pallets: number
-  location: string
+  reference: string
+  supplier_name: string
+  source_filename?: string | null
+  source_format?: string | null
+  expected_items: number
+  scanned_items: number
+  pallet_count: number
+  location?: string | null
   status: ReceptionStatus
-  nextAction: string
+  mapping_profile?: Record<string, unknown>
+  notes?: string | null
 }
 
 interface ClientShipment {
   id: string
-  client: string
   reference: string
-  machines: number
-  pallets: number
-  carrier: string
+  client_name: string
+  carrier?: string | null
+  expected_items: number
+  pallet_count: number
   status: ShipmentStatus
-  documents: string
+  document_state?: Record<string, unknown>
+  notes?: string | null
 }
 
-const receptions: ReceptionBatch[] = [
-  {
-    id: 'REC-2026-0623-01',
-    supplier: 'Broker Europe',
-    file: 'arrivage_broker_0623.xlsx',
-    format: 'Excel fournisseur',
-    expected: 84,
-    scanned: 37,
-    pallets: 4,
-    location: 'Zone A - Quai 2',
-    status: 'scan',
-    nextAction: 'Continuer scan palette A2',
-  },
-  {
-    id: 'REC-2026-0622-04',
-    supplier: 'TechLease',
-    file: 'lot_lease_778.csv',
-    format: 'CSV avec colonnes inconnues',
-    expected: 42,
-    scanned: 42,
-    pallets: 2,
-    location: 'Controle qualite',
-    status: 'controle',
-    nextAction: 'Verifier batteries faibles',
-  },
-  {
-    id: 'REC-2026-0621-02',
-    supplier: 'Reprise Pro',
-    file: 'manifest.xml',
-    format: 'XML fournisseur',
-    expected: 120,
-    scanned: 120,
-    pallets: 6,
-    location: 'Stock entrant',
-    status: 'pret',
-    nextAction: 'Cloturer reception',
-  },
-]
+interface AtelierPallet {
+  id: string
+  reception_id?: string | null
+  shipment_id?: string | null
+  reference: string
+  label?: string | null
+  expected_items: number
+  scanned_items: number
+  location?: string | null
+  status: PalletStatus
+}
 
-const shipments: ClientShipment[] = [
-  {
-    id: 'SORT-2026-061',
-    client: 'Client Marketplace Nord',
-    reference: 'CMD-88421',
-    machines: 30,
-    pallets: 2,
-    carrier: 'Geodis',
-    status: 'preparation',
-    documents: 'BL a generer',
-  },
-  {
-    id: 'SORT-2026-060',
-    client: 'Revendeur Pro',
-    reference: 'PO-2026-1187',
-    machines: 54,
-    pallets: 3,
-    carrier: 'DB Schenker',
-    status: 'controle',
-    documents: 'Liste colisage OK',
-  },
-  {
-    id: 'SORT-2026-059',
-    client: 'Atelier partenaire',
-    reference: 'BL-5620',
-    machines: 18,
-    pallets: 1,
-    carrier: 'Enlevement client',
-    status: 'pret_transport',
-    documents: 'BL + etiquette palette',
-  },
-]
+interface SupplierImportPreview {
+  filename: string
+  file_format: string
+  detected_columns: string[]
+  row_count: number
+  field_guesses: Array<{ source_column: string; target_field: string; confidence: number }>
+  warnings: string[]
+}
 
 const workflow = [
   { label: 'Import fournisseur', detail: 'Excel, CSV, XML', icon: Upload },
@@ -127,13 +93,6 @@ const workflow = [
   { label: 'Sortie client', detail: 'Palette, BL, transport', icon: Truck },
 ]
 
-const fieldMapping = [
-  ['SerialNumber', 'Numero de serie', 'Confiance 98%'],
-  ['Model / Product', 'Marque + modele', 'Confiance 93%'],
-  ['Asset Tag', 'Reference fournisseur', 'Confiance 91%'],
-  ['Grade', 'Etat initial', 'A confirmer'],
-]
-
 const terminals = [
   { name: 'Unitech atelier', type: 'Android scanner', state: 'Connecte', icon: Smartphone },
   { name: 'Tablette reception', type: 'Mode debutant', state: 'Prete', icon: Tablet },
@@ -141,38 +100,248 @@ const terminals = [
 ]
 
 const receptionStatusLabel: Record<ReceptionStatus, string> = {
-  import: 'Import',
-  reception: 'Reception',
-  scan: 'Scan en cours',
-  controle: 'Controle',
-  pret: 'Pret',
+  import_pending: 'Import',
+  receiving: 'Reception',
+  scanning: 'Scan en cours',
+  quality_control: 'Controle',
+  closed: 'Cloturee',
 }
 
 const receptionStatusStyle: Record<ReceptionStatus, string> = {
-  import: 'border-slate-300/20 bg-slate-300/10 text-slate-200',
-  reception: 'border-cyan-300/20 bg-cyan-300/10 text-cyan-100',
-  scan: 'border-blue-300/20 bg-blue-300/10 text-blue-100',
-  controle: 'border-amber-300/20 bg-amber-300/10 text-amber-100',
-  pret: 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100',
+  import_pending: 'border-slate-300/20 bg-slate-300/10 text-slate-200',
+  receiving: 'border-cyan-300/20 bg-cyan-300/10 text-cyan-100',
+  scanning: 'border-blue-300/20 bg-blue-300/10 text-blue-100',
+  quality_control: 'border-amber-300/20 bg-amber-300/10 text-amber-100',
+  closed: 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100',
 }
 
 const shipmentStatusLabel: Record<ShipmentStatus, string> = {
-  preparation: 'Preparation',
-  controle: 'Controle final',
-  pret_transport: 'Pret transport',
+  draft: 'Brouillon',
+  picking: 'Preparation',
+  quality_control: 'Controle final',
+  ready_for_carrier: 'Pret transport',
+  shipped: 'Expedie',
 }
 
 const shipmentStatusStyle: Record<ShipmentStatus, string> = {
-  preparation: 'border-blue-300/20 bg-blue-300/10 text-blue-100',
-  controle: 'border-amber-300/20 bg-amber-300/10 text-amber-100',
-  pret_transport: 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100',
+  draft: 'border-slate-300/20 bg-slate-300/10 text-slate-200',
+  picking: 'border-blue-300/20 bg-blue-300/10 text-blue-100',
+  quality_control: 'border-amber-300/20 bg-amber-300/10 text-amber-100',
+  ready_for_carrier: 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100',
+  shipped: 'border-cyan-300/20 bg-cyan-300/10 text-cyan-100',
+}
+
+function nextRef(prefix: string) {
+  const now = new Date()
+  const day = now.toISOString().slice(0, 10).replace(/-/g, '')
+  const time = `${now.getHours()}${now.getMinutes()}${now.getSeconds()}`.padStart(6, '0')
+  return `${prefix}-${day}-${time}`
+}
+
+function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+async function downloadPdf(path: string, filename: string) {
+  const response = await api.get(path, { responseType: 'blob' })
+  saveBlob(response.data, filename)
 }
 
 export default function Erp() {
-  const totalExpected = receptions.reduce((sum, item) => sum + item.expected, 0)
-  const totalScanned = receptions.reduce((sum, item) => sum + item.scanned, 0)
-  const openShipments = shipments.filter((item) => item.status !== 'pret_transport').length
+  const queryClient = useQueryClient()
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+  const [busyAction, setBusyAction] = useState<string | null>(null)
   const { theme, isDark, toggleTheme } = useThemeMode()
+
+  const overviewQuery = useQuery<AtelierOverview>({
+    queryKey: ['atelier-erp', 'overview'],
+    queryFn: () => api.get('/atelier-erp/overview').then((response) => response.data),
+  })
+  const receptionsQuery = useQuery<ReceptionBatch[]>({
+    queryKey: ['atelier-erp', 'receptions'],
+    queryFn: () => api.get('/atelier-erp/receptions').then((response) => response.data),
+  })
+  const shipmentsQuery = useQuery<ClientShipment[]>({
+    queryKey: ['atelier-erp', 'shipments'],
+    queryFn: () => api.get('/atelier-erp/shipments').then((response) => response.data),
+  })
+  const palletsQuery = useQuery<AtelierPallet[]>({
+    queryKey: ['atelier-erp', 'pallets'],
+    queryFn: () => api.get('/atelier-erp/pallets').then((response) => response.data),
+  })
+
+  const receptions = receptionsQuery.data ?? []
+  const shipments = shipmentsQuery.data ?? []
+  const pallets = palletsQuery.data ?? []
+  const overview = overviewQuery.data
+
+  const totalExpected = overview?.items_expected ?? receptions.reduce((sum, item) => sum + item.expected_items, 0)
+  const totalScanned = overview?.items_scanned ?? receptions.reduce((sum, item) => sum + item.scanned_items, 0)
+  const openShipments = overview?.shipments_open ?? shipments.filter((item) => item.status !== 'shipped').length
+
+  const latestFieldMapping = useMemo(() => {
+    const latest = receptions.find((item) => item.mapping_profile && Object.keys(item.mapping_profile).length > 0)
+    const guesses = (latest?.mapping_profile?.field_guesses ?? []) as SupplierImportPreview['field_guesses']
+    if (!guesses.length) {
+      return [
+        ['SerialNumber', 'Numero de serie', 'En attente fichier'],
+        ['Model / Product', 'Marque + modele', 'En attente fichier'],
+        ['Asset Tag', 'Reference fournisseur', 'En attente fichier'],
+        ['Grade', 'Etat initial', 'En attente fichier'],
+      ]
+    }
+    return guesses.slice(0, 6).map((guess) => [
+      guess.source_column,
+      guess.target_field,
+      `Confiance ${guess.confidence}%`,
+    ])
+  }, [receptions])
+
+  const invalidateErp = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['atelier-erp', 'overview'] }),
+      queryClient.invalidateQueries({ queryKey: ['atelier-erp', 'receptions'] }),
+      queryClient.invalidateQueries({ queryKey: ['atelier-erp', 'shipments'] }),
+      queryClient.invalidateQueries({ queryKey: ['atelier-erp', 'pallets'] }),
+    ])
+  }
+
+  const createReception = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        reference: nextRef('REC'),
+        supplier_name: 'Arrivage atelier',
+        source_filename: 'saisie-manuelle',
+        source_format: 'manual',
+        expected_items: 0,
+        scanned_items: 0,
+        pallet_count: 0,
+        location: 'Zone reception',
+        status: 'receiving',
+        notes: 'Reception creee depuis AtelierOS.',
+      }
+      return api.post('/atelier-erp/receptions', payload).then((response) => response.data)
+    },
+    onSuccess: async () => {
+      setMessage('Reception creee. Vous pouvez maintenant scanner ou importer un fichier fournisseur.')
+      await invalidateErp()
+    },
+  })
+
+  const createShipment = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        reference: nextRef('SORT'),
+        client_name: 'Client a renseigner',
+        carrier: 'Transport a definir',
+        expected_items: 0,
+        pallet_count: 0,
+        status: 'draft',
+        document_state: {},
+        notes: 'Sortie creee depuis AtelierOS.',
+      }
+      return api.post('/atelier-erp/shipments', payload).then((response) => response.data)
+    },
+    onSuccess: async () => {
+      setMessage('Sortie client creee. Completez le client, les palettes et les documents.')
+      await invalidateErp()
+    },
+  })
+
+  const createScanSession = useMutation({
+    mutationFn: async (receptionId?: string) => {
+      const payload = {
+        reception_id: receptionId ?? null,
+        operator_name: 'Technicien atelier',
+        device_name: 'Interface AtelierOS',
+        device_type: 'web',
+      }
+      return api.post('/atelier-erp/scan-sessions', payload).then((response) => response.data)
+    },
+    onSuccess: async () => {
+      setMessage('Session scan ouverte. Le PDA ou la douchette peut envoyer les codes.')
+      await queryClient.invalidateQueries({ queryKey: ['atelier-erp'] })
+    },
+  })
+
+  const importSupplierFile = async (file: File) => {
+    setBusyAction('import')
+    setMessage(null)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const preview = await api.post<SupplierImportPreview>('/atelier-erp/supplier-import/preview', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }).then((response) => response.data)
+      await api.post('/atelier-erp/supplier-import/commit', {
+        reference: nextRef('REC'),
+        supplier_name: file.name.replace(/\.[^.]+$/, '') || 'Fournisseur',
+        source_filename: preview.filename,
+        source_format: preview.file_format,
+        expected_items: preview.row_count,
+        pallet_count: 0,
+        location: 'Zone reception',
+        mapping_profile: {
+          detected_columns: preview.detected_columns,
+          field_guesses: preview.field_guesses,
+          warnings: preview.warnings,
+        },
+        notes: `Import ${preview.file_format} depuis interface ERP.`,
+      })
+      setMessage(`Fichier importe : ${preview.row_count} ligne(s), ${preview.detected_columns.length} colonne(s).`)
+      await invalidateErp()
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Import impossible. Verifiez le fichier.')
+    } finally {
+      setBusyAction(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const handleDownloadBl = async (shipment: ClientShipment) => {
+    setBusyAction(`bl-${shipment.id}`)
+    try {
+      await downloadPdf(`/atelier-erp/shipments/${shipment.id}/delivery-note.pdf`, `bl-${shipment.reference}.pdf`)
+      setMessage(`BL genere pour ${shipment.reference}.`)
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  const handlePrintLabel = async (shipment: ClientShipment) => {
+    setBusyAction(`label-${shipment.id}`)
+    try {
+      let pallet: AtelierPallet | undefined = pallets.find((item) => item.shipment_id === shipment.id)
+      if (!pallet) {
+        pallet = await api.post<AtelierPallet>('/atelier-erp/pallets', {
+          shipment_id: shipment.id,
+          reference: `${shipment.reference}-PAL-01`,
+          label: `Palette ${shipment.reference}`,
+          expected_items: shipment.expected_items,
+          scanned_items: 0,
+          location: 'Zone sortie',
+          status: 'expected',
+          metadata_json: {},
+        }).then((response) => response.data)
+        await invalidateErp()
+      }
+      if (pallet) {
+        await downloadPdf(`/atelier-erp/pallets/${pallet.id}/label.pdf`, `palette-${pallet.reference}.pdf`)
+        setMessage(`Etiquette palette generee pour ${pallet.reference}.`)
+      }
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
   const pageClass = isDark ? 'bg-[#070a10] text-slate-100' : 'bg-slate-100 text-slate-950'
   const borderClass = isDark ? 'border-white/10' : 'border-slate-200'
   const titleClass = isDark ? 'text-white' : 'text-slate-950'
@@ -183,6 +352,7 @@ export default function Erp() {
     : 'border-slate-200 bg-white shadow-slate-200/80'
   const tileClass = isDark ? 'border-white/10 bg-black/20' : 'border-slate-200 bg-slate-50'
   const subtleTileClass = isDark ? 'border-white/10 bg-white/[0.055]' : 'border-slate-200 bg-white'
+  const isLoading = overviewQuery.isLoading || receptionsQuery.isLoading || shipmentsQuery.isLoading
 
   return (
     <main className={`min-h-screen ${pageClass}`}>
@@ -194,25 +364,50 @@ export default function Erp() {
               Reception, stock et sorties client
             </h1>
             <p className={`mt-3 max-w-4xl text-sm leading-6 ${mutedClass}`}>
-              Base atelier modulaire pour importer les fichiers fournisseurs, scanner les palettes, lier les audits
-              machines et preparer les expeditions client.
+              Interface connectee aux donnees reelles : import fournisseur, scan atelier, BL et etiquettes palette.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
-            <button className="inline-flex items-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-3 text-sm font-bold text-cyan-100 shadow-lg shadow-cyan-950/20 transition hover:bg-cyan-300/15">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.txt,.xlsx,.xml"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                if (file) void importSupplierFile(file)
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={busyAction === 'import'}
+              className="inline-flex items-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-3 text-sm font-bold text-cyan-100 shadow-lg shadow-cyan-950/20 transition hover:bg-cyan-300/15 disabled:opacity-50"
+            >
               <Upload size={16} />
-              Importer arrivage
+              {busyAction === 'import' ? 'Import...' : 'Importer'}
             </button>
-            <button className={`inline-flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-bold transition hover:bg-cyan-300/10 ${isDark ? 'border-white/10 bg-white/[0.055] text-slate-100' : 'border-slate-200 bg-white text-slate-700 shadow-sm'}`}>
+            <button
+              type="button"
+              onClick={() => createScanSession.mutate(receptions[0]?.id)}
+              disabled={createScanSession.isPending}
+              className={`inline-flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-bold transition hover:bg-cyan-300/10 disabled:opacity-50 ${isDark ? 'border-white/10 bg-white/[0.055] text-slate-100' : 'border-slate-200 bg-white text-slate-700 shadow-sm'}`}
+            >
               <QrCode size={16} />
               Scanner
             </button>
           </div>
         </header>
 
+        {message && (
+          <div className={`rounded-2xl border px-4 py-3 text-sm font-bold ${isDark ? 'border-cyan-300/20 bg-cyan-300/10 text-cyan-100' : 'border-cyan-200 bg-cyan-50 text-cyan-900'}`}>
+            {message}
+          </div>
+        )}
+
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard label="Receptions ouvertes" value={receptions.length.toString()} icon={ClipboardList} tone="blue" isDark={isDark} />
+          <MetricCard label="Receptions ouvertes" value={(overview?.receptions_open ?? receptions.length).toString()} icon={ClipboardList} tone="blue" isDark={isDark} />
           <MetricCard label="Machines attendues" value={totalExpected.toString()} icon={Boxes} tone="slate" isDark={isDark} />
           <MetricCard label="Machines scannees" value={`${totalScanned}/${totalExpected}`} icon={ScanLine} tone="emerald" isDark={isDark} />
           <MetricCard label="Sorties a preparer" value={openShipments.toString()} icon={Truck} tone="amber" isDark={isDark} />
@@ -221,10 +416,7 @@ export default function Erp() {
         <section className={`rounded-2xl border p-4 shadow-2xl ${panelClass}`}>
           <div className="grid gap-3 lg:grid-cols-5">
             {workflow.map((step, index) => (
-              <div
-                key={step.label}
-                className={`flex min-h-24 items-center gap-3 rounded-xl border px-4 ${tileClass}`}
-              >
+              <div key={step.label} className={`flex min-h-24 items-center gap-3 rounded-xl border px-4 ${tileClass}`}>
                 <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-cyan-300/20 bg-cyan-300/10 text-cyan-100">
                   <step.icon size={20} />
                 </div>
@@ -243,31 +435,35 @@ export default function Erp() {
             <Panel className={panelClass}>
               <ModuleHeader
                 title="Arrivages fournisseurs"
-                subtitle="Chaque fichier fournisseur devient une reception controlee et scannable."
+                subtitle="Les receptions viennent maintenant de la base ERP."
                 action="Nouvelle reception"
                 icon={FileSpreadsheet}
                 isDark={isDark}
+                onAction={() => createReception.mutate()}
+                actionBusy={createReception.isPending}
               />
               <div className={`divide-y ${isDark ? 'divide-white/10' : 'divide-slate-200'}`}>
+                {isLoading && <EmptyState text="Chargement des receptions..." isDark={isDark} />}
+                {!isLoading && receptions.length === 0 && <EmptyState text="Aucune reception. Importez un fichier fournisseur ou creez une reception." isDark={isDark} />}
                 {receptions.map((item) => (
                   <article key={item.id} className="p-5">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-mono text-sm font-bold text-cyan-400">{item.id}</span>
+                          <span className="font-mono text-sm font-bold text-cyan-400">{item.reference}</span>
                           <StatusBadge label={receptionStatusLabel[item.status]} className={receptionStatusStyle[item.status]} />
                         </div>
-                        <h3 className={`mt-2 truncate text-xl font-black ${titleClass}`}>{item.supplier}</h3>
+                        <h3 className={`mt-2 truncate text-xl font-black ${titleClass}`}>{item.supplier_name}</h3>
                         <p className={`mt-1 text-sm ${mutedClass}`}>
-                          {item.file} - {item.format}
+                          {item.source_filename || 'Reception manuelle'} - {item.source_format || 'manuel'}
                         </p>
                         <div className={`mt-3 flex flex-wrap gap-2 text-xs ${mutedClass}`}>
-                          <InfoPill icon={MapPin} label={item.location} isDark={isDark} />
-                          <InfoPill icon={Boxes} label={`${item.pallets} palettes`} isDark={isDark} />
-                          <InfoPill icon={PackageCheck} label={item.nextAction} isDark={isDark} />
+                          <InfoPill icon={MapPin} label={item.location || 'Zone non definie'} isDark={isDark} />
+                          <InfoPill icon={Boxes} label={`${item.pallet_count} palettes`} isDark={isDark} />
+                          <InfoPill icon={PackageCheck} label={item.notes || 'Pret pour scan atelier'} isDark={isDark} />
                         </div>
                       </div>
-                      <ProgressBlock current={item.scanned} total={item.expected} isDark={isDark} />
+                      <ProgressBlock current={item.scanned_items} total={Math.max(item.expected_items, 1)} isDark={isDark} />
                     </div>
                   </article>
                 ))}
@@ -277,38 +473,52 @@ export default function Erp() {
             <Panel className={panelClass}>
               <ModuleHeader
                 title="Sorties client et palettes"
-                subtitle="Preparation des palettes client avec etiquettes, BL et liste de colisage."
+                subtitle="BL et etiquettes palette sont generes par le backend en PDF."
                 action="Creer sortie"
                 icon={Truck}
                 isDark={isDark}
+                onAction={() => createShipment.mutate()}
+                actionBusy={createShipment.isPending}
               />
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] text-left text-sm">
+                <table className="w-full min-w-[920px] text-left text-sm">
                   <thead className={`border-b text-xs uppercase tracking-[0.16em] ${isDark ? 'border-white/10 bg-white/[0.035] text-slate-500' : 'border-slate-200 bg-slate-50 text-slate-500'}`}>
                     <tr>
                       <th className="px-5 py-3">Sortie</th>
                       <th className="px-5 py-3">Client</th>
                       <th className="px-5 py-3">Machines</th>
                       <th className="px-5 py-3">Transport</th>
-                      <th className="px-5 py-3">Documents</th>
                       <th className="px-5 py-3">Statut</th>
+                      <th className="px-5 py-3">Actions</th>
                     </tr>
                   </thead>
                   <tbody className={`divide-y ${isDark ? 'divide-white/10' : 'divide-slate-200'}`}>
+                    {shipments.length === 0 && (
+                      <tr>
+                        <td colSpan={6}>
+                          <EmptyState text="Aucune sortie client. Creez une sortie pour generer BL et etiquettes." isDark={isDark} />
+                        </td>
+                      </tr>
+                    )}
                     {shipments.map((item) => (
                       <tr key={item.id} className={`align-top transition ${isDark ? 'hover:bg-white/[0.035]' : 'hover:bg-slate-50'}`}>
-                        <td className="px-5 py-4 font-mono font-bold text-cyan-400">{item.id}</td>
+                        <td className="px-5 py-4 font-mono font-bold text-cyan-400">{item.reference}</td>
                         <td className="px-5 py-4">
-                          <div className={`font-bold ${titleClass}`}>{item.client}</div>
-                          <div className={`text-xs ${softMutedClass}`}>{item.reference}</div>
+                          <div className={`font-bold ${titleClass}`}>{item.client_name}</div>
+                          <div className={`text-xs ${softMutedClass}`}>{item.notes || 'Sortie atelier'}</div>
                         </td>
                         <td className={`px-5 py-4 ${mutedClass}`}>
-                          {item.machines} machines / {item.pallets} palettes
+                          {item.expected_items} machines / {item.pallet_count} palettes
                         </td>
-                        <td className={`px-5 py-4 ${mutedClass}`}>{item.carrier}</td>
-                        <td className={`px-5 py-4 ${mutedClass}`}>{item.documents}</td>
+                        <td className={`px-5 py-4 ${mutedClass}`}>{item.carrier || 'A definir'}</td>
                         <td className="px-5 py-4">
                           <StatusBadge label={shipmentStatusLabel[item.status]} className={shipmentStatusStyle[item.status]} />
+                        </td>
+                        <td className="px-5 py-4">
+                          <div className="flex flex-wrap gap-2">
+                            <ActionButton icon={Download} label="Generer BL" busy={busyAction === `bl-${item.id}`} onClick={() => void handleDownloadBl(item)} isDark={isDark} />
+                            <ActionButton icon={Printer} label="Imprimer etiquette" busy={busyAction === `label-${item.id}`} onClick={() => void handlePrintLabel(item)} isDark={isDark} />
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -320,19 +530,14 @@ export default function Erp() {
 
           <aside className="space-y-6">
             <Panel className={panelClass}>
-              <ModuleHeader
-                title="Import intelligent"
-                subtitle="Preparation du futur moteur de correspondance fournisseur."
-                icon={FileSpreadsheet}
-                isDark={isDark}
-              />
+              <ModuleHeader title="Import intelligent" subtitle="Dernieres correspondances detectees par fichier fournisseur." icon={FileSpreadsheet} isDark={isDark} />
               <div className="space-y-3 p-5 pt-0">
-                {fieldMapping.map(([source, target, confidence]) => (
-                  <div key={source} className={`rounded-xl border p-3 ${tileClass}`}>
+                {latestFieldMapping.map(([source, target, confidence]) => (
+                  <div key={`${source}-${target}`} className={`rounded-xl border p-3 ${tileClass}`}>
                     <div className="flex items-center justify-between gap-3">
                       <span className={`truncate text-sm font-bold ${titleClass}`}>{source}</span>
                       <ArrowRight className="shrink-0 text-slate-600" size={15} />
-                      <span className="truncate text-sm font-bold text-cyan-100">{target}</span>
+                      <span className={`truncate text-sm font-bold ${isDark ? 'text-cyan-100' : 'text-cyan-800'}`}>{target}</span>
                     </div>
                     <p className={`mt-2 text-xs ${softMutedClass}`}>{confidence}</p>
                   </div>
@@ -364,9 +569,9 @@ export default function Erp() {
               <div className="flex gap-3">
                 <AlertTriangle className="mt-0.5 shrink-0 text-amber-200" size={20} />
                 <div>
-                  <h2 className="font-black text-amber-50">Etape suivante</h2>
+                  <h2 className="font-black text-amber-50">Connecte au backend</h2>
                   <p className="mt-2 text-sm leading-6 text-amber-50/75">
-                    Brancher cette interface aux endpoints ERP reels pour supprimer les donnees de demonstration.
+                    Les donnees de demonstration sont supprimees. La prochaine couche sera l edition detaillee des clients, palettes et statuts.
                   </p>
                 </div>
               </div>
@@ -423,12 +628,16 @@ function ModuleHeader({
   action,
   icon: Icon,
   isDark,
+  onAction,
+  actionBusy = false,
 }: {
   title: string
   subtitle: string
   action?: string
   icon: typeof ClipboardList
   isDark: boolean
+  onAction?: () => void
+  actionBusy?: boolean
 }) {
   return (
     <div className={`flex flex-col gap-3 border-b p-5 sm:flex-row sm:items-center sm:justify-between ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
@@ -442,8 +651,13 @@ function ModuleHeader({
         </div>
       </div>
       {action && (
-        <button className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-bold transition ${isDark ? 'border-white/10 text-slate-200 hover:bg-white/[0.07]' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}>
-          {action}
+        <button
+          type="button"
+          onClick={onAction}
+          disabled={actionBusy}
+          className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-bold transition disabled:opacity-50 ${isDark ? 'border-white/10 text-slate-200 hover:bg-white/[0.07]' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
+        >
+          {actionBusy ? 'Creation...' : action}
         </button>
       )}
     </div>
@@ -451,7 +665,7 @@ function ModuleHeader({
 }
 
 function ProgressBlock({ current, total, isDark }: { current: number; total: number; isDark: boolean }) {
-  const percent = Math.round((current / total) * 100)
+  const percent = Math.min(100, Math.round((current / total) * 100))
 
   return (
     <div className="w-full shrink-0 lg:w-72">
@@ -479,5 +693,39 @@ function InfoPill({ icon: Icon, label, isDark }: { icon: typeof MapPin; label: s
       <Icon size={13} />
       {label}
     </span>
+  )
+}
+
+function ActionButton({
+  icon: Icon,
+  label,
+  busy,
+  onClick,
+  isDark,
+}: {
+  icon: typeof Download
+  label: string
+  busy: boolean
+  onClick: () => void
+  isDark: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={busy}
+      className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-black transition disabled:opacity-50 ${isDark ? 'border-white/10 bg-white/[0.055] text-slate-100 hover:bg-white/[0.08]' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
+    >
+      <Icon size={14} />
+      {busy ? '...' : label}
+    </button>
+  )
+}
+
+function EmptyState({ text, isDark }: { text: string; isDark: boolean }) {
+  return (
+    <div className={`p-6 text-sm font-semibold ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+      {text}
+    </div>
   )
 }
