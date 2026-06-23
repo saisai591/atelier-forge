@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  AlertTriangle,
   Barcode,
   Boxes,
   ClipboardList,
@@ -712,9 +711,6 @@ export default function Erp() {
             <h1 className={`mt-2 text-3xl font-black tracking-tight sm:text-4xl ${titleClass}`}>
               Reception, stock et sorties client
             </h1>
-            <p className={`mt-3 max-w-4xl text-sm leading-6 ${mutedClass}`}>
-              Interface connectee aux donnees reelles : import fournisseur, scan atelier, BL et etiquettes palette.
-            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
@@ -1292,18 +1288,6 @@ export default function Erp() {
                 ))}
               </div>
             </Panel>}
-
-            <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-5">
-              <div className="flex gap-3">
-                <AlertTriangle className="mt-0.5 shrink-0 text-amber-200" size={20} />
-                <div>
-                  <h2 className="font-black text-amber-50">Connecte au backend</h2>
-                  <p className="mt-2 text-sm leading-6 text-amber-50/75">
-                    Les donnees de demonstration sont supprimees. La prochaine couche sera l edition detaillee des clients, palettes et statuts.
-                  </p>
-                </div>
-              </div>
-            </div>
           </aside>
         </section>
       </div>
