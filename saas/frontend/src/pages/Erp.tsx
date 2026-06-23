@@ -439,6 +439,15 @@ export default function Erp() {
     },
   })
 
+  const updateScanSession = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: ScanSession['status'] }) =>
+      api.patch(`/atelier-erp/scan-sessions/${id}`, { status }).then((response) => response.data),
+    onSuccess: async () => {
+      setMessage('Session scan mise a jour.')
+      await queryClient.invalidateQueries({ queryKey: ['atelier-erp', 'scan-sessions'] })
+    },
+  })
+
   const importSupplierFile = async (file: File) => {
     setBusyAction('import')
     setMessage(null)
@@ -915,6 +924,24 @@ export default function Erp() {
                   <div className={`mt-1 text-sm font-black ${titleClass}`}>
                     {activeSession ? `${activeSession.scanned_count} scan(s), ${activeSession.anomaly_count} anomalie(s)` : 'Aucune session ouverte'}
                   </div>
+                  {activeSession && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <ActionButton
+                        icon={PackageCheck}
+                        label={activeSession.status === 'paused' ? 'Reprendre' : 'Pause'}
+                        busy={updateScanSession.isPending}
+                        onClick={() => updateScanSession.mutate({ id: activeSession.id, status: activeSession.status === 'paused' ? 'open' : 'paused' })}
+                        isDark={isDark}
+                      />
+                      <ActionButton
+                        icon={PackageCheck}
+                        label="Cloturer session"
+                        busy={updateScanSession.isPending}
+                        onClick={() => updateScanSession.mutate({ id: activeSession.id, status: 'closed' })}
+                        isDark={isDark}
+                      />
+                    </div>
+                  )}
                 </div>
                 <form
                   className="space-y-2"
@@ -950,6 +977,16 @@ export default function Erp() {
                   </div>
                 )}
                 <div className="space-y-2">
+                  {(scanEventsQuery.data ?? []).filter((event) => event.event_type !== 'found').length > 0 && (
+                    <div className="rounded-xl border border-amber-300/20 bg-amber-300/10 p-3">
+                      <div className="text-sm font-black text-amber-100">
+                        {(scanEventsQuery.data ?? []).filter((event) => event.event_type !== 'found').length} anomalie(s) a traiter
+                      </div>
+                      <div className="mt-1 text-xs text-amber-100/70">
+                        Codes inconnus, doublons ou mauvais lots detectes pendant le scan.
+                      </div>
+                    </div>
+                  )}
                   {(scanEventsQuery.data ?? []).slice(0, 5).map((event) => (
                     <div key={event.id} className={`rounded-lg border px-3 py-2 text-xs ${tileClass}`}>
                       <div className={`font-mono font-black ${titleClass}`}>{event.code}</div>
