@@ -2476,10 +2476,17 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
     .barcode-zone { display: grid; align-content: end; gap: .25mm; }
     .barcode { width: 100%; height: ${slimLabel ? '5.1mm' : '12mm'}; object-fit: fill; image-rendering: crisp-edges; }
     .barcode-label { font-size: ${slimLabel ? '3.2pt' : '5.2pt'}; white-space: nowrap; overflow: hidden; text-align: center; }
-    @media print { html, body { background: white; } }
+    .print-toolbar { position: fixed; left: 12px; top: 12px; z-index: 20; display: flex; gap: 8px; align-items: center; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; box-shadow: 0 12px 30px rgba(0,0,0,.18); font-family: Arial, Helvetica, sans-serif; }
+    .print-toolbar button { border: 0; border-radius: 6px; background: #111827; color: #fff; font-weight: 800; padding: 7px 12px; cursor: pointer; }
+    .print-toolbar span { color: #111827; font-size: 11px; font-weight: 800; }
+    @media print { html, body { background: white; } .print-toolbar { display: none !important; } }
   </style>
 </head>
 <body>
+      <div class="print-toolbar">
+        <button type="button" onclick="fitText(); window.focus(); window.print();">Imprimer</button>
+        <span>${pageWidth} x ${pageHeight} mm - echelle 100%</span>
+      </div>
       <section class="label">
         <div class="top">
           <div><div class="brand fit" data-min="${slimLabel ? '3.3' : '6'}">AOS DEPLOY - CERTIFIED DEVICE</div><div class="titleline"><h1 class="fit" data-min="${slimLabel ? '5.8' : '10'}">${escapeHtml(printLabel.title)}</h1><div class="grade">${escapeHtml(label.grade)}</div></div></div>
@@ -2529,7 +2536,6 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
       fitText();
       requestAnimationFrame(() => {
         fitText();
-        setTimeout(() => window.print(), 120);
       });
     };
   </script>
