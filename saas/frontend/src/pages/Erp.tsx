@@ -121,6 +121,17 @@ interface MachineLookup {
   summary?: Record<string, unknown>
 }
 
+interface AtelierDocument {
+  id: string
+  reception_id?: string | null
+  shipment_id?: string | null
+  document_type: 'supplier_manifest' | 'pallet_label' | 'delivery_note' | 'packing_list' | 'quality_report'
+  title: string
+  file_path?: string | null
+  payload: Record<string, unknown>
+  created_at: string
+}
+
 const workflow = [
   { label: 'Import fournisseur', detail: 'Excel, CSV, XML', icon: Upload },
   { label: 'Reception palette', detail: 'Lot, quai, zone', icon: Warehouse },
@@ -205,11 +216,16 @@ export default function Erp() {
     queryKey: ['atelier-erp', 'scan-sessions'],
     queryFn: () => api.get('/atelier-erp/scan-sessions').then((response) => response.data),
   })
+  const documentsQuery = useQuery<AtelierDocument[]>({
+    queryKey: ['atelier-erp', 'documents'],
+    queryFn: () => api.get('/atelier-erp/documents').then((response) => response.data),
+  })
 
   const receptions = receptionsQuery.data ?? []
   const shipments = shipmentsQuery.data ?? []
   const pallets = palletsQuery.data ?? []
   const scanSessions = scanSessionsQuery.data ?? []
+  const documents = documentsQuery.data ?? []
   const activeSession = scanSessions.find((session) => session.id === activeSessionId)
     ?? scanSessions.find((session) => session.status === 'open')
     ?? null
@@ -250,6 +266,7 @@ export default function Erp() {
       queryClient.invalidateQueries({ queryKey: ['atelier-erp', 'shipments'] }),
       queryClient.invalidateQueries({ queryKey: ['atelier-erp', 'pallets'] }),
       queryClient.invalidateQueries({ queryKey: ['atelier-erp', 'scan-sessions'] }),
+      queryClient.invalidateQueries({ queryKey: ['atelier-erp', 'documents'] }),
     ])
   }
 
@@ -444,7 +461,15 @@ export default function Erp() {
     setBusyAction(`bl-${shipment.id}`)
     try {
       await downloadPdf(`/atelier-erp/shipments/${shipment.id}/delivery-note.pdf`, `bl-${shipment.reference}.pdf`)
+      await api.post('/atelier-erp/documents', {
+        shipment_id: shipment.id,
+        document_type: 'delivery_note',
+        title: `BL ${shipment.reference}`,
+        file_path: null,
+        payload: { reference: shipment.reference, generated_from: 'erp_interface' },
+      })
       setMessage(`BL genere pour ${shipment.reference}.`)
+      await invalidateErp()
     } finally {
       setBusyAction(null)
     }
@@ -469,7 +494,15 @@ export default function Erp() {
       }
       if (pallet) {
         await downloadPdf(`/atelier-erp/pallets/${pallet.id}/label.pdf`, `palette-${pallet.reference}.pdf`)
+        await api.post('/atelier-erp/documents', {
+          shipment_id: shipment.id,
+          document_type: 'pallet_label',
+          title: `Etiquette palette ${pallet.reference}`,
+          file_path: null,
+          payload: { pallet_reference: pallet.reference, generated_from: 'erp_interface' },
+        })
         setMessage(`Etiquette palette generee pour ${pallet.reference}.`)
+        await invalidateErp()
       }
     } finally {
       setBusyAction(null)
@@ -740,6 +773,21 @@ export default function Erp() {
                         </div>
                       </div>
                       <StatusBadge label={pallet.status} className="border-cyan-300/20 bg-cyan-300/10 text-cyan-100" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+
+            <Panel className={panelClass}>
+              <ModuleHeader title="Documents" subtitle="Historique des BL, etiquettes et rapports generes." icon={Download} isDark={isDark} />
+              <div className="space-y-2 p-5 pt-0">
+                {documents.length === 0 && <EmptyState text="Aucun document genere pour le moment." isDark={isDark} />}
+                {documents.slice(0, 8).map((document) => (
+                  <div key={document.id} className={`rounded-xl border p-3 ${tileClass}`}>
+                    <div className={`text-sm font-black ${titleClass}`}>{document.title}</div>
+                    <div className={`mt-1 text-xs ${softMutedClass}`}>
+                      {document.document_type} - {new Date(document.created_at).toLocaleString()}
                     </div>
                   </div>
                 ))}
