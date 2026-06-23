@@ -181,6 +181,7 @@ export default function Erp() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [scanCode, setScanCode] = useState('')
   const [lastLookup, setLastLookup] = useState<MachineLookup | null>(null)
+  const [lastImportPreview, setLastImportPreview] = useState<SupplierImportPreview | null>(null)
   const { theme, isDark, toggleTheme } = useThemeMode()
 
   const overviewQuery = useQuery<AtelierOverview>({
@@ -377,6 +378,7 @@ export default function Erp() {
       const preview = await api.post<SupplierImportPreview>('/atelier-erp/supplier-import/preview', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
       }).then((response) => response.data)
+      setLastImportPreview(preview)
       await api.post('/atelier-erp/supplier-import/commit', {
         reference: nextRef('REC'),
         supplier_name: file.name.replace(/\.[^.]+$/, '') || 'Fournisseur',
@@ -726,6 +728,19 @@ export default function Erp() {
             <Panel className={panelClass}>
               <ModuleHeader title="Import intelligent" subtitle="Dernieres correspondances detectees par fichier fournisseur." icon={FileSpreadsheet} isDark={isDark} />
               <div className="space-y-3 p-5 pt-0">
+                {lastImportPreview && (
+                  <div className={`rounded-xl border p-3 ${isDark ? 'border-cyan-300/20 bg-cyan-300/10' : 'border-cyan-200 bg-cyan-50'}`}>
+                    <div className={`text-sm font-black ${isDark ? 'text-cyan-100' : 'text-cyan-900'}`}>{lastImportPreview.filename}</div>
+                    <div className={`mt-1 text-xs font-semibold ${isDark ? 'text-cyan-100/75' : 'text-cyan-800'}`}>
+                      {lastImportPreview.row_count} ligne(s), {lastImportPreview.detected_columns.length} colonne(s), format {lastImportPreview.file_format}
+                    </div>
+                    {lastImportPreview.warnings.length > 0 && (
+                      <div className="mt-2 text-xs font-semibold text-amber-200">
+                        {lastImportPreview.warnings.join(' ')}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {latestFieldMapping.map(([source, target, confidence]) => (
                   <div key={`${source}-${target}`} className={`rounded-xl border p-3 ${tileClass}`}>
                     <div className="flex items-center justify-between gap-3">
