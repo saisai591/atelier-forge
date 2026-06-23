@@ -66,9 +66,9 @@ const navItems = [
   { label: 'Machines PXE', icon: Laptop },
   { label: 'Diagnostic', icon: Gauge },
   { label: 'Stock', icon: PackageCheck },
-  { label: 'Étiquettes', icon: Tags },
-  { label: 'Sécurité', icon: ShieldCheck },
-  { label: 'Réglages', icon: Settings },
+  { label: 'Etiquettes', icon: Tags },
+  { label: 'Securite', icon: ShieldCheck },
+  { label: 'Reglages', icon: Settings },
 ]
 
 export default function DashboardLayout() {
@@ -97,9 +97,9 @@ export default function DashboardLayout() {
     }).length
     return [
       { label: 'Machines vues', value: String(clients.length), icon: Laptop, trend: `${liveClients} avec IP ou agent live` },
-      { label: 'Assets PXE prêts', value: `${readyAssets}/${data?.assets.length ?? 0}`, icon: ShieldCheck, trend: `${missingAssets} à préparer` },
+      { label: 'Assets PXE prets', value: `${readyAssets}/${data?.assets.length ?? 0}`, icon: ShieldCheck, trend: `${missingAssets} a preparer` },
       { label: 'Serveur PXE', value: data?.server_ip ?? '-', icon: Wifi, trend: data?.mode ?? 'Chargement' },
-      { label: 'Alertes', value: String(warnings), icon: Activity, trend: data?.diagnostic ?? 'Aucun diagnostic chargé' },
+      { label: 'Alertes', value: String(warnings), icon: Activity, trend: data?.diagnostic ?? 'Aucun diagnostic charge' },
     ]
   }, [clients, data])
 
@@ -119,14 +119,11 @@ export default function DashboardLayout() {
               <div>
                 <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 ring-1 ring-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/20">
                   <Wifi size={14} />
-                  Données réelles PXE
+                  Donnees reelles PXE
                 </div>
                 <h1 className="max-w-3xl text-3xl font-black tracking-tight text-slate-950 dark:text-white sm:text-4xl">
-                  Supervision atelier connectée au serveur {data?.server_ip ?? 'PXE'}.
+                  Supervision atelier connectee au serveur {data?.server_ip ?? 'PXE'}.
                 </h1>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-                  Cette vue n’affiche aucune donnée fictive: machines, assets et états viennent de l’API Atelier Forge.
-                </p>
               </div>
 
               <div className="flex flex-wrap gap-2">
@@ -169,8 +166,7 @@ export default function DashboardLayout() {
             <div className="overflow-hidden rounded-[1.75rem] border border-white/70 bg-white/90 shadow-xl shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-900/85 dark:shadow-black/20">
               <div className="flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-4 dark:border-slate-800">
                 <div>
-                  <h2 className="text-lg font-black">Machines PXE réelles</h2>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Audits stock et agents live remontés par le serveur.</p>
+                  <h2 className="text-lg font-black">Machines PXE reelles</h2>
                 </div>
                 <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500 dark:bg-slate-800 dark:text-slate-300">
                   Auto 10s
@@ -178,9 +174,9 @@ export default function DashboardLayout() {
               </div>
 
               {isLoading ? (
-                <EmptyState title="Lecture du serveur PXE..." detail="Connexion à l’API Atelier Forge." />
+                <EmptyState title="Lecture du serveur PXE..." detail="Connexion API." />
               ) : clients.length === 0 ? (
-                <EmptyState title="Aucune machine réelle pour le moment" detail="Boote un PC en PXE puis choisis Diagnostic SystemRescue pour faire remonter un audit." />
+                <EmptyState title="Aucune machine reelle" detail="Boote un PC en PXE." />
               ) : (
                 <>
                   <div className="hidden overflow-x-auto lg:block">
@@ -188,10 +184,10 @@ export default function DashboardLayout() {
                       <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-400 dark:bg-slate-900 dark:text-slate-500">
                         <tr>
                           <th className="px-5 py-3">Machine</th>
-                          <th className="px-5 py-3">Réseau</th>
-                          <th className="px-5 py-3">État</th>
+                          <th className="px-5 py-3">Reseau</th>
+                          <th className="px-5 py-3">Etat</th>
                           <th className="px-5 py-3">Boot</th>
-                          <th className="px-5 py-3">Dernière vue</th>
+                          <th className="px-5 py-3">Derniere vue</th>
                           <th className="px-5 py-3">Progression</th>
                         </tr>
                       </thead>
@@ -236,7 +232,7 @@ export default function DashboardLayout() {
                         </div>
                         <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
                           <MiniMetric label="Boot" value={client.boot_mode ?? '-'} />
-                          <MiniMetric label="Série" value={client.serial_number ?? '-'} />
+                          <MiniMetric label="Serie" value={client.serial_number ?? '-'} />
                           <MiniMetric label="Vu" value={formatDate(client.last_seen)} />
                         </div>
                         <div className="mt-4"><Progress value={client.progress ?? 0} /></div>
@@ -251,7 +247,7 @@ export default function DashboardLayout() {
               {selected ? (
                 <MachineDetail client={selected} assets={data?.assets ?? []} />
               ) : (
-                <EmptyState title="Aucun détail" detail="Sélectionne une machine réelle dès qu’un audit PXE remonte." compact />
+                <EmptyState title="Aucun detail" detail="Selectionne une machine reelle des qu'un audit PXE remonte." compact />
               )}
             </aside>
           </section>
@@ -274,7 +270,7 @@ function MachineDetail({ client, assets }: { client: PxeClient; assets: PxeAsset
     <>
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Machine réelle</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Machine reelle</p>
           <h2 className="mt-2 text-xl font-black">{machineTitle(client)}</h2>
           <p className="mt-1 text-sm text-slate-500">{client.serial_number ?? client.mac ?? client.id}</p>
         </div>
@@ -297,7 +293,7 @@ function MachineDetail({ client, assets }: { client: PxeClient; assets: PxeAsset
 
       {client.remote_url && (
         <a href={client.remote_url} className="mt-5 flex items-center justify-center rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 dark:bg-white dark:text-slate-950">
-          Ouvrir contrôle distant
+          Ouvrir controle distant
         </a>
       )}
 
@@ -331,8 +327,8 @@ function DesktopSidebar() {
       </nav>
       <div className="rounded-3xl bg-slate-950 p-4 text-white dark:bg-slate-900">
         <div className="mb-3 inline-flex rounded-2xl bg-white/10 p-2"><Command size={18} /></div>
-        <p className="text-sm font-black">Flux réel</p>
-        <p className="mt-1 text-xs leading-5 text-slate-300">Aucune donnée fictive: l’écran dépend du serveur PXE.</p>
+        <p className="text-sm font-black">Flux reel</p>
+        <p className="mt-1 text-xs leading-5 text-slate-300">Serveur PXE actif.</p>
       </div>
     </aside>
   )
@@ -367,7 +363,7 @@ function TopBar({ onMenu, onRefresh, isFetching }: { onMenu: () => void; onRefre
         <button onClick={onMenu} className="rounded-2xl p-2 text-slate-600 transition hover:bg-white hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-900 lg:hidden"><Menu size={22} /></button>
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input className="h-12 w-full rounded-2xl border border-white/70 bg-white/85 pl-11 pr-4 text-sm font-medium outline-none ring-blue-500/20 transition placeholder:text-slate-400 focus:ring-4 dark:border-slate-800 dark:bg-slate-900" placeholder="Rechercher machine, numéro série, IP, MAC..." />
+          <input className="h-12 w-full rounded-2xl border border-white/70 bg-white/85 pl-11 pr-4 text-sm font-medium outline-none ring-blue-500/20 transition placeholder:text-slate-400 focus:ring-4 dark:border-slate-800 dark:bg-slate-900" placeholder="Rechercher machine, numero serie, IP, MAC..." />
         </div>
         <button onClick={onRefresh} className="hidden rounded-2xl bg-white/85 p-3 text-slate-600 ring-1 ring-white/70 transition hover:-translate-y-0.5 hover:text-slate-950 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-800 sm:inline-flex">
           <Zap size={18} className={isFetching ? 'animate-pulse' : ''} />
@@ -416,7 +412,7 @@ function Brand() {
 
 function StatusBadge({ state }: { state: string }) {
   const normalized = state.toLowerCase()
-  const ok = normalized.includes('terminé') || normalized.includes('certifié') || normalized.includes('ok')
+  const ok = normalized.includes('termine') || normalized.includes('certifie') || normalized.includes('ok')
   const live = normalized.includes('live') || normalized.includes('cours') || normalized.includes('actif')
   const warn = normalized.includes('warning') || normalized.includes('attention') || normalized.includes('failed') || normalized.includes('erreur')
   const className = warn
@@ -489,3 +485,4 @@ function formatDate(value: string | null) {
   if (Number.isNaN(date.getTime())) return value
   return date.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
 }
+
