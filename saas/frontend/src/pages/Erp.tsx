@@ -249,8 +249,6 @@ export default function Erp() {
     enabled: Boolean(activeSession?.id),
   })
 
-  const totalExpected = overview?.items_expected ?? receptions.reduce((sum, item) => sum + item.expected_items, 0)
-  const totalScanned = overview?.items_scanned ?? receptions.reduce((sum, item) => sum + item.scanned_items, 0)
   const openShipments = overview?.shipments_open ?? shipments.filter((item) => item.status !== 'shipped').length
 
   const latestFieldMapping = useMemo(() => {
@@ -705,12 +703,10 @@ export default function Erp() {
   return (
     <main className={`min-h-screen ${pageClass}`}>
       <div className="mx-auto w-full max-w-[1560px] space-y-4 px-4 py-4 sm:px-6 lg:px-8 2xl:px-10">
-        <header className={`flex flex-col gap-4 border-b ${borderClass} pb-5 lg:flex-row lg:items-end lg:justify-between`}>
+        <header className={`flex flex-col gap-4 border-b ${borderClass} pb-4 lg:flex-row lg:items-center lg:justify-between`}>
           <div>
             <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-300">Atelier ERP</p>
-            <h1 className={`mt-2 text-3xl font-black tracking-tight sm:text-4xl ${titleClass}`}>
-              Reception, stock et sorties client
-            </h1>
+            <h1 className={`mt-1 text-2xl font-black tracking-tight sm:text-3xl ${titleClass}`}>Reception, stock, sorties</h1>
           </div>
           <div className="flex flex-wrap gap-2">
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
@@ -764,13 +760,6 @@ export default function Erp() {
             <div className="text-xl font-black">Etat atelier : {actionState.label}</div>
             <div className="text-sm font-bold opacity-85">{actionState.detail}</div>
           </div>
-        </section>
-
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard label="Receptions ouvertes" value={(overview?.receptions_open ?? receptions.length).toString()} icon={ClipboardList} tone="blue" isDark={isDark} />
-          <MetricCard label="Machines attendues" value={totalExpected.toString()} icon={Boxes} tone="slate" isDark={isDark} />
-          <MetricCard label="Machines scannees" value={`${totalScanned}/${totalExpected}`} icon={ScanLine} tone="emerald" isDark={isDark} />
-          <MetricCard label="Sorties a preparer" value={openShipments.toString()} icon={Truck} tone="amber" isDark={isDark} />
         </section>
 
         <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
@@ -1292,41 +1281,6 @@ export default function Erp() {
         </section>
       </div>
     </main>
-  )
-}
-
-function MetricCard({
-  label,
-  value,
-  icon: Icon,
-  tone,
-  isDark,
-}: {
-  label: string
-  value: string
-  icon: typeof ClipboardList
-  tone: 'blue' | 'slate' | 'emerald' | 'amber'
-  isDark: boolean
-}) {
-  const tones = {
-    blue: 'border-blue-300/20 bg-blue-300/10 text-blue-100',
-    slate: 'border-slate-300/20 bg-white/[0.055] text-slate-100',
-    emerald: 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100',
-    amber: 'border-amber-300/20 bg-amber-300/10 text-amber-100',
-  }
-
-  return (
-    <div className={`rounded-2xl border p-5 shadow-2xl ${isDark ? 'border-white/10 bg-white/[0.045] shadow-black/30' : 'border-slate-200 bg-white shadow-slate-200/80'}`}>
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm font-semibold text-slate-500">{label}</p>
-          <p className={`mt-2 text-3xl font-black ${isDark ? 'text-white' : 'text-slate-950'}`}>{value}</p>
-        </div>
-        <div className={`rounded-xl border p-2 ${tones[tone]}`}>
-          <Icon size={20} />
-        </div>
-      </div>
-    </div>
   )
 }
 
