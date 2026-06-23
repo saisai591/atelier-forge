@@ -85,6 +85,41 @@ interface SupplierImportPreview {
   warnings: string[]
 }
 
+interface ScanSession {
+  id: string
+  reception_id?: string | null
+  pallet_id?: string | null
+  operator_name?: string | null
+  device_name?: string | null
+  device_type?: string | null
+  status: 'open' | 'paused' | 'closed'
+  scanned_count: number
+  anomaly_count: number
+  created_at: string
+}
+
+interface ScanEvent {
+  id: string
+  session_id: string
+  code: string
+  event_type: 'found' | 'unknown' | 'duplicate' | 'wrong_batch' | 'manual_note'
+  message?: string | null
+  created_at: string
+}
+
+interface MachineLookup {
+  code: string
+  found: boolean
+  source: string
+  stock_item_id?: string | null
+  serial_number?: string | null
+  brand?: string | null
+  model?: string | null
+  grade?: string | null
+  status?: string | null
+  summary?: Record<string, unknown>
+}
+
 const workflow = [
   { label: 'Import fournisseur', detail: 'Excel, CSV, XML', icon: Upload },
   { label: 'Reception palette', detail: 'Lot, quai, zone', icon: Warehouse },
@@ -159,6 +194,9 @@ export default function Erp() {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [busyAction, setBusyAction] = useState<string | null>(null)
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
+  const [scanCode, setScanCode] = useState('')
+  const [lastLookup, setLastLookup] = useState<MachineLookup | null>(null)
   const { theme, isDark, toggleTheme } = useThemeMode()
 
   const overviewQuery = useQuery<AtelierOverview>({
@@ -177,11 +215,25 @@ export default function Erp() {
     queryKey: ['atelier-erp', 'pallets'],
     queryFn: () => api.get('/atelier-erp/pallets').then((response) => response.data),
   })
+  const scanSessionsQuery = useQuery<ScanSession[]>({
+    queryKey: ['atelier-erp', 'scan-sessions'],
+    queryFn: () => api.get('/atelier-erp/scan-sessions').then((response) => response.data),
+  })
 
   const receptions = receptionsQuery.data ?? []
   const shipments = shipmentsQuery.data ?? []
   const pallets = palletsQuery.data ?? []
+  const scanSessions = scanSessionsQuery.data ?? []
+  const activeSession = scanSessions.find((session) => session.id === activeSessionId)
+    ?? scanSessions.find((session) => session.status === 'open')
+    ?? null
   const overview = overviewQuery.data
+
+  const scanEventsQuery = useQuery<ScanEvent[]>({
+    queryKey: ['atelier-erp', 'scan-events', activeSession?.id],
+    queryFn: () => api.get(`/atelier-erp/scan-sessions/${activeSession?.id}/events`).then((response) => response.data),
+    enabled: Boolean(activeSession?.id),
+  })
 
   const totalExpected = overview?.items_expected ?? receptions.reduce((sum, item) => sum + item.expected_items, 0)
   const totalScanned = overview?.items_scanned ?? receptions.reduce((sum, item) => sum + item.scanned_items, 0)
@@ -211,6 +263,7 @@ export default function Erp() {
       queryClient.invalidateQueries({ queryKey: ['atelier-erp', 'receptions'] }),
       queryClient.invalidateQueries({ queryKey: ['atelier-erp', 'shipments'] }),
       queryClient.invalidateQueries({ queryKey: ['atelier-erp', 'pallets'] }),
+      queryClient.invalidateQueries({ queryKey: ['atelier-erp', 'scan-sessions'] }),
     ])
   }
 
@@ -266,9 +319,50 @@ export default function Erp() {
       }
       return api.post('/atelier-erp/scan-sessions', payload).then((response) => response.data)
     },
-    onSuccess: async () => {
+    onSuccess: async (session: ScanSession) => {
+      setActiveSessionId(session.id)
       setMessage('Session scan ouverte. Le PDA ou la douchette peut envoyer les codes.')
       await queryClient.invalidateQueries({ queryKey: ['atelier-erp'] })
+    },
+  })
+
+  const submitScanCode = useMutation({
+    mutationFn: async (code: string) => {
+      let session = activeSession
+      if (!session) {
+        const createdSession = await api.post<ScanSession>('/atelier-erp/scan-sessions', {
+          reception_id: receptions[0]?.id ?? null,
+          operator_name: 'Technicien atelier',
+          device_name: 'Interface AtelierOS',
+          device_type: 'web',
+        }).then((response) => response.data)
+        session = createdSession
+        setActiveSessionId(session.id)
+      }
+      if (!session) throw new Error('Session scan non creee')
+      const lookup = await api.get<MachineLookup>(`/atelier-erp/machine-lookup/${encodeURIComponent(code)}`).then((response) => response.data)
+      const event = await api.post<ScanEvent>(`/atelier-erp/scan-sessions/${session.id}/events`, {
+        code,
+        event_type: lookup.found ? 'found' : 'unknown',
+        message: lookup.found
+          ? `${lookup.brand || ''} ${lookup.model || ''}`.trim() || 'Machine trouvee'
+          : 'Code inconnu dans stock/audits',
+        matched_stock_item_id: lookup.stock_item_id ?? null,
+        payload: lookup,
+      }).then((response) => response.data)
+      return { lookup, event }
+    },
+    onSuccess: async ({ lookup }) => {
+      setLastLookup(lookup)
+      setScanCode('')
+      setMessage(lookup.found ? `Machine trouvee : ${lookup.brand || ''} ${lookup.model || lookup.serial_number || lookup.code}` : `Code non reconnu : ${lookup.code}`)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['atelier-erp', 'scan-sessions'] }),
+        queryClient.invalidateQueries({ queryKey: ['atelier-erp', 'scan-events'] }),
+      ])
+    },
+    onError: () => {
+      setMessage('Scan impossible. Verifiez la session ou le backend ERP.')
     },
   })
 
@@ -529,6 +623,59 @@ export default function Erp() {
           </div>
 
           <aside className="space-y-6">
+            <Panel className={panelClass}>
+              <ModuleHeader title="Scan atelier" subtitle="Champ compatible douchette : scannez puis Entree." icon={ScanLine} isDark={isDark} />
+              <div className="space-y-4 p-5 pt-0">
+                <div className={`rounded-xl border p-3 ${tileClass}`}>
+                  <div className={`text-xs font-bold uppercase tracking-[0.18em] ${softMutedClass}`}>Session active</div>
+                  <div className={`mt-1 text-sm font-black ${titleClass}`}>
+                    {activeSession ? `${activeSession.scanned_count} scan(s), ${activeSession.anomaly_count} anomalie(s)` : 'Aucune session ouverte'}
+                  </div>
+                </div>
+                <form
+                  className="space-y-2"
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    const code = scanCode.trim()
+                    if (code) submitScanCode.mutate(code)
+                  }}
+                >
+                  <input
+                    value={scanCode}
+                    onChange={(event) => setScanCode(event.target.value)}
+                    placeholder="Scanner numero de serie, QR ou code-barres"
+                    className={`w-full rounded-xl border px-3 py-3 text-sm font-bold outline-none transition ${isDark ? 'border-white/10 bg-black/20 text-white placeholder:text-slate-600 focus:border-cyan-300/40' : 'border-slate-200 bg-white text-slate-950 placeholder:text-slate-400 focus:border-cyan-400'}`}
+                  />
+                  <button
+                    type="submit"
+                    disabled={submitScanCode.isPending || !scanCode.trim()}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-3 text-sm font-black text-cyan-100 transition hover:bg-cyan-300/15 disabled:opacity-50"
+                  >
+                    <ScanLine size={16} />
+                    {submitScanCode.isPending ? 'Scan...' : 'Valider scan'}
+                  </button>
+                </form>
+                {lastLookup && (
+                  <div className={`rounded-xl border p-3 ${lastLookup.found ? 'border-emerald-300/20 bg-emerald-300/10' : 'border-amber-300/20 bg-amber-300/10'}`}>
+                    <div className={`text-sm font-black ${lastLookup.found ? 'text-emerald-100' : 'text-amber-100'}`}>
+                      {lastLookup.found ? 'Machine trouvee' : 'Code inconnu'}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-300">
+                      {[lastLookup.brand, lastLookup.model, lastLookup.serial_number].filter(Boolean).join(' - ') || lastLookup.code}
+                    </div>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  {(scanEventsQuery.data ?? []).slice(0, 5).map((event) => (
+                    <div key={event.id} className={`rounded-lg border px-3 py-2 text-xs ${tileClass}`}>
+                      <div className={`font-mono font-black ${titleClass}`}>{event.code}</div>
+                      <div className={softMutedClass}>{event.event_type} - {event.message || 'scan enregistre'}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Panel>
+
             <Panel className={panelClass}>
               <ModuleHeader title="Import intelligent" subtitle="Dernieres correspondances detectees par fichier fournisseur." icon={FileSpreadsheet} isDark={isDark} />
               <div className="space-y-3 p-5 pt-0">
