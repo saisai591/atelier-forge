@@ -2336,78 +2336,10 @@ function AuditReturnPanel({
 }
 
 function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onClose: () => void }) {
-  type LabelProfileId = 'atelier' | 'inventaire' | 'marketplace'
-  type LabelTemplateId =
-    | 'atelier-pro'
-    | 'qr-priority'
-    | 'minimal-sale'
-    | 'tech-dense'
-    | 'battery-check'
-    | 'barcode-plus'
-    | 'premium-clean'
-    | 'storage-focus'
-    | 'sav-rapid'
-    | 'marketplace'
-  const labelProfiles: Array<{
-    id: LabelProfileId
-    name: string
-    formatId: string
-    orientation: 'landscape' | 'portrait'
-    templateId: LabelTemplateId
-    autoCompress: boolean
-    note: string
-  }> = [
-    {
-      id: 'atelier',
-      name: 'Atelier',
-      formatId: 'ql500-dk11201-29x90',
-      orientation: 'landscape',
-      templateId: 'atelier-pro',
-      autoCompress: true,
-      note: 'Rendu clair avec QR en priorité pour test d’installation.',
-    },
-    {
-      id: 'inventaire',
-      name: 'Inventaire',
-      formatId: 'ql500-dk11201-62x40',
-      orientation: 'portrait',
-      templateId: 'tech-dense',
-      autoCompress: true,
-      note: 'Compact vertical pour lecture rapide au tri inventaire.',
-    },
-    {
-      id: 'marketplace',
-      name: 'Marché / Reprise',
-      formatId: 'ql500-dk22205-62x100',
-      orientation: 'portrait',
-      templateId: 'marketplace',
-      autoCompress: true,
-      note: 'Texte principal lisible + informations de revente.',
-    },
-  ] as const
-  const labelTemplates = [
-    { id: 'atelier-pro', name: 'Atelier Pro', description: 'Equilibre lisible, QR fort, RAM discrete.', qrSize: 10.8, density: 'balanced' },
-    { id: 'qr-priority', name: 'QR prioritaire', description: 'QR plus grand pour scan rapide.', qrSize: 12.2, density: 'balanced' },
-    { id: 'minimal-sale', name: 'Vente clean', description: 'Titre large, peu de traits.', qrSize: 10.4, density: 'light' },
-    { id: 'tech-dense', name: 'Technique', description: 'Maximum infos en grille compacte.', qrSize: 10.1, density: 'dense' },
-    { id: 'battery-check', name: 'Batterie visible', description: 'Batterie et etat plus lisibles.', qrSize: 10.2, density: 'balanced' },
-    { id: 'barcode-plus', name: 'Code-barres +', description: 'Code-barres bas en sécurité.', qrSize: 10.2, density: 'barcode' },
-    { id: 'premium-clean', name: 'Premium clean', description: 'Rendu sobre pour revente.', qrSize: 10.8, density: 'light' },
-    { id: 'storage-focus', name: 'Stockage focus', description: 'Disque plus facile a controler.', qrSize: 10, density: 'balanced' },
-    { id: 'sav-rapid', name: 'SAV rapide', description: 'SN et scan avant tout.', qrSize: 11.6, density: 'barcode' },
-    { id: 'marketplace', name: 'Marketplace', description: 'Titre + grade + QR pour annonce.', qrSize: 11.2, density: 'light' },
-  ] as const
   const labelFormats = [
-    { id: 'ql500-dk11201-29x90', name: 'Brother QL-500 - rouleau detecte 29 x 90 mm', width: 90, height: 29 },
-    { id: 'ql500-dk11201-62x40', name: 'Brother QL-500/QL-820 - 62 x 40 mm', width: 62, height: 40 },
-    { id: 'ql500-dk22205-62-continuous', name: 'Brother QL-500 / QL-820 - rouleau continu 62 mm', width: 62, height: 100 },
-    { id: 'ql500-dk11201-62', name: 'Brother DK-11201 - 62 mm', width: 62, height: 100 },
-    { id: 'ql500-dk22205-62x80', name: 'Brother QL-500 compact - 62 x 80 mm', width: 62, height: 80 },
-    { id: 'ql500-dk22205-62x100', name: 'Brother QL-500 force 62 x 100 mm', width: 62, height: 100 },
-    { id: 'dk-11202', name: 'Brother DK-11202 - 62 x 100 mm', width: 62, height: 100 },
-    { id: 'dk-11208', name: 'Brother DK-11208 - 38 x 90 mm', width: 90, height: 38 },
-    { id: 'dk-11209', name: 'Brother DK-11209 - 29 x 62 mm', width: 62, height: 29 },
-  ]
+    { id: 'brother-29x90', name: 'Brother 29 x 90 mm', width: 90, height: 29, note: 'Rouleau predecoupe 29 x 90, impression paysage.' },
+    { id: 'brother-62x100', name: 'Brother 62 mm continu', width: 62, height: 100, note: 'Rouleau 62 mm, longueur 100 mm.' },
+  ] as const
   const initial = useMemo(() => ({
     title: cleanLabelField(dedupeMachineTitle(audit.brand, audit.model)),
     brand: cleanLabelField(audit.brand || ''),
@@ -2424,52 +2356,40 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
     note: 'ATELIEROS',
   }), [audit])
   const [label, setLabel] = useState(initial)
-  const [formatId, setFormatId] = useState(labelFormats[0].id)
-  const [orientation, setOrientation] = useState<'landscape' | 'portrait'>('landscape')
-  const [templateId, setTemplateId] = useState<(typeof labelTemplates)[number]['id']>(labelTemplates[0].id)
+  const [formatId, setFormatId] = useState<string>(labelFormats[0].id)
   const [qrDataUrl, setQrDataUrl] = useState('')
   const [barcodeDataUrl, setBarcodeDataUrl] = useState('')
-  const selectedTemplate = labelTemplates.find((item) => item.id === templateId) ?? labelTemplates[0]
   const format = labelFormats.find((item) => item.id === formatId) ?? labelFormats[0]
-  const pageWidth = orientation === 'landscape' ? Math.max(format.width, format.height) : Math.min(format.width, format.height)
-  const pageHeight = orientation === 'landscape' ? Math.min(format.width, format.height) : Math.max(format.width, format.height)
-  const compactLabel = pageHeight <= 38
-  const slimLabel = pageHeight <= 35
-  const strictBrotherLabel = pageHeight <= 35 && pageWidth <= 95
-  const showNetworkOnLabel = !strictBrotherLabel
-  const [profileId, setProfileId] = useState<LabelProfileId>(labelProfiles[0].id)
-  const selectedProfile = labelProfiles.find((item) => item.id === profileId) ?? labelProfiles[0]
-  const pageDensity = (() => {
-    if (pageHeight <= 40 && pageWidth <= 62) return 'compact'
-    if (pageHeight >= 90) return 'high'
-    return 'standard'
-  })()
+  const pageWidth = format.width
+  const pageHeight = format.height
+  const slimLabel = format.id === 'brother-29x90'
+  const showNetworkOnLabel = !slimLabel
   const printLabel = {
-    title: compactMachineTitle(label.title, strictBrotherLabel ? 30 : pageDensity === 'compact' ? 24 : slimLabel ? 36 : 52),
-    brand: compactLabelText(label.brand, pageHeight <= 40 ? 16 : 30),
-    model: compactLabelText(label.model, pageHeight <= 40 ? 16 : 30),
-    cpu: compactCpuLabel(label.cpu, strictBrotherLabel ? 17 : pageDensity === 'compact' ? 12 : slimLabel ? 18 : 36),
-    ram: compactRamLabel(label.ram, pageDensity === 'compact' ? 9 : 18),
-    disk: compactDiskLabel(label.disk, pageDensity === 'compact' ? 16 : slimLabel ? 18 : 28),
-    battery: compactBatteryLabel(label.battery, pageDensity === 'compact' ? 15 : slimLabel ? 20 : 30),
-    hostname: compactLabelText(label.hostname, strictBrotherLabel ? 0 : pageHeight <= 40 ? 16 : 24),
-    ip: compactLabelText(label.ip, strictBrotherLabel ? 0 : pageHeight <= 40 ? 16 : 24),
-    serial: compactLabelText(label.serial, slimLabel ? 18 : 28),
-    note: compactLabelText(label.note, slimLabel ? 18 : 32),
+    title: compactMachineTitle(label.title, slimLabel ? 34 : 52),
+    brand: fitLabelText(label.brand, slimLabel ? 18 : 30),
+    model: fitLabelText(label.model, slimLabel ? 22 : 36),
+    cpu: compactCpuLabel(label.cpu, slimLabel ? 26 : 42),
+    ram: compactRamLabel(label.ram, slimLabel ? 13 : 18),
+    disk: compactDiskLabel(label.disk, slimLabel ? 24 : 34),
+    battery: compactBatteryLabel(label.battery, slimLabel ? 24 : 38),
+    hostname: fitLabelText(label.hostname, slimLabel ? 0 : 24),
+    ip: fitLabelText(label.ip, slimLabel ? 0 : 24),
+    serial: fitLabelText(label.serial, slimLabel ? 22 : 34),
+    note: fitLabelText(label.note, slimLabel ? 18 : 32),
   }
-  const barcodeText = cleanLabelField(label.serial || audit.id || '')
+  const barcodeText = cleanBarcodeValue(label.serial || audit.id || '')
   const barcodeValue = barcodeText || `AOS-${audit.id}`.slice(0, 32)
   const qrText = [
     'AOS',
     `S=${barcodeValue}`,
-    `M=${compactMachineTitle(label.title, 26)}`,
+    `M=${compactMachineTitle(label.title, 32)}`,
     `G=${label.grade || '-'}`,
   ].filter(Boolean).join(';')
   const qualityChecks = [
-    { label: 'Titre', ok: printLabel.title.length <= (slimLabel ? 36 : 52), detail: printLabel.title.length > (slimLabel ? 36 : 52) ? 'Titre trop long pour ce format.' : 'Titre lisible.' },
-    { label: 'QR', ok: Boolean(qrDataUrl) && qrText.length <= 90, detail: qrText.length > 90 ? 'QR trop charge, reduire titre ou serie.' : 'QR haute correction active.' },
-    { label: 'Code-barres', ok: Boolean(barcodeDataUrl), detail: barcodeDataUrl ? 'CODE128 généré.' : 'Re-génération en cours.' },
-    { label: 'Format', ok: !(slimLabel && orientation === 'portrait'), detail: slimLabel && orientation === 'portrait' ? 'Portrait deconseille sur 29 mm.' : `${pageWidth} x ${pageHeight} mm OK.` },
+    { label: 'Format', ok: true, detail: `${pageWidth} x ${pageHeight} mm, marge 0, echelle 100%.` },
+    { label: 'QR', ok: Boolean(qrDataUrl) && qrText.length <= 110, detail: qrText.length > 110 ? 'QR trop charge, reduire titre ou serie.' : 'QR haute correction active.' },
+    { label: 'Code-barres', ok: Boolean(barcodeDataUrl) && barcodeValue.length >= 3, detail: barcodeDataUrl ? 'CODE128 propre, sans texte parasite.' : 'Generation en cours.' },
+    { label: 'Texte', ok: !Object.values(printLabel).some((value) => value.includes('...')), detail: 'Aucune valeur tronquee en points.' },
   ]
   const qualityOk = qualityChecks.every((check) => check.ok)
 
@@ -2482,20 +2402,19 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
   }, [qrText])
 
   useEffect(() => {
-    const barcodeTextForRender = cleanLabelField(label.serial || audit.id || `AOS-${audit.id}`.slice(0, 32))
+    const barcodeTextForRender = cleanBarcodeValue(label.serial || audit.id || `AOS-${audit.id}`.slice(0, 32))
     if (!barcodeTextForRender) {
       setBarcodeDataUrl('')
       return
     }
     try {
-      const valueForCode = barcodeTextForRender.replace(/[^A-Za-z0-9._-]/g, '')
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-      JsBarcode(svg, valueForCode || 'AOS-LABEL', {
+      JsBarcode(svg, barcodeTextForRender || 'AOS-LABEL', {
         format: 'CODE128',
         displayValue: false,
-        margin: 2,
-        width: slimLabel ? 0.72 : 1.0,
-        height: slimLabel ? 13 : compactLabel ? 19 : 26,
+        margin: 0,
+        width: slimLabel ? 1.15 : 1.45,
+        height: slimLabel ? 26 : 42,
         lineColor: '#000000',
         background: '#ffffff',
       })
@@ -2504,48 +2423,31 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
     } catch {
       setBarcodeDataUrl('')
     }
-  }, [audit.id, compactLabel, label.serial, slimLabel])
+  }, [audit.id, label.serial, slimLabel])
 
   function update(key: keyof typeof label, value: string) {
     setLabel((current) => ({ ...current, [key]: cleanLabelField(value) }))
   }
 
-  function applyProfile(nextProfileId: LabelProfileId) {
-    const nextProfile = labelProfiles.find((item) => item.id === nextProfileId) ?? labelProfiles[0]
-    setProfileId(nextProfile.id)
-    setFormatId(nextProfile.formatId)
-    setOrientation(nextProfile.orientation)
-    setTemplateId(nextProfile.templateId)
-    optimizeLabel(nextProfile.id, nextProfile.templateId)
-  }
-
-  function optimizeLabel(profileOverride?: LabelProfileId, templateOverride?: LabelTemplateId) {
-    const profile = labelProfiles.find((item) => item.id === (profileOverride ?? profileId)) ?? selectedProfile
-    const template = labelTemplates.find((item) => item.id === (templateOverride ?? templateId)) ?? labelTemplates[0]
-    const titleLimit = profile.autoCompress ? (pageHeight <= 35 ? 30 : pageHeight <= 40 ? 38 : 50) : 64
-    const cpuLimit = template.density === 'dense' ? 12 : pageHeight <= 40 ? 16 : pageHeight <= 80 ? 20 : 30
-    const ramLimit = template.density === 'dense' ? 9 : 14
-    const diskLimit = template.density === 'dense' ? 18 : 24
-    const batteryLimit = template.density === 'dense' ? 14 : 26
+  function optimizeLabel() {
     setLabel((current) => ({
       ...current,
-      title: compactMachineTitle(current.title, titleLimit),
-      cpu: compactCpuLabel(current.cpu, cpuLimit),
-      ram: compactRamLabel(current.ram, ramLimit),
-      disk: compactDiskLabel(current.disk, diskLimit),
-      battery: compactBatteryLabel(current.battery, batteryLimit),
-      serial: compactLabelText(current.serial, pageHeight <= 35 ? 16 : pageHeight <= 40 ? 20 : 28),
-      note: compactLabelText(current.note || 'ATELIEROS', 28),
+      title: compactMachineTitle(current.title, slimLabel ? 34 : 52),
+      cpu: compactCpuLabel(current.cpu, slimLabel ? 26 : 42),
+      ram: compactRamLabel(current.ram, slimLabel ? 13 : 18),
+      disk: compactDiskLabel(current.disk, slimLabel ? 24 : 34),
+      battery: compactBatteryLabel(current.battery, slimLabel ? 24 : 38),
+      serial: cleanBarcodeValue(current.serial || audit.id),
+      note: fitLabelText(current.note || 'ATELIEROS', 28),
     }))
   }
 
   function printPdf() {
     const popup = window.open('', '_blank', 'width=900,height=700')
     if (!popup) return
-    const barcodeTextForRender = cleanLabelField(label.serial || audit.id || `AOS-${audit.id}`.slice(0, 32))
-    const effectiveQrMm = Math.max(10, selectedTemplate.qrSize)
-    const qrSizeMm = slimLabel ? effectiveQrMm : Math.min(effectiveQrMm + 2.4, pageHeight * 0.74)
-    const bottomSectionColumns = pageHeight >= 62 ? '1fr 42mm' : '1fr 34mm'
+    const barcodeTextForRender = cleanBarcodeValue(label.serial || audit.id || `AOS-${audit.id}`.slice(0, 32))
+    const qrSizeMm = slimLabel ? 15 : 24
+    const barcodeWidthMm = slimLabel ? 31 : 45
     popup.document.write(`<!doctype html>
 <html>
 <head>
@@ -2554,31 +2456,31 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
   <style>
     @page { size: ${pageWidth}mm ${pageHeight}mm; margin: 0; }
     * { box-sizing: border-box; }
-    body { margin: 0; background: white; font-family: Arial, Helvetica, sans-serif; color: #000; }
-    .label { width: ${pageWidth}mm; height: ${pageHeight}mm; padding: ${slimLabel ? '1.2mm 1.8mm 1mm 1.8mm' : compactLabel ? '1.6mm' : '2.1mm'}; background: white; border: 0; display: grid; grid-template-rows: auto 1fr auto; gap: ${slimLabel ? '.55mm' : compactLabel ? '.85mm' : '1.2mm'}; overflow: hidden; }
-    .label * { font-weight: 800; }
-    .top { display: grid; grid-template-columns: 1fr ${qrSizeMm}mm; gap: ${slimLabel ? '1mm' : '1.1mm'}; align-items: start; padding-bottom: ${slimLabel ? '.1mm' : compactLabel ? '.6mm' : '1mm'}; }
-    .brand { font-size: ${slimLabel ? '3.1pt' : compactLabel ? '4.6pt' : '5.2pt'}; font-weight: 900; text-transform: uppercase; letter-spacing: .12pt; margin-bottom: ${slimLabel ? '.18mm' : '.35mm'}; white-space: nowrap; overflow: hidden; text-align: center; }
-    .titleline { display: grid; grid-template-columns: 1fr auto; gap: .55mm; align-items: start; }
-    h1 { margin: 0; font-size: ${slimLabel ? '8pt' : compactLabel ? '9.1pt' : '10.8pt'}; line-height: .96; letter-spacing: 0; overflow-wrap: anywhere; word-break: break-word; max-height: ${slimLabel ? '8.1mm' : 'none'}; overflow: hidden; text-align: left; }
-    .grade { width: ${slimLabel ? '5mm' : compactLabel ? '7.2mm' : '8.2mm'}; height: ${slimLabel ? '5mm' : compactLabel ? '7.2mm' : '8.2mm'}; display: grid; place-items: center; border: .16mm solid #000; color: #000; font-weight: 900; font-size: ${slimLabel ? '6.8pt' : compactLabel ? '9.7pt' : '11.6pt'}; line-height: 1; }
-    .qrbox { width: ${qrSizeMm}mm; height: ${qrSizeMm}mm; border: .12mm solid #ddd; border-radius: .4mm; padding: .25mm; background: #fff; display: grid; place-items: center; }
+    html, body { width: ${pageWidth}mm; height: ${pageHeight}mm; margin: 0; padding: 0; background: white; font-family: Arial, Helvetica, sans-serif; color: #000; }
+    .label { width: ${pageWidth}mm; height: ${pageHeight}mm; padding: ${slimLabel ? '1.6mm 2mm 1.1mm' : '3mm'}; background: white; display: grid; grid-template-rows: auto 1fr auto; gap: ${slimLabel ? '.65mm' : '1.8mm'}; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
+    .label * { color: #000; font-weight: 900; letter-spacing: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .top { display: grid; grid-template-columns: 1fr ${qrSizeMm}mm; gap: ${slimLabel ? '1.4mm' : '2.4mm'}; align-items: start; min-width: 0; }
+    .brand { font-size: ${slimLabel ? '4.6pt' : '8.3pt'}; text-transform: uppercase; text-align: center; white-space: nowrap; overflow: hidden; margin-bottom: ${slimLabel ? '.35mm' : '1mm'}; }
+    .titleline { display: grid; grid-template-columns: 1fr ${slimLabel ? '6.2mm' : '11mm'}; gap: ${slimLabel ? '.8mm' : '1.5mm'}; align-items: start; min-width: 0; }
+    h1 { margin: 0; font-size: ${slimLabel ? '8.9pt' : '17pt'}; line-height: .98; overflow-wrap: anywhere; word-break: break-word; max-height: ${slimLabel ? '9.2mm' : '26mm'}; overflow: hidden; }
+    .grade { width: ${slimLabel ? '6.2mm' : '11mm'}; height: ${slimLabel ? '6.2mm' : '11mm'}; display: grid; place-items: center; border: .35mm solid #000; font-size: ${slimLabel ? '8pt' : '16pt'}; line-height: 1; }
+    .qrbox { width: ${qrSizeMm}mm; height: ${qrSizeMm}mm; padding: .6mm; background: #fff; display: grid; place-items: center; }
     .qr { width: 100%; height: 100%; border: 0; padding: 0; object-fit: contain; image-rendering: pixelated; }
-    .body { min-height: 0; overflow: hidden; display: grid; gap: ${slimLabel ? '.35mm' : '.7mm'}; align-content: center; text-align: center; }
-    .line { display: grid; grid-template-columns: ${slimLabel ? '6.5mm 1fr' : '11mm 1fr'}; gap: ${slimLabel ? '.6mm' : '.95mm'}; min-width: 0; height: ${slimLabel ? '3.2mm' : 'auto'}; align-items: center; overflow: hidden; }
-    .key { font-size: ${slimLabel ? '3.1pt' : compactLabel ? '4.4pt' : '5.2pt'}; font-weight: 900; text-transform: uppercase; color: #000; opacity: .62; white-space: nowrap; overflow: hidden; text-align: right; }
-    .value { font-size: ${slimLabel ? '4.6pt' : compactLabel ? '5.4pt' : '6.2pt'}; line-height: 1; font-weight: 900; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: left; }
-    .hardware-row { display: grid; grid-template-columns: 1fr ${slimLabel ? '14mm' : '16.5mm'}; gap: ${slimLabel ? '.8mm' : '1mm'}; min-width: 0; }
-    .ram-chip { display: grid; grid-template-columns: auto 1fr; gap: .45mm; align-items: center; height: ${slimLabel ? '3.2mm' : 'auto'}; overflow: hidden; }
-    .ram-chip .key { font-size: ${slimLabel ? '3.1pt' : '4.8pt'}; }
-    .ram-chip .value { font-size: ${slimLabel ? '4pt' : '5.5pt'}; font-weight: 800; text-align: right; }
-    .bottom { display: grid; grid-template-columns: ${bottomSectionColumns}; gap: ${slimLabel ? '.8mm' : '1mm'}; align-items: end; padding-top: ${slimLabel ? '.15mm' : compactLabel ? '.6mm' : '.9mm'}; }
-    .serial { font-family: Consolas, monospace; font-weight: 900; font-size: ${slimLabel ? '5pt' : compactLabel ? '6.2pt' : '7.2pt'}; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-    .note { margin-top: .08mm; font-size: ${slimLabel ? '3.2pt' : compactLabel ? '4.8pt' : '5.8pt'}; font-weight: 800; text-transform: uppercase; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-height: ${slimLabel ? '2.2mm' : 'none'}; }
-    .barcode-zone { min-height: ${slimLabel ? '8.5mm' : '10.5mm'}; display: grid; align-content: end; gap: .2mm; }
-    .barcode { width: 100%; height: ${slimLabel ? '5.5mm' : '7.5mm'}; object-fit: fill; filter: contrast(1.9); image-rendering: crisp-edges; }
-    .barcode-label { font-family: Arial, Helvetica, sans-serif; font-size: ${slimLabel ? '3.2pt' : '3.8pt'}; letter-spacing: .08pt; margin-bottom: .15mm; text-transform: uppercase; color: #222; opacity: .75; }
-    @media print { body { background: white; } }
+    .body { min-height: 0; overflow: hidden; display: grid; gap: ${slimLabel ? '.45mm' : '1.1mm'}; align-content: center; }
+    .line { display: grid; grid-template-columns: ${slimLabel ? '7.5mm 1fr' : '14mm 1fr'}; gap: ${slimLabel ? '.8mm' : '1.3mm'}; min-width: 0; align-items: baseline; overflow: hidden; }
+    .key { font-size: ${slimLabel ? '4.1pt' : '7pt'}; text-transform: uppercase; opacity: .68; white-space: nowrap; text-align: right; }
+    .value { font-size: ${slimLabel ? '5.25pt' : '8.6pt'}; line-height: 1.02; min-width: 0; overflow-wrap: anywhere; word-break: break-word; text-align: left; }
+    .hardware-row { display: grid; grid-template-columns: 1fr ${slimLabel ? '16mm' : '22mm'}; gap: ${slimLabel ? '1mm' : '2mm'}; min-width: 0; }
+    .ram-chip { display: grid; grid-template-columns: auto 1fr; gap: .7mm; align-items: baseline; overflow: hidden; }
+    .ram-chip .key { font-size: ${slimLabel ? '4pt' : '7pt'}; }
+    .ram-chip .value { font-size: ${slimLabel ? '4.7pt' : '8pt'}; text-align: right; overflow-wrap: anywhere; }
+    .bottom { display: grid; grid-template-columns: 1fr ${barcodeWidthMm}mm; gap: ${slimLabel ? '1.2mm' : '2.2mm'}; align-items: end; min-width: 0; }
+    .serial { font-family: Consolas, Arial, sans-serif; font-size: ${slimLabel ? '5.2pt' : '9pt'}; overflow-wrap: anywhere; word-break: break-word; line-height: 1.02; }
+    .note { margin-top: .2mm; font-size: ${slimLabel ? '3.9pt' : '7.2pt'}; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
+    .barcode-zone { display: grid; align-content: end; gap: .25mm; }
+    .barcode { width: 100%; height: ${slimLabel ? '7.2mm' : '12mm'}; object-fit: fill; image-rendering: crisp-edges; }
+    .barcode-label { font-size: ${slimLabel ? '3.2pt' : '5.2pt'}; white-space: nowrap; overflow: hidden; text-align: center; }
+    @media print { html, body { background: white; } }
   </style>
 </head>
 <body>
@@ -2603,7 +2505,7 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
           <div class="note">${escapeHtml(printLabel.note)}</div>
         </div>
         <div class="barcode-zone">
-          <div class="barcode-label">CODE128 ${escapeHtml(barcodeTextForRender || '-')}</div>
+          <div class="barcode-label">${escapeHtml(barcodeTextForRender || '-')}</div>
           ${barcodeDataUrl ? `<img class="barcode" src="${barcodeDataUrl}" alt="Code-barres" />` : '<div class="barcode-label">generation impossible</div>'}
         </div>
       </div>
@@ -2638,7 +2540,7 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
   <section class="label">
     <div>
       <div class="title">TEST BROTHER AOS</div>
-      <div class="sub">${pageWidth} x ${pageHeight} mm - ${orientation === 'landscape' ? 'PAYSAGE' : 'PORTRAIT'} - ECHELLE 100%</div>
+      <div class="sub">${pageWidth} x ${pageHeight} mm - ECHELLE 100%</div>
     </div>
     <div class="box">ROULEAU OK</div>
     <div class="bottom">
@@ -2695,78 +2597,10 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
             >
               {labelFormats.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
+            <span className="mt-2 block text-[11px] normal-case leading-5 tracking-normal text-slate-400">{format.note}</span>
           </label>
-          <div className="md:col-span-2">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Orientation</div>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setOrientation('landscape')}
-                className={cn('rounded-xl border px-4 py-3 text-sm font-semibold transition', orientation === 'landscape' ? 'border-cyan-300/30 bg-cyan-300/12 text-cyan-100' : 'border-white/10 bg-white/[0.045] text-slate-300 hover:bg-white/[0.07]')}
-              >
-                Paysage
-              </button>
-              <button
-                type="button"
-                onClick={() => setOrientation('portrait')}
-                className={cn('rounded-xl border px-4 py-3 text-sm font-semibold transition', orientation === 'portrait' ? 'border-cyan-300/30 bg-cyan-300/12 text-cyan-100' : 'border-white/10 bg-white/[0.045] text-slate-300 hover:bg-white/[0.07]')}
-              >
-                Portrait
-              </button>
-            </div>
-          </div>
-          <div className="md:col-span-2">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Profils recommandés</div>
-            <div className="grid gap-2 sm:grid-cols-3">
-              {labelProfiles.map((profile) => (
-                <button
-                  key={profile.id}
-                  type="button"
-                  onClick={() => applyProfile(profile.id)}
-                  className={cn(
-                    'rounded-xl border p-3 text-left transition',
-                    profile.id === profileId
-                      ? 'border-cyan-300/35 bg-cyan-300/10'
-                      : 'border-white/10 bg-white/[0.04] hover:border-cyan-300/30 hover:bg-cyan-300/[0.06]',
-                  )}
-                >
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-white">{profile.name}</span>
-                    <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400">{profile.id}</span>
-                  </div>
-                  <div className="text-[11px] leading-4 text-slate-300">{profile.note}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="md:col-span-2">
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Modeles etiquette</div>
-              <div className="text-xs text-cyan-200">{selectedTemplate.name}</div>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-              {labelTemplates.map((template, index) => (
-                <button
-                  key={template.id}
-                  type="button"
-                  onClick={() => setTemplateId(template.id)}
-                  className={cn(
-                    'group rounded-xl border p-2 text-left transition',
-                    templateId === template.id
-                      ? 'border-cyan-300/35 bg-cyan-300/12 shadow-lg shadow-cyan-950/20'
-                      : 'border-white/10 bg-white/[0.035] hover:border-white/20 hover:bg-white/[0.06]',
-                  )}
-                >
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">#{index + 1}</span>
-                    <span className={cn('h-2 w-2 rounded-full', templateId === template.id ? 'bg-cyan-200 shadow-[0_0_10px_rgba(103,232,249,.8)]' : 'bg-slate-600')} />
-                  </div>
-                  <div className="mb-2 text-xs font-semibold text-white">{template.name}</div>
-                  <MiniLabelTemplatePreview templateId={template.id} />
-                  <div className="mt-2 min-h-8 text-[11px] leading-4 text-slate-400">{template.description}</div>
-                </button>
-              ))}
-            </div>
+          <div className="md:col-span-2 rounded-xl border border-cyan-300/20 bg-cyan-300/10 p-3 text-xs leading-5 text-cyan-100">
+            Impression Brother: choisir le même rouleau dans Windows, désactiver "adapter à la page", échelle 100%. Le rendu ci-dessous et la page imprimée utilisent exactement {pageWidth} x {pageHeight} mm.
           </div>
           <LabelInput label="Titre" value={label.title} onChange={(value) => update('title', value)} />
           <LabelInput label="Numero de serie" value={label.serial} onChange={(value) => update('serial', value)} />
@@ -2799,9 +2633,9 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
           </div>
         </div>
         <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-          <div className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">Apercu QL-500 {pageWidth} x {pageHeight} mm - {orientation === 'landscape' ? 'paysage' : 'portrait'}</div>
+          <div className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">Apercu Brother {pageWidth} x {pageHeight} mm</div>
           <div className="mb-3 rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-xs leading-5 text-emerald-100">
-            Format detecte actuel: Brother QL-500 29 x 90 mm. Dans la fenetre d'impression: echelle 100%, sans ajuster a la page.
+            Sortie propre: texte gras, QR large, CODE128 noir, aucun point de troncature.
           </div>
           <div
             className={cn(
@@ -2814,11 +2648,11 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
               <div className="min-w-0">
                 <div className={cn('text-center font-black uppercase tracking-[0.12em]', slimLabel ? 'text-[6px]' : 'mb-1 text-[9px]')}>AtelierOS - Certified Device</div>
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-1">
-                  <div className={cn('break-words text-center font-black leading-tight', slimLabel ? 'max-h-10 overflow-hidden text-[15px]' : compactLabel ? 'text-base' : 'text-xl')}>{printLabel.title}</div>
-                  <div className={cn('grid shrink-0 place-items-center border border-black font-black', slimLabel ? 'h-5 w-5 text-xs' : compactLabel ? 'h-8 w-8 text-base' : 'h-9 w-9 text-xl')}>{label.grade}</div>
+                  <div className={cn('break-words text-center font-black leading-tight', slimLabel ? 'max-h-10 overflow-hidden text-[15px]' : 'text-xl')}>{printLabel.title}</div>
+                  <div className={cn('grid shrink-0 place-items-center border border-black font-black', slimLabel ? 'h-5 w-5 text-xs' : 'h-9 w-9 text-xl')}>{label.grade}</div>
                 </div>
               </div>
-              {qrDataUrl ? <img src={qrDataUrl} alt="QR" className={cn('shrink-0 bg-white p-0.5', slimLabel ? 'h-12 w-12' : compactLabel ? 'h-14 w-14' : 'h-16 w-16')} /> : null}
+              {qrDataUrl ? <img src={qrDataUrl} alt="QR" className={cn('shrink-0 bg-white p-0.5', slimLabel ? 'h-12 w-12' : 'h-20 w-20')} /> : null}
             </div>
             <div className={cn('grid content-start', slimLabel ? 'gap-0.5' : 'gap-1')}>
               <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_55px] gap-2">
@@ -2836,13 +2670,13 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
           </div>
             <div className={cn('grid grid-cols-[minmax(0,1fr)_120px] items-end gap-2', slimLabel ? 'pt-0.5' : 'pt-1.5')}>
               <div className="min-w-0">
-                <div className={cn('truncate font-mono font-black', slimLabel ? 'text-[8px]' : compactLabel ? 'text-[10px]' : 'text-xs')}>SN: {printLabel.serial || '-'}</div>
+                <div className={cn('break-words font-mono font-black', slimLabel ? 'text-[8px]' : 'text-xs')}>SN: {printLabel.serial || '-'}</div>
                 <div className={cn('truncate font-black uppercase text-black/70', slimLabel ? 'text-[6px]' : 'text-[10px]')}>{printLabel.note}</div>
               </div>
           <div className={cn('grid gap-1 font-bold', slimLabel ? 'text-[8px]' : 'text-[10px]')}>
                 <div className="font-bold uppercase text-black/70">Code-barres</div>
                 {barcodeDataUrl ? (
-                  <img src={barcodeDataUrl} alt="Code-barres" className={cn('w-full object-fill', slimLabel ? 'h-5' : 'h-8')} />
+                  <img src={barcodeDataUrl} alt="Code-barres" className={cn('w-full object-fill', slimLabel ? 'h-7' : 'h-10')} />
                 ) : <div className="rounded bg-amber-50 px-1 py-0.5 text-[9px] text-amber-900">Generation en cours...</div>}
               </div>
             </div>
@@ -2868,52 +2702,9 @@ function LabelInput({ label, value, onChange }: { label: string; value: string; 
 
 function LabelPreviewLine({ label, value, slim, small }: { label: string; value: string; slim?: boolean; small?: boolean }) {
   return (
-    <div className={cn('grid min-w-0 grid-cols-[30px_minmax(0,1fr)] items-center border-b border-black/80', slim ? 'h-4 gap-1' : 'h-7 gap-2')}>
+    <div className={cn('grid min-w-0 grid-cols-[30px_minmax(0,1fr)] items-center', slim ? 'h-4 gap-1' : 'h-7 gap-2')}>
       <div className={cn('truncate font-black uppercase text-black/60', slim ? 'text-[7px]' : 'text-[10px]')}>{label}</div>
       <div className={cn('truncate font-black leading-none', slim ? 'text-[9px]' : 'text-xs', small ? 'text-[8px] font-extrabold' : '')}>{value}</div>
-    </div>
-  )
-}
-
-function MiniLabelTemplatePreview({ templateId }: { templateId: string }) {
-  const qrLarge = templateId === 'qr-priority' || templateId === 'sav-rapid'
-  const clean = templateId === 'minimal-sale' || templateId === 'premium-clean' || templateId === 'marketplace'
-  const barcodeStrong = templateId === 'barcode-plus' || templateId === 'sav-rapid'
-  const batteryWide = templateId === 'battery-check'
-  const storageWide = templateId === 'storage-focus'
-
-  return (
-    <div className={cn('relative aspect-[90/29] overflow-hidden rounded bg-white p-1.5 text-black', clean ? 'ring-1 ring-black/10' : 'ring-1 ring-black/20')}>
-      <div className="grid grid-cols-[1fr_auto] gap-1 pb-0.5">
-        <div className="min-w-0">
-          <div className="h-1 w-16 bg-black/80" />
-          <div className="mt-1 h-2.5 w-24 bg-black" />
-        </div>
-        <div className="flex items-start gap-1">
-          <div className="grid h-4 w-4 place-items-center border border-black text-[8px] font-black">B</div>
-          <div className={cn('bg-[repeating-linear-gradient(45deg,#000_0,#000_1px,#fff_1px,#fff_3px)]', qrLarge ? 'h-8 w-8' : 'h-6 w-6')} />
-        </div>
-      </div>
-      <div className="mt-1 grid grid-cols-[1.55fr_.85fr] gap-0.5">
-        <div className="h-2.5">
-          <div className="h-full w-20 bg-black/70" />
-        </div>
-        <div className="h-2.5">
-          <div className="h-full w-7 bg-black/45" />
-        </div>
-        <div className={cn('h-2.5', storageWide ? 'col-span-2' : '')}>
-          <div className="h-full w-24 bg-black/55" />
-        </div>
-        {!storageWide ? (
-          <div className={cn('h-2.5', batteryWide ? 'col-span-2' : '')}>
-            <div className="h-full w-16 bg-black/40" />
-          </div>
-        ) : null}
-      </div>
-      <div className="mt-1 flex items-end justify-between gap-1 pt-0.5">
-        <div className="h-1.5 w-16 bg-black/80" />
-        <div className={cn('bg-[repeating-linear-gradient(90deg,#000_0,#000_1px,#fff_1px,#fff_2px)]', barcodeStrong ? 'h-3 w-24' : 'h-2 w-20')} />
-      </div>
     </div>
   )
 }
@@ -2929,7 +2720,18 @@ function cleanLabelField(value: string | null | undefined) {
 function compactLabelText(value: string, limit: number) {
   const normalized = cleanLabelField(value)
   if (normalized.length <= limit) return normalized
-  return `${normalized.slice(0, Math.max(0, limit - 3)).trim()}...`
+  return normalized.slice(0, Math.max(0, limit)).trim()
+}
+
+function fitLabelText(value: string, limit: number) {
+  if (limit <= 0) return ''
+  return compactLabelText(value, limit)
+}
+
+function cleanBarcodeValue(value: string | null | undefined) {
+  return cleanLabelField(value)
+    .replace(/[^A-Za-z0-9._-]/g, '')
+    .slice(0, 36)
 }
 
 function dedupeMachineTitle(brand?: string | null, model?: string | null) {
