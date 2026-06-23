@@ -399,6 +399,23 @@ export default function Erp() {
     },
   })
 
+  const updatePallet = useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: Partial<AtelierPallet> }) =>
+      api.patch(`/atelier-erp/pallets/${id}`, payload).then((response) => response.data),
+    onSuccess: async () => {
+      setMessage('Palette mise a jour.')
+      await invalidateErp()
+    },
+  })
+
+  const deletePallet = useMutation({
+    mutationFn: async (id: string) => api.delete(`/atelier-erp/pallets/${id}`),
+    onSuccess: async () => {
+      setMessage('Palette supprimee.')
+      await invalidateErp()
+    },
+  })
+
   const submitScanCode = useMutation({
     mutationFn: async (code: string) => {
       let session = activeSession
@@ -530,6 +547,25 @@ export default function Erp() {
         setMessage(`Etiquette palette generee pour ${pallet.reference}.`)
         await invalidateErp()
       }
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  const handlePrintPalletLabel = async (pallet: AtelierPallet) => {
+    setBusyAction(`pallet-label-${pallet.id}`)
+    try {
+      await downloadPdf(`/atelier-erp/pallets/${pallet.id}/label.pdf`, `palette-${pallet.reference}.pdf`)
+      await api.post('/atelier-erp/documents', {
+        shipment_id: pallet.shipment_id ?? null,
+        reception_id: pallet.reception_id ?? null,
+        document_type: 'pallet_label',
+        title: `Etiquette palette ${pallet.reference}`,
+        file_path: null,
+        payload: { pallet_reference: pallet.reference, generated_from: 'erp_pallet_workspace' },
+      })
+      setMessage(`Etiquette palette generee pour ${pallet.reference}.`)
+      await invalidateErp()
     } finally {
       setBusyAction(null)
     }
@@ -883,18 +919,68 @@ export default function Erp() {
           <aside className="space-y-6">
             {workspace === 'pallets' && <Panel className={panelClass}>
               <ModuleHeader title="Palettes" subtitle="Controle rapide des palettes reception/sortie." icon={PackagePlus} isDark={isDark} />
-              <div className="space-y-2 p-5 pt-0">
+              <div className="space-y-3 p-5 pt-0">
                 {pallets.length === 0 && <EmptyState text="Aucune palette creee pour le moment." isDark={isDark} />}
                 {pallets.slice(0, 8).map((pallet) => (
                   <div key={pallet.id} className={`rounded-xl border p-3 ${tileClass}`}>
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
                         <div className={`truncate font-mono text-sm font-black ${titleClass}`}>{pallet.reference}</div>
                         <div className={`text-xs ${softMutedClass}`}>
                           {pallet.expected_items} attendu(s), {pallet.scanned_items} scanne(s) - {pallet.location || 'sans zone'}
                         </div>
+                        </div>
+                        <StatusBadge label={pallet.status} className="border-cyan-300/20 bg-cyan-300/10 text-cyan-100" />
                       </div>
-                      <StatusBadge label={pallet.status} className="border-cyan-300/20 bg-cyan-300/10 text-cyan-100" />
+                      <div className="grid gap-2 sm:grid-cols-4">
+                        <input
+                          className={inputClass}
+                          defaultValue={pallet.location || ''}
+                          placeholder="Zone"
+                          onBlur={(event) => {
+                            const value = event.target.value.trim()
+                            if (value !== (pallet.location || '')) updatePallet.mutate({ id: pallet.id, payload: { location: value || null } })
+                          }}
+                        />
+                        <input
+                          className={inputClass}
+                          defaultValue={pallet.expected_items}
+                          type="number"
+                          min={0}
+                          placeholder="Attendu"
+                          onBlur={(event) => {
+                            const value = Number(event.target.value || 0)
+                            if (value !== pallet.expected_items) updatePallet.mutate({ id: pallet.id, payload: { expected_items: value } })
+                          }}
+                        />
+                        <input
+                          className={inputClass}
+                          defaultValue={pallet.scanned_items}
+                          type="number"
+                          min={0}
+                          placeholder="Scanne"
+                          onBlur={(event) => {
+                            const value = Number(event.target.value || 0)
+                            if (value !== pallet.scanned_items) updatePallet.mutate({ id: pallet.id, payload: { scanned_items: value } })
+                          }}
+                        />
+                        <select
+                          className={inputClass}
+                          value={pallet.status}
+                          onChange={(event) => updatePallet.mutate({ id: pallet.id, payload: { status: event.target.value as PalletStatus } })}
+                        >
+                          <option value="expected">Attendue</option>
+                          <option value="in_progress">En cours</option>
+                          <option value="complete">Complete</option>
+                          <option value="blocked">Bloquee</option>
+                        </select>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <ActionButton icon={Printer} label="Imprimer" busy={busyAction === `pallet-label-${pallet.id}`} onClick={() => void handlePrintPalletLabel(pallet)} isDark={isDark} />
+                        <ActionButton icon={PackageCheck} label="Complete" busy={updatePallet.isPending} onClick={() => updatePallet.mutate({ id: pallet.id, payload: { status: 'complete' } })} isDark={isDark} />
+                        <ActionButton icon={Download} label="Supprimer" busy={deletePallet.isPending} onClick={() => deletePallet.mutate(pallet.id)} isDark={isDark} />
+                      </div>
                     </div>
                   </div>
                 ))}
