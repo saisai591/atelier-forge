@@ -3396,9 +3396,6 @@ function ImagesModule({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold text-white">Assistant rapide</h2>
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
-              Le technicien suit une seule ligne : envoyer l'ISO ou le WIM, preparer l'image, choisir le profil, puis deploiement PXE.
-            </p>
           </div>
           <button
             type="button"
@@ -3456,7 +3453,6 @@ function ImagesModule({
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-white">Validation avant PXE</h2>
-            <p className="mt-1 max-w-3xl text-sm text-slate-400">Lecture rapide avant de booter une machine : image, Unattend, profil et assets doivent etre verts.</p>
           </div>
           <button
             type="button"
@@ -3470,7 +3466,6 @@ function ImagesModule({
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div>
               <h3 className="text-sm font-semibold text-white">Etat deploiement Windows</h3>
-              <p className="mt-1 text-xs text-slate-500">Lecture rapide avant de lancer un PC en PXE.</p>
             </div>
             <span className={cn('rounded-full border px-3 py-1 text-xs font-semibold', deployReady ? 'border-emerald-300/25 bg-emerald-300/10 text-emerald-200' : 'border-amber-300/25 bg-amber-300/10 text-amber-200')}>
               {deployReady ? 'Pret a deployer' : 'A completer'}
@@ -3497,7 +3492,7 @@ function ImagesModule({
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-white">Espace de travail</h2>
-            <p className="text-sm text-slate-400">{activeTool ? `Module actif : ${activeToolLabel}` : 'Choisis une action pour afficher le module d’édition.'}</p>
+            <p className="text-sm text-slate-400">{activeTool ? activeToolLabel : 'Choisis une action.'}</p>
           </div>
           {activeTool && (
             <button
@@ -3511,7 +3506,7 @@ function ImagesModule({
         </div>
         <div className="rounded-xl border border-white/10 bg-black/20 p-3 sm:p-4">
           {!activeTool && (
-            <div className="text-sm text-slate-400">Aucun module actif. Choisis une des 3 étapes au-dessus.</div>
+            <div className="text-sm text-slate-400">Choisis une action au-dessus.</div>
           )}
 
           {activeTool === 'assets' && <AssetPanel assets={assets} />}
@@ -3571,7 +3566,6 @@ function ImagesModule({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-white">Etat de publication</h2>
-            <p className="mt-1 text-sm text-slate-400">Résumé court. Les options secondaires restent disponibles sans gêner le flux principal.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => openTool('unattend')} className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-300/15">Unattend</button>
@@ -3601,7 +3595,6 @@ function ImagesModule({
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <div className="text-sm font-semibold text-white">Procedures WIM preparees</div>
-                <div className="mt-1 text-xs text-slate-500">Dossiers generes avec manifest, README et script PowerShell.</div>
               </div>
               <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-xs font-semibold text-cyan-100">{builds.length}</span>
             </div>
@@ -4800,10 +4793,6 @@ function ToolsModule({
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div>
             <h2 className="text-lg font-semibold text-white">Console de test navigateur</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-400">
-              A ouvrir directement sur la machine testee apres boot Windows ou depuis un navigateur disponible.
-              Les resultats peuvent etre envoyes dans l'onglet Audit via le bouton Envoyer l'audit.
-            </p>
             <div className="mt-4 rounded-xl border border-cyan-300/10 bg-cyan-300/[0.045] p-4 font-mono text-sm text-cyan-100">
               {toolsUrl}
             </div>
@@ -4898,9 +4887,6 @@ function NetworkResyncPanel({
           </div>
           <div>
             <h3 className="font-semibold text-white">Regeneration reseau</h3>
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
-              A utiliser apres changement de switch, routeur ou IP. AtelierOS redetecte l'adresse LAN, met a jour le partage et relance les services PXE/SMB.
-            </p>
           </div>
         </div>
         <button
