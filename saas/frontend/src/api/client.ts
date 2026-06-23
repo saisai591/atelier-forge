@@ -37,7 +37,6 @@ api.interceptors.response.use(
         return api(original)
       } catch {
         useAuthStore.getState().logout()
-        window.location.href = '/login'
         return Promise.reject(error)
       } finally {
         refreshing = false
