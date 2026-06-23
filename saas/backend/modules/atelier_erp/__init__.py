@@ -442,6 +442,18 @@ async def update_reception(
     return item
 
 
+@router.delete("/receptions/{reception_id}", status_code=204)
+async def delete_reception(
+    reception_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    item = await _get_owned(db, AtelierReception, reception_id, current_user.tenant_id)
+    await db.delete(item)
+    await db.flush()
+    return Response(status_code=204)
+
+
 @router.get("/pallets", response_model=list[AtelierPalletOut])
 async def list_pallets(
     reception_id: uuid.UUID | None = Query(default=None),
@@ -484,6 +496,18 @@ async def update_pallet(
     await db.flush()
     await db.refresh(item)
     return item
+
+
+@router.delete("/pallets/{pallet_id}", status_code=204)
+async def delete_pallet(
+    pallet_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    item = await _get_owned(db, AtelierPallet, pallet_id, current_user.tenant_id)
+    await db.delete(item)
+    await db.flush()
+    return Response(status_code=204)
 
 
 @router.get("/pallets/{pallet_id}/label.pdf")
@@ -596,6 +620,18 @@ async def update_shipment(
     await db.flush()
     await db.refresh(item)
     return item
+
+
+@router.delete("/shipments/{shipment_id}", status_code=204)
+async def delete_shipment(
+    shipment_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    item = await _get_owned(db, AtelierShipment, shipment_id, current_user.tenant_id)
+    await db.delete(item)
+    await db.flush()
+    return Response(status_code=204)
 
 
 @router.get("/shipments/{shipment_id}/delivery-note.pdf")

@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Download,
   FileSpreadsheet,
+  PackagePlus,
   MapPin,
   PackageCheck,
   Printer,
@@ -329,6 +330,41 @@ export default function Erp() {
     },
   })
 
+  const deleteReception = useMutation({
+    mutationFn: async (id: string) => api.delete(`/atelier-erp/receptions/${id}`),
+    onSuccess: async () => {
+      setMessage('Reception supprimee.')
+      await invalidateErp()
+    },
+  })
+
+  const deleteShipment = useMutation({
+    mutationFn: async (id: string) => api.delete(`/atelier-erp/shipments/${id}`),
+    onSuccess: async () => {
+      setMessage('Sortie supprimee.')
+      await invalidateErp()
+    },
+  })
+
+  const createPallet = useMutation({
+    mutationFn: async ({ shipmentId, receptionId, reference }: { shipmentId?: string; receptionId?: string; reference: string }) =>
+      api.post<AtelierPallet>('/atelier-erp/pallets', {
+        shipment_id: shipmentId ?? null,
+        reception_id: receptionId ?? null,
+        reference,
+        label: reference,
+        expected_items: 0,
+        scanned_items: 0,
+        location: shipmentId ? 'Zone sortie' : 'Zone reception',
+        status: 'expected',
+        metadata_json: {},
+      }).then((response) => response.data),
+    onSuccess: async () => {
+      setMessage('Palette creee.')
+      await invalidateErp()
+    },
+  })
+
   const submitScanCode = useMutation({
     mutationFn: async (code: string) => {
       let session = activeSession
@@ -578,6 +614,22 @@ export default function Erp() {
                             <option value="closed">Cloturee</option>
                           </select>
                         </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <ActionButton
+                            icon={PackagePlus}
+                            label="Ajouter palette"
+                            busy={createPallet.isPending}
+                            onClick={() => createPallet.mutate({ receptionId: item.id, reference: `${item.reference}-PAL-${item.pallet_count + 1}` })}
+                            isDark={isDark}
+                          />
+                          <ActionButton
+                            icon={Download}
+                            label="Supprimer"
+                            busy={deleteReception.isPending}
+                            onClick={() => deleteReception.mutate(item.id)}
+                            isDark={isDark}
+                          />
+                        </div>
                       </div>
                       <ProgressBlock current={item.scanned_items} total={Math.max(item.expected_items, 1)} isDark={isDark} />
                     </div>
@@ -661,6 +713,8 @@ export default function Erp() {
                           <div className="flex flex-wrap gap-2">
                             <ActionButton icon={Download} label="Generer BL" busy={busyAction === `bl-${item.id}`} onClick={() => void handleDownloadBl(item)} isDark={isDark} />
                             <ActionButton icon={Printer} label="Imprimer etiquette" busy={busyAction === `label-${item.id}`} onClick={() => void handlePrintLabel(item)} isDark={isDark} />
+                            <ActionButton icon={PackagePlus} label="Ajouter palette" busy={createPallet.isPending} onClick={() => createPallet.mutate({ shipmentId: item.id, reference: `${item.reference}-PAL-${item.pallet_count + 1}` })} isDark={isDark} />
+                            <ActionButton icon={Download} label="Supprimer" busy={deleteShipment.isPending} onClick={() => deleteShipment.mutate(item.id)} isDark={isDark} />
                           </div>
                         </td>
                       </tr>
@@ -672,6 +726,26 @@ export default function Erp() {
           </div>
 
           <aside className="space-y-6">
+            <Panel className={panelClass}>
+              <ModuleHeader title="Palettes" subtitle="Controle rapide des palettes reception/sortie." icon={PackagePlus} isDark={isDark} />
+              <div className="space-y-2 p-5 pt-0">
+                {pallets.length === 0 && <EmptyState text="Aucune palette creee pour le moment." isDark={isDark} />}
+                {pallets.slice(0, 8).map((pallet) => (
+                  <div key={pallet.id} className={`rounded-xl border p-3 ${tileClass}`}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className={`truncate font-mono text-sm font-black ${titleClass}`}>{pallet.reference}</div>
+                        <div className={`text-xs ${softMutedClass}`}>
+                          {pallet.expected_items} attendu(s), {pallet.scanned_items} scanne(s) - {pallet.location || 'sans zone'}
+                        </div>
+                      </div>
+                      <StatusBadge label={pallet.status} className="border-cyan-300/20 bg-cyan-300/10 text-cyan-100" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+
             <Panel className={panelClass}>
               <ModuleHeader title="Scan atelier" subtitle="Champ compatible douchette : scannez puis Entree." icon={ScanLine} isDark={isDark} />
               <div className="space-y-4 p-5 pt-0">
