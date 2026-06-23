@@ -211,6 +211,7 @@ export default function Erp() {
   const [scanCode, setScanCode] = useState('')
   const [lastLookup, setLastLookup] = useState<MachineLookup | null>(null)
   const [lastImportPreview, setLastImportPreview] = useState<SupplierImportPreview | null>(null)
+  const [pendingImportFileName, setPendingImportFileName] = useState<string | null>(null)
   const [workspace, setWorkspace] = useState<ErpWorkspace>('receptions')
   const [documentFilter, setDocumentFilter] = useState<DocumentFilter>('all')
   const { theme, isDark, toggleTheme } = useThemeMode()
@@ -468,7 +469,7 @@ export default function Erp() {
     },
   })
 
-  const importSupplierFile = async (file: File) => {
+  const previewSupplierFile = async (file: File) => {
     setBusyAction('import')
     setMessage(null)
     try {
@@ -478,28 +479,43 @@ export default function Erp() {
         headers: { 'Content-Type': 'multipart/form-data' },
       }).then((response) => response.data)
       setLastImportPreview(preview)
+      setPendingImportFileName(file.name)
+      setMessage(`Apercu pret : ${preview.row_count} ligne(s), ${preview.detected_columns.length} colonne(s). Validez pour creer la reception.`)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Apercu impossible. Verifiez le fichier.')
+    } finally {
+      setBusyAction(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const commitSupplierPreview = async () => {
+    if (!lastImportPreview) return
+    setBusyAction('commit-import')
+    setMessage(null)
+    try {
       await api.post('/atelier-erp/supplier-import/commit', {
         reference: nextRef('REC'),
-        supplier_name: file.name.replace(/\.[^.]+$/, '') || 'Fournisseur',
-        source_filename: preview.filename,
-        source_format: preview.file_format,
-        expected_items: preview.row_count,
+        supplier_name: (pendingImportFileName || lastImportPreview.filename).replace(/\.[^.]+$/, '') || 'Fournisseur',
+        source_filename: lastImportPreview.filename,
+        source_format: lastImportPreview.file_format,
+        expected_items: lastImportPreview.row_count,
         pallet_count: 0,
         location: 'Zone reception',
         mapping_profile: {
-          detected_columns: preview.detected_columns,
-          field_guesses: preview.field_guesses,
-          warnings: preview.warnings,
+          detected_columns: lastImportPreview.detected_columns,
+          field_guesses: lastImportPreview.field_guesses,
+          warnings: lastImportPreview.warnings,
         },
-        notes: `Import ${preview.file_format} depuis interface ERP.`,
+        notes: `Import ${lastImportPreview.file_format} depuis interface ERP.`,
       })
-      setMessage(`Fichier importe : ${preview.row_count} ligne(s), ${preview.detected_columns.length} colonne(s).`)
+      setMessage(`Fichier importe : ${lastImportPreview.row_count} ligne(s), ${lastImportPreview.detected_columns.length} colonne(s).`)
+      setPendingImportFileName(null)
       await invalidateErp()
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Import impossible. Verifiez le fichier.')
     } finally {
       setBusyAction(null)
-      if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
@@ -692,7 +708,7 @@ export default function Erp() {
               className="hidden"
               onChange={(event) => {
                 const file = event.target.files?.[0]
-                if (file) void importSupplierFile(file)
+                if (file) void previewSupplierFile(file)
               }}
             />
             <button
@@ -1171,6 +1187,26 @@ export default function Erp() {
                         {lastImportPreview.warnings.join(' ')}
                       </div>
                     )}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <ActionButton
+                        icon={PackageCheck}
+                        label="Valider import"
+                        busy={busyAction === 'commit-import'}
+                        onClick={() => void commitSupplierPreview()}
+                        isDark={isDark}
+                      />
+                      <ActionButton
+                        icon={Download}
+                        label="Annuler apercu"
+                        busy={false}
+                        onClick={() => {
+                          setLastImportPreview(null)
+                          setPendingImportFileName(null)
+                          setMessage('Apercu import annule.')
+                        }}
+                        isDark={isDark}
+                      />
+                    </div>
                   </div>
                 )}
                 {latestFieldMapping.map(([source, target, confidence]) => (
