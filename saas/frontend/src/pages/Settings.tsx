@@ -16,7 +16,7 @@ export default function Settings() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Réglages</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">Reglages</h1>
       <div className="space-y-6">
         {tenant && (
           <CompanySection
@@ -34,17 +34,16 @@ export default function Settings() {
   )
 }
 
-function Card({ icon, title, subtitle, children }: {
-  icon: React.ReactNode; title: string; subtitle?: string; children: React.ReactNode
+function Card({ icon, title, children }: {
+  icon: React.ReactNode; title: string; children: React.ReactNode
 }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6">
-      <div className="flex items-center gap-2 mb-1">
+      <div className="flex items-center gap-2">
         <span className="text-forge-600">{icon}</span>
         <h2 className="font-semibold text-gray-800">{title}</h2>
       </div>
-      {subtitle && <p className="text-xs text-gray-400 mb-4">{subtitle}</p>}
-      <div className={subtitle ? '' : 'mt-4'}>{children}</div>
+      <div className="mt-4">{children}</div>
     </div>
   )
 }
@@ -78,23 +77,22 @@ function CompanySection({ initial, onSaved }: { initial: CompanyInfo; onSaved: (
   const set = (k: keyof CompanyInfo) => (v: string) => setC((p) => ({ ...p, [k]: v }))
 
   return (
-    <Card icon={<Building2 size={18} />} title="Identité de la société"
-      subtitle="Apparaît sur les factures PDF (mentions légales obligatoires).">
+    <Card icon={<Building2 size={18} />} title="Identite societe">
       <div className="grid sm:grid-cols-2 gap-3">
         <Field label="Raison sociale" value={c.name ?? ''} onChange={set('name')} placeholder="Atelier Forge SARL" />
         <Field label="SIRET" value={c.siret ?? ''} onChange={set('siret')} placeholder="812 345 678 00012" />
         <Field label="Adresse" value={c.address ?? ''} onChange={set('address')} placeholder="12 rue des Artisans" />
         <Field label="Code postal / Ville" value={c.zip_city ?? ''} onChange={set('zip_city')} placeholder="75011 Paris" />
-        <Field label="N° TVA" value={c.vat_number ?? ''} onChange={set('vat_number')} placeholder="FR12812345678" />
-        <Field label="IBAN" value={c.iban ?? ''} onChange={set('iban')} placeholder="FR76 …" />
+        <Field label="No TVA" value={c.vat_number ?? ''} onChange={set('vat_number')} placeholder="FR12812345678" />
+        <Field label="IBAN" value={c.iban ?? ''} onChange={set('iban')} placeholder="FR76 ..." />
       </div>
       <div className="grid gap-3 mt-3">
-        <Field label="Conditions de paiement" value={c.payment_terms ?? ''} onChange={set('payment_terms')} placeholder="Paiement à 30 jours" />
-        <Field label="Mentions légales" value={c.legal_mentions ?? ''} onChange={set('legal_mentions')} textarea placeholder="TVA sur marge — biens d'occasion…" />
+        <Field label="Conditions de paiement" value={c.payment_terms ?? ''} onChange={set('payment_terms')} placeholder="Paiement a 30 jours" />
+        <Field label="Mentions legales" value={c.legal_mentions ?? ''} onChange={set('legal_mentions')} textarea placeholder="TVA sur marge - biens d'occasion..." />
       </div>
       <button onClick={() => save.mutate()} disabled={save.isPending}
         className="mt-4 flex items-center gap-2 bg-forge-500 text-white px-4 py-2 rounded-lg hover:bg-forge-600 transition text-sm font-medium disabled:opacity-60">
-        {done ? <Check size={16} /> : <Save size={16} />} {done ? 'Enregistré' : 'Enregistrer'}
+        {done ? <Check size={16} /> : <Save size={16} />} {done ? 'Enregistre' : 'Enregistrer'}
       </button>
     </Card>
   )
@@ -123,20 +121,19 @@ function WhatsAppSection() {
   })
 
   return (
-    <Card icon={<MessageCircle size={18} />} title="Intégration WhatsApp"
-      subtitle="WhatsApp Business Cloud API (Meta). Sans config, le mode console (test) est utilisé.">
+    <Card icon={<MessageCircle size={18} />} title="WhatsApp">
       <div className="grid sm:grid-cols-2 gap-3">
         <Field label="Phone Number ID" value={phoneId} onChange={setPhoneId} placeholder="123456789012345" />
         <Field
-          label={wa?.has_token ? 'Token (déjà configuré — laisser vide pour conserver)' : 'Token d\'accès'}
-          value={token} onChange={setToken} placeholder="EAAG…"
+          label={wa?.has_token ? 'Token deja configure' : 'Token acces'}
+          value={token} onChange={setToken} placeholder="EAAG..."
         />
       </div>
       <button onClick={() => save.mutate()} disabled={save.isPending || !phoneId || !token}
         className="mt-4 flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition text-sm font-medium disabled:opacity-60">
-        {done ? <Check size={16} /> : <Save size={16} />} {done ? 'Enregistré' : 'Connecter'}
+        {done ? <Check size={16} /> : <Save size={16} />} {done ? 'Enregistre' : 'Connecter'}
       </button>
-      {wa?.has_token && <p className="text-xs text-green-600 mt-2">✓ WhatsApp connecté ({wa.provider})</p>}
+      {wa?.has_token && <p className="text-xs text-green-600 mt-2">WhatsApp connecte ({wa.provider})</p>}
     </Card>
   )
 }
@@ -164,21 +161,19 @@ function IngestKeySection() {
   }
 
   return (
-    <Card icon={<KeyRound size={18} />} title="Clé d'ingestion PXE"
-      subtitle="À fournir par le serveur PXE (header X-Forge-Key) pour pousser les audits vers le stock.">
+    <Card icon={<KeyRound size={18} />} title="Cle ingestion PXE">
       <div className="flex items-center gap-2">
         <code className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono text-gray-700 truncate">
-          {data?.ingest_key ?? '…'}
+          {data?.ingest_key ?? '...'}
         </code>
         <button onClick={copy} title="Copier" className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50">
           {copied ? <Check size={15} className="text-green-600" /> : <Copy size={15} className="text-gray-500" />}
         </button>
-        <button onClick={() => rotate.mutate()} disabled={rotate.isPending} title="Régénérer"
+        <button onClick={() => rotate.mutate()} disabled={rotate.isPending} title="Regenerer"
           className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-60">
           <RefreshCw size={15} className={`text-gray-500 ${rotate.isPending ? 'animate-spin' : ''}`} />
         </button>
       </div>
-      <p className="text-xs text-gray-400 mt-2">La régénération révoque immédiatement l'ancienne clé.</p>
     </Card>
   )
 }
