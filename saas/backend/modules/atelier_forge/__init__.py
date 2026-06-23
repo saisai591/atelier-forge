@@ -1,8 +1,8 @@
-﻿"""Pont Atelier Forge : ingestion des audits matÃ©riels et certificats d'effacement
-produits par le systÃ¨me PXE, vers le module stock.
+"""Pont Atelier Forge : ingestion des audits materiels et certificats d'effacement
+produits par le systeme PXE, vers le module stock.
 
-Authentification machine-Ã -machine par clÃ© d'ingestion (header X-Forge-Key) :
-le serveur PXE n'est pas un utilisateur connectÃ©.
+Authentification machine-a-machine par cle d'ingestion (header X-Forge-Key) :
+le serveur PXE n'est pas un utilisateur connecte.
 """
 import os
 import json
@@ -2124,10 +2124,10 @@ async def ingest(
     x_forge_key: str = Header(..., alias="X-Forge-Key"),
     db: AsyncSession = Depends(get_db),
 ):
-    """CrÃ©e ou met Ã  jour une machine dans le stock Ã  partir d'un audit PXE.
+    """Cree ou met a jour une machine dans le stock a partir d'un audit PXE.
 
-    Idempotent sur (tenant, numÃ©ro de sÃ©rie) : un rÃ©-audit de la mÃªme machine
-    met Ã  jour sa fiche au lieu d'en crÃ©er une nouvelle.
+    Idempotent sur (tenant, numero de serie) : un re-audit de la meme machine
+    met a jour sa fiche au lieu d'en creer une nouvelle.
     """
     tenant = await _tenant_from_key(x_forge_key, db)
 
@@ -2135,7 +2135,7 @@ async def ingest(
     grade = compute_grade(norm) if payload.audit else None
     serial = norm.get("serial_number")
 
-    # Upsert par numÃ©ro de sÃ©rie (si prÃ©sent).
+    # Upsert par numero de serie (si present).
     item: StockItem | None = None
     if serial:
         existing = await db.execute(
@@ -2151,7 +2151,7 @@ async def ingest(
         item = StockItem(tenant_id=tenant.id, status=StockItemStatus.in_diagnosis)
         db.add(item)
 
-    # Champs normalisÃ©s (ne pas Ã©craser avec du vide).
+    # Champs normalises (ne pas ecraser avec du vide).
     if serial:
         item.serial_number = serial
     if norm.get("brand"):
@@ -2182,7 +2182,7 @@ async def pxe_status(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Vue opÃ©rateur du serveur PXE et des postes connus par les audits."""
+    """Vue operateur du serveur PXE et des postes connus par les audits."""
     config = _read_pxe_config()
     result = await db.execute(
         select(StockItem)
@@ -3538,10 +3538,10 @@ async def pxe_action(
     payload: ForgeRemoteActionRequest,
     current_user: User = Depends(get_current_user),
 ):
-    """PrÃ©pare une action distante.
+    """Prepare une action distante.
 
-    Le contrÃ´le effectif nÃ©cessite un agent cÃ´tÃ© WinPE/SystemRescue qui viendra
-    rÃ©cupÃ©rer ces ordres ou ouvrir un canal VNC/RustDesk/SSH.
+    Le controle effectif necessite un agent cote WinPE/SystemRescue qui viendra
+    recuperer ces ordres ou ouvrir un canal VNC/RustDesk/SSH.
     """
     allowed = {"diag_express", "start_ssh", "open_tests", "reboot", "poweroff", "boot_diag", "boot_winpe", "wipe", "remote_shell", "remote_view"}
     if payload.action not in allowed:

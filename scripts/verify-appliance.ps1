@@ -9,12 +9,22 @@ $ErrorActionPreference = "Stop"
 function Test-HttpRoute {
   param([string]$Path)
   $url = "http://$HostName$Path"
-  $result = curl.exe -fsS -o NUL -w "%{http_code} %{size_download}" $url
-  $parts = $result.Trim().Split(" ")
-  if ($parts[0] -ne "200") {
-    throw "HTTP check failed: $url returned $($parts[0])"
+  $lastCode = "000"
+  $lastSize = "0"
+
+  for ($attempt = 1; $attempt -le 12; $attempt++) {
+    $result = curl.exe -sS -o NUL -w "%{http_code} %{size_download}" $url
+    $parts = $result.Trim().Split(" ")
+    $lastCode = $parts[0]
+    $lastSize = $parts[1]
+    if ($lastCode -eq "200") {
+      Write-Host "OK HTTP $Path ($lastSize bytes)"
+      return
+    }
+    Start-Sleep -Seconds 2
   }
-  Write-Host "OK HTTP $Path ($($parts[1]) bytes)"
+
+  throw "HTTP check failed: $url returned $lastCode after retries"
 }
 
 function Test-Remote {
