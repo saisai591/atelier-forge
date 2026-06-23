@@ -782,7 +782,7 @@ const navigation: Array<{ id: NavigationSection; label: string; icon: typeof Gau
   { id: 'settings', label: 'Parametres', icon: Settings },
 ]
 
-const beginnerSections: NavigationSection[] = ['dashboard', 'audit', 'images', 'drivers', 'deployments', 'tools', 'guide']
+const beginnerSections: NavigationSection[] = ['dashboard', 'audit', 'images', 'drivers', 'deployments', 'tools']
 
 function navigationForMode(mode: InterfaceMode) {
   return mode === 'expert' ? navigation : navigation.filter((item) => beginnerSections.includes(item.id))
