@@ -302,6 +302,18 @@ Etat local:
 8. Photos machine liees au numero de serie.
 9. Grade automatique configurable.
 10. Controle qualite final avant sortie atelier.
+11. Import fournisseur Excel/CSV/XML avec mapping memorise par fournisseur.
+12. Reception marchandise par arrivage, lot et palette.
+13. Preparation palettes client pour revente B2B.
+14. Etiquettes palettes client avec QR/code-barres, client, commande, transporteur.
+15. Bordereau de livraison et documents transport exportables en PDF.
+16. Parcours PDA/tablette/scanner: reception, scan, affectation, controle, expedition.
+
+Note architecture:
+- `AtelierOS Deploy` reste le module technique: PXE, audit, WIM, drivers, tests.
+- `AtelierOS ERP/Atelier` devient le module metier: receptions, palettes, stock, techniciens, ventes, BL.
+- Le site `atelieros.fr`/WooCommerce reste le module commercial: offres, paiement, licence, portail client.
+- Ne pas copier aveuglement les anciens projets Final Group; extraire uniquement les bonnes idees et les rebrancher proprement par module.
 
 ### Priorite 4 - PXE et tests machine
 

@@ -259,6 +259,154 @@ Evolution:
 - cache par modele;
 - validation drivers avant deploiement.
 
+### Atelier ERP - receptions, palettes et sorties client
+
+Objectif: transformer AtelierOS en base de gestion atelier modulaire, sans
+melanger le module technique Deploy avec le metier reconditionnement.
+
+Positionnement:
+
+- `Deploy`: PXE, WinPE, WIM, drivers, audit, tests, etiquettes machine.
+- `Atelier`: receptions, fournisseurs, palettes, techniciens, stock, tickets,
+  preparation client et documents.
+- `Vente/Connecteurs`: site AtelierOS, WooCommerce, marketplace, licences et
+  exports.
+
+#### Import fournisseur
+
+Le technicien doit pouvoir deposer un fichier fournisseur par glisser-deposer:
+
+- Excel `.xlsx`;
+- CSV;
+- XML;
+- variantes futures selon fournisseur.
+
+Chaque fournisseur peut avoir des colonnes differentes. Le logiciel doit:
+
+- lire le fichier;
+- detecter les colonnes;
+- proposer un mapping intelligent;
+- memoriser le mapping par fournisseur;
+- creer une reception ou alimenter une reception existante;
+- creer les fiches machines/produits attendus;
+- signaler les lignes incompletes ou ambigues.
+
+Exemples de champs a mapper:
+
+- numero de serie;
+- reference fournisseur;
+- marque;
+- modele;
+- categorie;
+- grade fournisseur;
+- quantite;
+- etat annonce;
+- prix achat;
+- palette/lot;
+- commentaire fournisseur.
+
+#### Reception et palettes entrantes
+
+Le module doit gerer:
+
+- arrivage fournisseur;
+- numero de lot;
+- palettes entrantes;
+- emplacement atelier;
+- nombre attendu / nombre scanne;
+- ecarts reception;
+- photos palette;
+- etiquettes palette interne;
+- scan code-barres fournisseur ou numero de serie.
+
+Workflow cible:
+
+1. Importer fichier fournisseur.
+2. Creer reception.
+3. Creer palettes/lots.
+4. Scanner les machines ou produits.
+5. Associer chaque item a la palette.
+6. Lancer audit/deploiement si c'est un PC.
+7. Generer etiquette AtelierOS.
+
+#### Techniciens et terminaux atelier
+
+Tous les techniciens doivent pouvoir travailler depuis:
+
+- PC atelier;
+- PDA Android;
+- tablette Android;
+- iPad;
+- douchette USB;
+- douchette Bluetooth;
+- terminal code-barres type Unitech.
+
+Contraintes UX:
+
+- interface responsive;
+- grosses zones tactiles;
+- mode scan rapide;
+- aucun besoin de clavier complet pour les actions courantes;
+- actions principales disponibles par QR/code-barres;
+- retour immediat apres scan: trouve, inconnu, deja scanne, mauvais lot.
+
+Actions PDA/tablette:
+
+- scanner une palette;
+- scanner une machine;
+- confirmer reception;
+- changer statut;
+- ajouter photo;
+- creer ticket atelier;
+- voir audit;
+- imprimer etiquette;
+- preparer sortie client;
+- controler palette avant expedition.
+
+#### Sortie client et preparation palettes
+
+Le logiciel doit gerer les palettes de revente ou expedition client.
+
+Fonctions:
+
+- creer une commande ou sortie client;
+- selectionner client;
+- selectionner machines/produits;
+- creer une ou plusieurs palettes client;
+- affecter les items a une palette;
+- verifier que tous les items sont controles;
+- imprimer etiquette palette client;
+- generer bordereau de livraison;
+- generer liste de colisage;
+- exporter documents PDF.
+
+Etiquette palette client:
+
+- nom client;
+- numero commande;
+- numero palette;
+- nombre d'items;
+- poids/dimensions si renseignes;
+- transporteur;
+- adresse livraison;
+- QR code palette;
+- code-barres palette.
+
+Documents cible:
+
+- BL / bordereau de livraison;
+- liste de colisage;
+- recapitulatif palette;
+- document transporteur interne;
+- export CSV/Excel client si besoin.
+
+Regle anti-regression:
+
+- une machine ne doit pas sortir sans statut final valide;
+- une palette client doit lister exactement les items scannes;
+- toute suppression ou modification apres BL doit etre historisee;
+- les documents doivent reprendre les donnees client et atelier configurees.
+
 ### Unattend
 
 Objectif: creer des profils d'installation automatisee Windows.
@@ -514,4 +662,3 @@ AtelierOS Deploy est pret client quand:
 - sauvegarde creee;
 - guide client disponible;
 - mode debutant utilisable sans aide externe.
-
