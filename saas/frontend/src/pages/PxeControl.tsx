@@ -1251,6 +1251,9 @@ function DashboardModule({
   const offlineServices = status?.services.filter((service) => service.status !== 'online') ?? []
   const offlineReportChecks = systemReport?.checks.filter((check) => check.status !== 'online') ?? []
   const defaultImageMissing = offlineReportChecks.some((check) => check.key === 'default-image')
+  const firstBlockingCheck = offlineReportChecks[0]
+  const reliabilityScore = systemReport?.reliability_score ?? null
+  const readinessLevel = systemReport?.readiness_level ?? 'non calcule'
   const winpeAsset = status?.assets.find((asset) => asset.key === 'winpe')
   const readyAssets = status?.assets.filter((asset) => asset.status === 'ready').length ?? 0
   const totalAssets = status?.assets.length ?? 0
@@ -1322,18 +1325,18 @@ function DashboardModule({
   const beginnerSteps = [
     {
       title: '1. Verifier serveur',
-      detail: 'Services, reseau, partage et WinPE doivent etre verts avant le test client.',
-      action: readiness.every((item) => item.ok) ? 'Pret' : 'Reparer maintenant',
+      detail: reliabilityScore !== null ? `Score fiabilite ${reliabilityScore}% - ${readinessLevel}.` : 'Services, reseau, partage et WinPE doivent etre verts avant le test client.',
+      action: readiness.every((item) => item.ok) ? 'Pret' : 'Voir diagnostic',
       target: 'settings' as NavigationSection,
       ok: readiness.every((item) => item.ok),
-      repair: true,
+      repair: false,
     },
     {
       title: '2. Importer Windows',
-      detail: 'Depose ISO/WIM puis prepare l image Windows dans le module Images.',
+      detail: defaultImageMissing ? 'Blocage actuel: aucune image Windows par defaut. Depose ISO/WIM puis prepare l image.' : 'Image Windows detectee. Verifie le profil complet avant deploiement.',
       action: 'Ouvrir Images',
       target: 'images' as NavigationSection,
-      ok: Boolean(status?.assets.some((asset) => asset.key === 'winpe' && asset.status === 'ready')),
+      ok: !defaultImageMissing,
       repair: false,
     },
     {
@@ -1483,8 +1486,30 @@ function DashboardModule({
               <h2 className="text-lg font-semibold text-white">Premier demarrage client</h2>
               <p className="mt-1 text-sm text-slate-400">Parcours court pour installer et tester l appliance sans connaissance PXE.</p>
             </div>
-            <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs font-semibold text-cyan-100">Mode debutant</span>
+            <span className={cn(
+              'rounded-full border px-3 py-1 text-xs font-semibold',
+              reliabilityScore === null ? 'border-cyan-300/20 bg-cyan-300/10 text-cyan-100' : reliabilityScore >= 90 ? 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100' : 'border-amber-300/20 bg-amber-300/10 text-amber-100',
+            )}>
+              {reliabilityScore === null ? 'Mode debutant' : `${reliabilityScore}% - ${readinessLevel}`}
+            </span>
           </div>
+          {firstBlockingCheck ? (
+            <div className="mb-4 rounded-xl border border-amber-300/20 bg-amber-300/10 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-amber-50">Premier blocage: {firstBlockingCheck.label}</div>
+                  <div className="mt-1 text-sm leading-6 text-amber-100/85">{firstBlockingCheck.detail}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onNavigate(firstBlockingCheck.key === 'default-image' ? 'images' : firstBlockingCheck.key === 'unattend' ? 'images' : firstBlockingCheck.key === 'backup' ? 'guide' : 'settings')}
+                  className="rounded-lg border border-amber-200/25 bg-black/20 px-3 py-2 text-xs font-semibold text-amber-50 transition hover:bg-black/30"
+                >
+                  Corriger
+                </button>
+              </div>
+            </div>
+          ) : null}
           <div className="grid gap-3 md:grid-cols-5">
             {beginnerSteps.map((step) => (
               <button
@@ -4715,12 +4740,14 @@ function AssistantBot({
   mode,
   apiError,
   status,
+  systemReport,
   audits,
 }: {
   activeSection: NavigationSection
   mode: InterfaceMode
   apiError: string | null
   status: ForgePxeStatus | null
+  systemReport: ForgeSystemReportResponse | null
   audits: ForgePxeAuditSummary[]
 }) {
   const [open, setOpen] = useState(() => mode === 'beginner')
@@ -4730,6 +4757,8 @@ function AssistantBot({
   const advice = assistantAdvice(activeSection, {
     apiError,
     offlineServices: offlineServices.length,
+    reliabilityScore: systemReport?.reliability_score ?? null,
+    firstBlockingCheck: systemReport?.checks.find((check) => check.status !== 'online') ?? null,
     auditCount: audits.length,
     latestMachine: latestAudit ? machineName(latestAudit) : null,
     hasPxeClients: Boolean(status?.clients?.length),
@@ -4789,7 +4818,7 @@ function AssistantBot({
 
 function assistantAdvice(
   section: NavigationSection,
-  context: { apiError: string | null; offlineServices: number; auditCount: number; latestMachine: string | null; hasPxeClients: boolean },
+  context: { apiError: string | null; offlineServices: number; reliabilityScore: number | null; firstBlockingCheck: ForgePxeServiceCheck | null; auditCount: number; latestMachine: string | null; hasPxeClients: boolean },
 ) {
   if (context.apiError) {
     return {
@@ -4803,6 +4832,17 @@ function assistantAdvice(
       status: `${context.offlineServices} service(s) a verifier`,
       primary: 'Un service est signale hors ligne ou non verifie. Le PXE peut fonctionner partiellement, mais il faut corriger avant une livraison client.',
       actions: ['Controle les voyants dans Dashboard.', 'Teste le partage reseau depuis un PC Windows.', 'Verifie HTTP PXE avant de lancer un audit.'],
+    }
+  }
+  if (context.firstBlockingCheck) {
+    return {
+      status: context.reliabilityScore === null ? 'Diagnostic' : `Fiabilite ${context.reliabilityScore}%`,
+      primary: `Blocage principal: ${context.firstBlockingCheck.label}. ${context.firstBlockingCheck.detail}`,
+      actions: [
+        context.firstBlockingCheck.key === 'default-image' ? 'Va dans Images WIM et importe ou declare une image Windows.' : 'Ouvre Guide > Diagnostic pour lire le controle detaille.',
+        'Corrige ce point puis clique Synchroniser.',
+        'Ne lance pas de deploiement tant que ce point reste orange.',
+      ],
     }
   }
 
@@ -8875,7 +8915,7 @@ export default function PxeControl({
         </div>
       </div>
       {assistantEnabled ? (
-        <AssistantBot activeSection={activeSection} mode={interfaceMode} apiError={apiError} status={pxeStatus} audits={pxeAudits} />
+        <AssistantBot activeSection={activeSection} mode={interfaceMode} apiError={apiError} status={pxeStatus} systemReport={systemReport} audits={pxeAudits} />
       ) : null}
       <MobileNavigation activeSection={activeSection} onNavigate={navigateSection} items={visibleNavigation} />
     </div>
