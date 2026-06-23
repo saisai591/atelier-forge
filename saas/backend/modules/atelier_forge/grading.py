@@ -1,14 +1,14 @@
-﻿"""Normalisation des audits PXE (Linux audit.sh / WinPE audit.ps1) et calcul de grade.
+"""Normalisation des audits PXE (Linux audit.sh / WinPE audit.ps1) et calcul de grade.
 
-Le pont est TOLÃ‰RANT : les deux scripts d'audit ne produisent pas exactement les
-mÃªmes clÃ©s. On extrait les champs clÃ©s quel que soit le format, et on conserve
+Le pont est tolerant : les deux scripts d'audit ne produisent pas exactement les
+memes cles. On extrait les champs cles quel que soit le format, et on conserve
 l'audit brut tel quel dans `audit_data`.
 """
 from typing import Any
 
 
 def _first(d: dict[str, Any], *keys: str) -> Any:
-    """Renvoie la premiÃ¨re clÃ© prÃ©sente et non vide parmi `keys`."""
+    """Renvoie la premiere cle presente et non vide parmi `keys`."""
     for k in keys:
         v = d.get(k)
         if v not in (None, "", "?"):
@@ -17,14 +17,14 @@ def _first(d: dict[str, Any], *keys: str) -> Any:
 
 
 def normalize_audit(audit: dict[str, Any]) -> dict[str, Any]:
-    """Extrait les champs normalisÃ©s depuis un audit Linux OU WinPE."""
+    """Extrait les champs normalises depuis un audit Linux OU WinPE."""
     serial = _first(audit, "NumeroSerie", "Serial", "SerialNumber", "serial", "serial_number")
     brand = _first(audit, "Fabricant", "Marque", "Manufacturer", "brand")
     model = _first(audit, "Modele", "Model", "model")
     battery_wear = _first(audit, "Batterie_Usure_pct", "Batterie_Usure", "battery_wear")
 
     disks = audit.get("Disques") or audit.get("Disks") or audit.get("disks") or []
-    if isinstance(disks, dict):  # WinPE peut sÃ©rialiser un seul disque en objet
+    if isinstance(disks, dict):  # WinPE peut serialiser un seul disque en objet
         disks = [disks]
 
     return {
@@ -48,20 +48,20 @@ def _to_float(v: Any) -> float | None:
 
 
 def _disk_is_healthy(disk: dict[str, Any]) -> bool:
-    """SantÃ© du disque, tolÃ©rante aux libellÃ©s Linux (PASSED) et WinPE (Healthy)."""
+    """Sante du disque, tolerante aux libelles Linux (PASSED) et WinPE (Healthy)."""
     health = str(_first(disk, "sante", "Sante", "Sante_SMART", "Health", "HealthStatus", "smart") or "").lower()
     if not health or health == "?":
-        return True  # inconnu : ne pÃ©nalise pas
+        return True  # inconnu : ne penalise pas
     return any(token in health for token in ("passed", "ok", "healthy", "bon"))
 
 
 def compute_grade(normalized: dict[str, Any]) -> str:
-    """Grade commercial A/B/C/D Ã  partir de l'usure batterie et de la santÃ© disque.
+    """Grade commercial A/B/C/D a partir de l'usure batterie et de la sante disque.
 
-    - A : impeccable           - C : usure marquÃ©e / 1 dÃ©faut
-    - B : bon, usure lÃ©gÃ¨re    - D : dÃ©faut matÃ©riel (disque non sain)
+    - A : impeccable            - C : usure marquee / 1 defaut
+    - B : bon, usure legere     - D : defaut materiel (disque non sain)
     """
-    score = 0  # 0 = parfait ; plus c'est haut, plus c'est dÃ©gradÃ©
+    score = 0  # 0 = parfait ; plus c'est haut, plus c'est degrade
 
     wear = normalized.get("battery_wear")
     if wear is not None:
@@ -74,7 +74,7 @@ def compute_grade(normalized: dict[str, Any]) -> str:
 
     disks = normalized.get("disks") or []
     if any(not _disk_is_healthy(d) for d in disks if isinstance(d, dict)):
-        score += 3  # disque non sain : dÃ©classe fortement
+        score += 3  # disque non sain : declasse fortement
 
     if score == 0:
         return "A"
