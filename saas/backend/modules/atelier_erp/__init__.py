@@ -53,6 +53,7 @@ from .schemas import (
     SupplierImportPreview,
 )
 from .palette_pdf import build_pallet_label_pdf
+from .shipment_pdf import build_delivery_note_pdf, build_packing_list_pdf
 
 router = APIRouter(prefix="/atelier-erp", tags=["atelier_erp"])
 
@@ -245,6 +246,15 @@ async def _get_owned(db: AsyncSession, model, item_id: uuid.UUID, tenant_id: uui
     if not item:
         raise HTTPException(status_code=404, detail="Element introuvable")
     return item
+
+
+async def _shipment_pallets(db: AsyncSession, shipment_id: uuid.UUID, tenant_id: uuid.UUID) -> list[AtelierPallet]:
+    result = await db.execute(
+        select(AtelierPallet)
+        .where(AtelierPallet.shipment_id == shipment_id, AtelierPallet.tenant_id == tenant_id)
+        .order_by(AtelierPallet.reference.asc())
+    )
+    return list(result.scalars().all())
 
 
 @router.get("/overview", response_model=AtelierOverview)
@@ -528,6 +538,71 @@ async def update_shipment(
     await db.flush()
     await db.refresh(item)
     return item
+
+
+@router.get("/shipments/{shipment_id}/delivery-note.pdf")
+async def download_delivery_note(
+    shipment_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    shipment = await _get_owned(db, AtelierShipment, shipment_id, current_user.tenant_id)
+    pallets = await _shipment_pallets(db, shipment_id, current_user.tenant_id)
+    pdf = build_delivery_note_pdf(
+        shipment={
+            "reference": shipment.reference,
+            "client_name": shipment.client_name,
+            "carrier": shipment.carrier,
+            "expected_items": shipment.expected_items,
+            "pallet_count": shipment.pallet_count,
+            "notes": shipment.notes,
+        },
+        pallets=[
+            {
+                "reference": pallet.reference,
+                "expected_items": pallet.expected_items,
+                "status": pallet.status.value,
+                "location": pallet.location,
+            }
+            for pallet in pallets
+        ],
+    )
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="bl-{shipment.reference}.pdf"'},
+    )
+
+
+@router.get("/shipments/{shipment_id}/packing-list.pdf")
+async def download_packing_list(
+    shipment_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    shipment = await _get_owned(db, AtelierShipment, shipment_id, current_user.tenant_id)
+    pallets = await _shipment_pallets(db, shipment_id, current_user.tenant_id)
+    pdf = build_packing_list_pdf(
+        shipment={
+            "reference": shipment.reference,
+            "client_name": shipment.client_name,
+            "carrier": shipment.carrier,
+        },
+        pallets=[
+            {
+                "reference": pallet.reference,
+                "expected_items": pallet.expected_items,
+                "scanned_items": pallet.scanned_items,
+                "status": pallet.status.value,
+            }
+            for pallet in pallets
+        ],
+    )
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="colisage-{shipment.reference}.pdf"'},
+    )
 
 
 @router.get("/scan-sessions", response_model=list[AtelierScanSessionOut])
