@@ -1487,7 +1487,7 @@ function DashboardModule({
               'rounded-full border px-3 py-1 text-xs font-semibold',
               reliabilityScore === null ? 'border-cyan-300/20 bg-cyan-300/10 text-cyan-100' : reliabilityScore >= 90 ? 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100' : 'border-amber-300/20 bg-amber-300/10 text-amber-100',
             )}>
-              {reliabilityScore === null ? 'Mode debutant' : `${reliabilityScore}% - ${readinessLevel}`}
+              {reliabilityScore === null ? 'En cours' : `${reliabilityScore}% - ${readinessLevel}`}
             </span>
           </div>
           {firstBlockingCheck ? (
