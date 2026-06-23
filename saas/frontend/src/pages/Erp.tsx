@@ -539,6 +539,24 @@ export default function Erp() {
     }
   }
 
+  const handleDownloadPackingList = async (shipment: ClientShipment) => {
+    setBusyAction(`packing-${shipment.id}`)
+    try {
+      await downloadPdf(`/atelier-erp/shipments/${shipment.id}/packing-list.pdf`, `colisage-${shipment.reference}.pdf`)
+      await api.post('/atelier-erp/documents', {
+        shipment_id: shipment.id,
+        document_type: 'packing_list',
+        title: `Liste colisage ${shipment.reference}`,
+        file_path: null,
+        payload: { reference: shipment.reference, generated_from: 'erp_interface' },
+      })
+      setMessage(`Liste de colisage generee pour ${shipment.reference}.`)
+      await invalidateErp()
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
   const handlePrintLabel = async (shipment: ClientShipment) => {
     setBusyAction(`label-${shipment.id}`)
     try {
@@ -984,6 +1002,7 @@ export default function Erp() {
                         <td className="px-5 py-4">
                           <div className="flex flex-wrap gap-2">
                             <ActionButton icon={Download} label="Generer BL" busy={busyAction === `bl-${item.id}`} onClick={() => void handleDownloadBl(item)} isDark={isDark} />
+                            <ActionButton icon={FileSpreadsheet} label="Colisage" busy={busyAction === `packing-${item.id}`} onClick={() => void handleDownloadPackingList(item)} isDark={isDark} />
                             <ActionButton icon={Printer} label="Imprimer etiquette" busy={busyAction === `label-${item.id}`} onClick={() => void handlePrintLabel(item)} isDark={isDark} />
                             <ActionButton icon={PackagePlus} label="Ajouter palette" busy={createPallet.isPending} onClick={() => createPallet.mutate({ shipmentId: item.id, reference: `${item.reference}-PAL-${item.pallet_count + 1}` })} isDark={isDark} />
                             <ActionButton icon={PackageCheck} label="Expedier" busy={updateShipment.isPending} onClick={() => updateShipment.mutate({ id: item.id, payload: { status: 'shipped' } })} isDark={isDark} />
