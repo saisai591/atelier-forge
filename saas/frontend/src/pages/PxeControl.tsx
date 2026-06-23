@@ -2369,7 +2369,7 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
     brand: fitLabelText(label.brand, slimLabel ? 18 : 30),
     model: fitLabelText(label.model, slimLabel ? 22 : 36),
     cpu: compactCpuLabel(label.cpu, slimLabel ? 26 : 42),
-    ram: compactRamLabel(label.ram, slimLabel ? 13 : 18),
+    ram: compactRamLabel(label.ram, slimLabel ? 22 : 30),
     disk: compactDiskLabel(label.disk, slimLabel ? 24 : 34),
     battery: compactBatteryLabel(label.battery, slimLabel ? 24 : 38),
     hostname: fitLabelText(label.hostname, slimLabel ? 0 : 24),
@@ -2434,7 +2434,7 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
       ...current,
       title: compactMachineTitle(current.title, slimLabel ? 34 : 52),
       cpu: compactCpuLabel(current.cpu, slimLabel ? 26 : 42),
-      ram: compactRamLabel(current.ram, slimLabel ? 13 : 18),
+      ram: compactRamLabel(current.ram, slimLabel ? 22 : 30),
       disk: compactDiskLabel(current.disk, slimLabel ? 24 : 34),
       battery: compactBatteryLabel(current.battery, slimLabel ? 24 : 38),
       serial: cleanBarcodeValue(current.serial || audit.id),
@@ -2446,8 +2446,8 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
     const popup = window.open('', '_blank', 'width=900,height=700')
     if (!popup) return
     const barcodeTextForRender = cleanBarcodeValue(label.serial || audit.id || `AOS-${audit.id}`.slice(0, 32))
-    const qrSizeMm = slimLabel ? 15 : 24
-    const barcodeWidthMm = slimLabel ? 31 : 45
+    const qrSizeMm = slimLabel ? 13.2 : 24
+    const barcodeWidthMm = slimLabel ? 27 : 45
     popup.document.write(`<!doctype html>
 <html>
 <head>
@@ -2459,21 +2459,17 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
     html, body { width: ${pageWidth}mm; height: ${pageHeight}mm; margin: 0; padding: 0; background: white; font-family: Arial, Helvetica, sans-serif; color: #000; }
     .label { width: ${pageWidth}mm; height: ${pageHeight}mm; padding: ${slimLabel ? '1.6mm 2mm 1.1mm' : '3mm'}; background: white; display: grid; grid-template-rows: auto 1fr auto; gap: ${slimLabel ? '.65mm' : '1.8mm'}; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
     .label * { color: #000; font-weight: 900; letter-spacing: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .top { display: grid; grid-template-columns: 1fr ${qrSizeMm}mm; gap: ${slimLabel ? '1.4mm' : '2.4mm'}; align-items: start; min-width: 0; }
+    .top { display: grid; grid-template-columns: 1fr ${qrSizeMm}mm; gap: ${slimLabel ? '1mm' : '2.4mm'}; align-items: start; min-width: 0; }
     .brand { font-size: ${slimLabel ? '4.6pt' : '8.3pt'}; text-transform: uppercase; text-align: center; white-space: nowrap; overflow: hidden; margin-bottom: ${slimLabel ? '.35mm' : '1mm'}; }
     .titleline { display: grid; grid-template-columns: 1fr ${slimLabel ? '6.2mm' : '11mm'}; gap: ${slimLabel ? '.8mm' : '1.5mm'}; align-items: start; min-width: 0; }
     h1 { margin: 0; font-size: ${slimLabel ? '8.9pt' : '17pt'}; line-height: .98; overflow-wrap: anywhere; word-break: break-word; max-height: ${slimLabel ? '9.2mm' : '26mm'}; overflow: hidden; }
     .grade { width: ${slimLabel ? '6.2mm' : '11mm'}; height: ${slimLabel ? '6.2mm' : '11mm'}; display: grid; place-items: center; border: .35mm solid #000; font-size: ${slimLabel ? '8pt' : '16pt'}; line-height: 1; }
     .qrbox { width: ${qrSizeMm}mm; height: ${qrSizeMm}mm; padding: .6mm; background: #fff; display: grid; place-items: center; }
     .qr { width: 100%; height: 100%; border: 0; padding: 0; object-fit: contain; image-rendering: pixelated; }
-    .body { min-height: 0; overflow: hidden; display: grid; gap: ${slimLabel ? '.45mm' : '1.1mm'}; align-content: center; }
-    .line { display: grid; grid-template-columns: ${slimLabel ? '7.5mm 1fr' : '14mm 1fr'}; gap: ${slimLabel ? '.8mm' : '1.3mm'}; min-width: 0; align-items: baseline; overflow: hidden; }
+    .body { min-height: 0; overflow: hidden; display: grid; gap: ${slimLabel ? '.32mm' : '1.1mm'}; align-content: center; }
+    .line { display: grid; grid-template-columns: ${slimLabel ? '7.5mm minmax(0,1fr)' : '14mm minmax(0,1fr)'}; gap: ${slimLabel ? '.8mm' : '1.3mm'}; min-width: 0; align-items: baseline; overflow: hidden; }
     .key { font-size: ${slimLabel ? '4.1pt' : '7pt'}; text-transform: uppercase; opacity: .68; white-space: nowrap; text-align: right; }
     .value { font-size: ${slimLabel ? '5.25pt' : '8.6pt'}; line-height: 1.02; min-width: 0; overflow-wrap: anywhere; word-break: break-word; text-align: left; }
-    .hardware-row { display: grid; grid-template-columns: 1fr ${slimLabel ? '16mm' : '22mm'}; gap: ${slimLabel ? '1mm' : '2mm'}; min-width: 0; }
-    .ram-chip { display: grid; grid-template-columns: auto 1fr; gap: .7mm; align-items: baseline; overflow: hidden; }
-    .ram-chip .key { font-size: ${slimLabel ? '4pt' : '7pt'}; }
-    .ram-chip .value { font-size: ${slimLabel ? '4.7pt' : '8pt'}; text-align: right; overflow-wrap: anywhere; }
     .bottom { display: grid; grid-template-columns: 1fr ${barcodeWidthMm}mm; gap: ${slimLabel ? '1.2mm' : '2.2mm'}; align-items: end; min-width: 0; }
     .serial { font-family: Consolas, Arial, sans-serif; font-size: ${slimLabel ? '5.2pt' : '9pt'}; overflow-wrap: anywhere; word-break: break-word; line-height: 1.02; }
     .note { margin-top: .2mm; font-size: ${slimLabel ? '3.9pt' : '7.2pt'}; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
@@ -2490,10 +2486,8 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
       ${qrDataUrl ? `<div class="qrbox"><img class="qr" src="${qrDataUrl}" alt="QR" /></div>` : ''}
         </div>
         <div class="body">
-      <div class="hardware-row">
-        <div class="line"><div class="key">CPU</div><div class="value">${escapeHtml(printLabel.cpu || '-')}</div></div>
-        <div class="ram-chip"><div class="key">RAM</div><div class="value">${escapeHtml(printLabel.ram || '-')}</div></div>
-      </div>
+      <div class="line"><div class="key">CPU</div><div class="value">${escapeHtml(printLabel.cpu || '-')}</div></div>
+      <div class="line"><div class="key">RAM</div><div class="value">${escapeHtml(printLabel.ram || '-')}</div></div>
       <div class="line"><div class="key">SSD</div><div class="value">${escapeHtml(printLabel.disk || '-')}</div></div>
       <div class="line"><div class="key">BAT</div><div class="value">${escapeHtml(printLabel.battery || '-')}</div></div>
       ${showNetworkOnLabel ? `<div class="line"><div class="key">HOST</div><div class="value">${escapeHtml(printLabel.hostname || '-')}</div></div>
@@ -2655,10 +2649,8 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
               {qrDataUrl ? <img src={qrDataUrl} alt="QR" className={cn('shrink-0 bg-white p-0.5', slimLabel ? 'h-12 w-12' : 'h-20 w-20')} /> : null}
             </div>
             <div className={cn('grid content-start', slimLabel ? 'gap-0.5' : 'gap-1')}>
-              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_55px] gap-2">
-                <LabelPreviewLine label="CPU" value={printLabel.cpu || '-'} slim={slimLabel} />
-              <LabelPreviewLine label="RAM" value={printLabel.ram || '-'} slim={slimLabel} small />
-            </div>
+            <LabelPreviewLine label="CPU" value={printLabel.cpu || '-'} slim={slimLabel} />
+            <LabelPreviewLine label="RAM" value={printLabel.ram || '-'} slim={slimLabel} />
             <LabelPreviewLine label="SSD" value={printLabel.disk || '-'} slim={slimLabel} />
             <LabelPreviewLine label="BAT" value={printLabel.battery || '-'} slim={slimLabel} />
             {showNetworkOnLabel ? (
