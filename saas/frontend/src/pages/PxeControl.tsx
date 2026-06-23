@@ -2346,9 +2346,9 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
     model: cleanLabelField(audit.model || ''),
     serial: audit.serial_number || '',
     cpu: cleanLabelField(audit.cpu || ''),
-    ram: cleanLabelField(audit.ram || (audit.ram_mb ? `${audit.ram_mb} MB` : '')),
-    disk: cleanLabelField(audit.main_disk || ''),
-    battery: cleanLabelField(audit.battery_status || 'Aucune batterie'),
+    ram: cleanLabelField(labelRamSummary(audit)),
+    disk: cleanLabelField(labelDiskSummary(audit)),
+    battery: cleanLabelField(labelBatterySummary(audit)),
     hostname: cleanLabelField(audit.hostname || ''),
     ip: cleanLabelField(audit.ip || ''),
     grade: audit.grade_proposed || 'A',
@@ -2371,7 +2371,7 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
     cpu: compactCpuLabel(label.cpu, slimLabel ? 26 : 42),
     ram: compactRamLabel(label.ram, slimLabel ? 22 : 30),
     disk: compactDiskLabel(label.disk, slimLabel ? 24 : 34),
-    battery: compactBatteryLabel(label.battery, slimLabel ? 24 : 38),
+    battery: compactBatteryLabel(label.battery, slimLabel ? 34 : 48),
     hostname: fitLabelText(label.hostname, slimLabel ? 0 : 24),
     ip: fitLabelText(label.ip, slimLabel ? 0 : 24),
     serial: fitLabelText(label.serial, slimLabel ? 22 : 34),
@@ -2436,7 +2436,7 @@ function LabelEditorModal({ audit, onClose }: { audit: ForgePxeAuditSummary; onC
       cpu: compactCpuLabel(current.cpu, slimLabel ? 26 : 42),
       ram: compactRamLabel(current.ram, slimLabel ? 22 : 30),
       disk: compactDiskLabel(current.disk, slimLabel ? 24 : 34),
-      battery: compactBatteryLabel(current.battery, slimLabel ? 24 : 38),
+      battery: compactBatteryLabel(current.battery, slimLabel ? 34 : 48),
       serial: cleanBarcodeValue(current.serial || audit.id),
       note: fitLabelText(current.note || 'ATELIEROS', 28),
     }))
@@ -2777,6 +2777,35 @@ function cleanBarcodeValue(value: string | null | undefined) {
     .slice(0, 36)
 }
 
+function labelRamSummary(audit: ForgePxeAuditSummary) {
+  if (audit.ram) return audit.ram
+  if (audit.ram_mb) {
+    const gb = audit.ram_mb / 1024
+    return `${Number.isInteger(gb) ? gb : gb.toFixed(1)} Go`
+  }
+  return ''
+}
+
+function labelDiskSummary(audit: ForgePxeAuditSummary) {
+  if (audit.main_disk) return audit.main_disk
+  const disk = audit.disks.find((item) => item.size_gb || item.model || item.text)
+  if (!disk) return ''
+  const size = disk.size_gb ? `${disk.size_gb >= 1000 ? `${(disk.size_gb / 1000).toFixed(1)} To` : `${Math.round(disk.size_gb)} Go`}` : ''
+  const type = disk.type ? disk.type.toUpperCase() : ''
+  const model = disk.model || disk.text || ''
+  return [size, type, model].filter(Boolean).join(' ')
+}
+
+function labelBatterySummary(audit: ForgePxeAuditSummary) {
+  const battery = audit.battery.find((item) => item.health_percent != null || item.wear_percent != null || item.cycle_count)
+  if (!battery) return audit.battery_status || 'Aucune batterie'
+  const parts = []
+  if (battery.health_percent != null) parts.push(`Sante ${Math.round(battery.health_percent)}%`)
+  if (battery.wear_percent != null) parts.push(`Usure ${Math.round(battery.wear_percent)}%`)
+  if (battery.cycle_count) parts.push(`${battery.cycle_count} cycles`)
+  return parts.join(' ') || audit.battery_status || 'Batterie detectee'
+}
+
 function dedupeMachineTitle(brand?: string | null, model?: string | null) {
   const cleanBrand = cleanLabelField(brand)
   const cleanModel = cleanLabelField(model)
@@ -3087,9 +3116,9 @@ function buildAuditReportHtml(audit: ForgePxeAuditSummary, autoPrint = false) {
     ['Marque / modele', machineName(audit)],
     ['Serie', audit.serial_number || '-'],
     ['CPU', audit.cpu || '-'],
-    ['RAM', audit.ram || (audit.ram_mb ? `${audit.ram_mb} MB` : '-')],
-    ['Disque', audit.main_disk || '-'],
-    ['Batterie', audit.battery_status || 'Aucune batterie'],
+    ['RAM', labelRamSummary(audit) || '-'],
+    ['Disque', labelDiskSummary(audit) || '-'],
+    ['Batterie', labelBatterySummary(audit)],
     ['Grade propose', audit.grade_proposed || '-'],
     ['IP / MAC', `${audit.ip || '-'} / ${audit.mac || '-'}`],
     ['Fichier audit', audit.filename],
