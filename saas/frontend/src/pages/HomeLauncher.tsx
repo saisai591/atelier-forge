@@ -1,5 +1,6 @@
 import {
   ArrowRight,
+  BookOpen,
   Boxes,
   ClipboardCheck,
   Database,
@@ -55,6 +56,7 @@ const quickLinks = [
   { label: 'Pilotes', detail: 'Packs par modele', path: '/pxe', icon: HardDrive },
   { label: 'Palettes client', detail: 'Preparation transport', path: '/erp', icon: Truck },
   { label: 'Stock atelier', detail: 'Machines et grades', path: '/app/stock', icon: Boxes },
+  { label: 'Guide', detail: 'Aide separee', path: '/guide', icon: BookOpen },
 ]
 
 const toneStyles: Record<string, string> = {
