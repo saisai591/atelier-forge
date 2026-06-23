@@ -5117,11 +5117,7 @@ function WorkshopUsbPanel({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h4 className="text-base font-semibold text-white">Assistant debutant - creer une cle Multitool bootable</h4>
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
-              Parcours simple pour un technicien: generer le kit, telecharger le ZIP, lancer l'utilitaire Windows, choisir la cle, tester le boot.
-            </p>
           </div>
-          <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs font-semibold text-cyan-100">Mode guide</span>
         </div>
         <div className="mt-4 grid gap-3 lg:grid-cols-3">
           {usbProfiles.map((profile) => (
@@ -5311,7 +5307,6 @@ function AssistantSettingsPanel({ enabled, onChange }: { enabled: boolean; onCha
           </div>
           <div>
             <h3 className="font-semibold text-white">Assistant AtelierOS</h3>
-            <p className="mt-1 text-sm leading-6 text-slate-400">Petit robot de conseil contextuel pour guider les techniciens dans chaque onglet.</p>
           </div>
         </div>
         <button
