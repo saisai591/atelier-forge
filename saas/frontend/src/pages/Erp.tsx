@@ -186,6 +186,21 @@ async function downloadPdf(path: string, filename: string) {
   saveBlob(response.data, filename)
 }
 
+function csvEscape(value: unknown) {
+  const text = value === null || value === undefined ? '' : String(value)
+  return `"${text.replace(/"/g, '""')}"`
+}
+
+function exportRows(filename: string, rows: Array<Record<string, unknown>>) {
+  if (!rows.length) return
+  const headers = Object.keys(rows[0])
+  const csv = [
+    headers.map(csvEscape).join(';'),
+    ...rows.map((row) => headers.map((header) => csvEscape(row[header])).join(';')),
+  ].join('\n')
+  saveBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), filename)
+}
+
 export default function Erp() {
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -534,6 +549,55 @@ export default function Erp() {
     { key: 'scan', label: 'Scan', detail: 'Douchette et anomalies', value: `${activeSession?.scanned_count ?? 0}`, icon: ScanLine },
     { key: 'documents', label: 'Documents', detail: 'BL, etiquettes, rapports', value: `${documents.length}`, icon: Download },
   ]
+  const exportWorkspace = () => {
+    const date = new Date().toISOString().slice(0, 10)
+    if (workspace === 'receptions') {
+      exportRows(`atelieros-receptions-${date}.csv`, receptions.map((item) => ({
+        reference: item.reference,
+        fournisseur: item.supplier_name,
+        statut: item.status,
+        attendu: item.expected_items,
+        scanne: item.scanned_items,
+        palettes: item.pallet_count,
+        zone: item.location || '',
+        fichier: item.source_filename || '',
+      })))
+    } else if (workspace === 'shipments') {
+      exportRows(`atelieros-sorties-${date}.csv`, shipments.map((item) => ({
+        reference: item.reference,
+        client: item.client_name,
+        transporteur: item.carrier || '',
+        statut: item.status,
+        machines: item.expected_items,
+        palettes: item.pallet_count,
+      })))
+    } else if (workspace === 'pallets') {
+      exportRows(`atelieros-palettes-${date}.csv`, pallets.map((item) => ({
+        reference: item.reference,
+        statut: item.status,
+        attendu: item.expected_items,
+        scanne: item.scanned_items,
+        zone: item.location || '',
+        reception_id: item.reception_id || '',
+        sortie_id: item.shipment_id || '',
+      })))
+    } else if (workspace === 'documents') {
+      exportRows(`atelieros-documents-${date}.csv`, documents.map((item) => ({
+        titre: item.title,
+        type: item.document_type,
+        cree_le: item.created_at,
+        reception_id: item.reception_id || '',
+        sortie_id: item.shipment_id || '',
+      })))
+    } else {
+      exportRows(`atelieros-scan-${date}.csv`, (scanEventsQuery.data ?? []).map((item) => ({
+        code: item.code,
+        type: item.event_type,
+        message: item.message || '',
+        cree_le: item.created_at,
+      })))
+    }
+  }
 
   return (
     <main className={`min-h-screen ${pageClass}`}>
@@ -577,6 +641,14 @@ export default function Erp() {
             >
               <QrCode size={16} />
               Scanner
+            </button>
+            <button
+              type="button"
+              onClick={exportWorkspace}
+              className={`inline-flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-bold transition hover:bg-cyan-300/10 ${isDark ? 'border-white/10 bg-white/[0.055] text-slate-100' : 'border-slate-200 bg-white text-slate-700 shadow-sm'}`}
+            >
+              <FileSpreadsheet size={16} />
+              Export CSV
             </button>
           </div>
         </header>
